@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "env": {
+    "AW_SHADOW_MODE": "true",
+    "AW_PROXY_ENABLED": "true",
+    "AW_SCORE_ENFORCEMENT_ENABLED": "false",
+    "AW_GOOD_BOT_VERIFICATION_ENABLED": "true",
+    "AW_BLOCK_DEPTH": "3"
+  }
+}

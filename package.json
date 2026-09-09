@@ -1,0 +1,24 @@
+{
+  "name": "anchorweight",
+  "version": "1.0.2",
+  "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "node --watch app.js",
+    "test": "node --test",
+    "cli": "node bin/anchorweight.js",
+    "release:check": "node scripts/release-check.js",
+    "security:check": "npm audit --audit-level=high",
+    "test:unit": "node --test test/unit/*.test.js",
+    "source:review": "node scripts/source-review.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "bin": {
+    "anchorweight": "./bin/anchorweight.js"
+  }
+}

@@ -1,0 +1,92 @@
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+
+function boolEnv(name, fallback) {
+  const raw = process.env[name];
+  if (raw == null) return fallback;
+  return ['1', 'true', 'yes', 'on'].includes(raw.toLowerCase());
+}
+function intEnv(name, fallback, min, max) {
+  const n = Number.parseInt(process.env[name] ?? '', 10);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, n));
+}
+function listEnv(name) {
+  return String(process.env[name] || '').split(',').map(x => x.trim()).filter(Boolean);
+}
+
+
+function profileEnv() {
+  const name = String(process.env.AW_PROFILE || '').trim();
+  if (!name) return {};
+  if (!/^[a-zA-Z0-9_-]+$/.test(name)) throw new Error('AW_PROFILE contains invalid characters');
+  const file = path.resolve(process.cwd(), 'config', 'profiles', `${name}.json`);
+  const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const schemaVersion = parsed.schemaVersion ?? 1;
+  if (schemaVersion !== 1) throw new Error(`Unsupported configuration profile schema version ${schemaVersion}`);
+  const out = {};
+  for (const [k,v] of Object.entries(parsed.env || parsed)) out[k] = String(v);
+  return { name, env: out, file, schemaVersion };
+}
+
+export function loadConfig(overrides = {}) {
+  const prof = profileEnv();
+  for (const [k,v] of Object.entries(prof.env || {})) if (process.env[k] == null) process.env[k]=v;
+  const basePath = (process.env.AW_BASE_PATH || '/anchor').replace(/\/$/, '') || '/anchor';
+  return {
+    port: intEnv('PORT', 8080, 1, 65535),
+    secret: process.env.AW_SECRET || crypto.randomBytes(32).toString('hex'),
+    basePath,
+    shadowMode: boolEnv('AW_SHADOW_MODE', true),
+    blockDepth: intEnv('AW_BLOCK_DEPTH', 3, 2, 8),
+    blockMinutes: intEnv('AW_BLOCK_MINUTES', 60, 1, 10080),
+    repeatBlockMinutes: intEnv('AW_REPEAT_BLOCK_MINUTES', 1440, 1, 43200),
+    quarantineMode: process.env.AW_QUARANTINE_MODE || 'decoy',
+    sessionTtlMinutes: intEnv('AW_SESSION_TTL_MINUTES', 30, 1, 1440),
+    sessionBindIp: boolEnv('AW_SESSION_BIND_IP', true),
+    trustProxy: boolEnv('AW_TRUST_PROXY', false),
+    dashboardEnabled: boolEnv('AW_DASHBOARD_ENABLED', true),
+    dashboardToken: process.env.AW_DASHBOARD_TOKEN || '',
+    logFile: process.env.AW_LOG_FILE || './data/anchorweight-events.jsonl',
+    stateFile: process.env.AW_STATE_FILE || './data/anchorweight-state.json',
+    proxyEnabled: boolEnv('AW_PROXY_ENABLED', false),
+    originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
+    proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),
+    publicScheme: process.env.AW_PUBLIC_SCHEME || 'https',
+    branchCount: 7,
+    scoreEnforcementEnabled: boolEnv('AW_SCORE_ENFORCEMENT_ENABLED', false),
+    quarantineScore: intEnv('AW_QUARANTINE_SCORE', 100, 1, 1000),
+    scoreLure: intEnv('AW_SCORE_LURE', 5, 0, 100),
+    scoreTraversal: intEnv('AW_SCORE_TRAVERSAL', 20, 0, 100),
+    scoreProofOfCrawl: intEnv('AW_SCORE_PROOF', 40, 0, 200),
+    scoreInvalidTraversal: intEnv('AW_SCORE_INVALID', 8, 0, 100),
+    scoreMissingUa: intEnv('AW_SCORE_MISSING_UA', 5, 0, 100),
+    scoreAutomationUa: intEnv('AW_SCORE_AUTOMATION_UA', 15, 0, 100),
+    scoreUaChange: intEnv('AW_SCORE_UA_CHANGE', 10, 0, 100),
+    scoreRapidBurst: intEnv('AW_SCORE_RAPID_BURST', 10, 0, 100),
+    scoreSpoofedGoodBot: intEnv('AW_SCORE_SPOOFED_GOOD_BOT', 25, 0, 200),
+    scoreSharedCanary: intEnv('AW_SCORE_SHARED_CANARY', 20, 0, 200),
+    rapidRequestMs: intEnv('AW_RAPID_REQUEST_MS', 250, 10, 10000),
+    rapidRequestBurst: intEnv('AW_RAPID_REQUEST_BURST', 6, 2, 100),
+    goodBotVerificationEnabled: boolEnv('AW_GOOD_BOT_VERIFICATION_ENABLED', true),
+    goodBotCacheMinutes: intEnv('AW_GOOD_BOT_CACHE_MINUTES', 1440, 1, 10080),
+    allowBotIds: listEnv('AW_ALLOW_BOT_IDS'),
+    quarantineBotIds: listEnv('AW_QUARANTINE_BOT_IDS'),
+    profileName: prof.name || null,
+    profileFile: prof.file || null,
+    profileSchemaVersion: prof.schemaVersion || 1,
+    eventRetentionDays: intEnv('AW_EVENT_RETENTION_DAYS', 30, 1, 3650),
+    eventMaxMb: intEnv('AW_EVENT_MAX_MB', 50, 1, 4096),
+    adminRateLimitPerMinute: intEnv('AW_ADMIN_RATE_LIMIT_PER_MINUTE', 60, 5, 10000),
+    csrfTtlMinutes: intEnv('AW_CSRF_TTL_MINUTES', 15, 1, 1440),
+    adminBodyMaxBytes: intEnv('AW_ADMIN_BODY_MAX_BYTES', 8192, 512, 1048576),
+    proxyBodyMaxBytes: intEnv('AW_PROXY_BODY_MAX_BYTES', 26214400, 1024, 1073741824),
+    allowQueryAdminToken: boolEnv('AW_ALLOW_QUERY_ADMIN_TOKEN', false),
+    auditEnabled: boolEnv('AW_AUDIT_ENABLED', true),
+    auditLogFile: process.env.AW_AUDIT_LOG_FILE || './data/anchorweight-audit.jsonl',
+    readinessOriginCheck: boolEnv('AW_READINESS_ORIGIN_CHECK', true),
+    shutdownGraceMs: intEnv('AW_SHUTDOWN_GRACE_MS', 10000, 1000, 120000),
+    ...overrides
+  };
+}

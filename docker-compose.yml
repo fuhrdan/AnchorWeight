@@ -1,0 +1,26 @@
+services:
+  anchorweight:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      AW_PROFILE: "production"
+      AW_ORIGIN_URL: "http://origin:8081"
+      AW_PROXY_ENABLED: "true"
+      AW_ALLOW_QUERY_ADMIN_TOKEN: "false"
+      AW_READINESS_ORIGIN_CHECK: "true"
+      AW_SECRET: "${AW_SECRET}"
+      AW_DASHBOARD_TOKEN: "${AW_DASHBOARD_TOKEN}"
+    volumes:
+      - anchorweight-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  anchorweight-data:

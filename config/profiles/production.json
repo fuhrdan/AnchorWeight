@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "env": {
+    "AW_SHADOW_MODE": "false",
+    "AW_PROXY_ENABLED": "true",
+    "AW_SCORE_ENFORCEMENT_ENABLED": "false",
+    "AW_GOOD_BOT_VERIFICATION_ENABLED": "true",
+    "AW_BLOCK_DEPTH": "3",
+    "AW_QUARANTINE_MODE": "decoy",
+    "AW_EVENT_RETENTION_DAYS": "30",
+    "AW_EVENT_MAX_MB": "50",
+    "AW_ADMIN_RATE_LIMIT_PER_MINUTE": "60",
+    "AW_ALLOW_QUERY_ADMIN_TOKEN": "false",
+    "AW_READINESS_ORIGIN_CHECK": "true",
+    "AW_ADMIN_BODY_MAX_BYTES": "8192",
+    "AW_PROXY_BODY_MAX_BYTES": "26214400",
+    "AW_SHUTDOWN_GRACE_MS": "10000"
+  }
+}

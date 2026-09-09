@@ -1,0 +1,4 @@
+# Requires mod_proxy / mod_proxy_http; many shared hosts instead use
+# their Node.js application UI to map the application URL.
+RewriteEngine On
+RewriteRule ^anchor/(.*)$ http://127.0.0.1:8080/anchor/$1 [P,L]
