@@ -62,6 +62,12 @@ export class BehaviorEngine {
     this.addSignal(ipKey, 'lure_discovered', this.config.scoreLure);
   }
 
+  noteBlackhole(ipKey) {
+    const p = this.store.getProfile(ipKey);
+    p.blackholeVisits = (p.blackholeVisits || 0) + 1;
+    this.addSignal(ipKey, 'robots_blackhole_violation', this.config.scoreBlackhole ?? 100);
+  }
+
   noteTraversal(ipKey, depth, sessionId = '') {
     const p = this.store.getProfile(ipKey);
     p.validTraversals++;
@@ -127,7 +133,7 @@ export class BehaviorEngine {
 
 export function newProfile() {
   return {
-    firstSeen: 0, lastSeen: 0, requestCount: 0, lureVisits: 0,
+    firstSeen: 0, lastSeen: 0, requestCount: 0, lureVisits: 0, blackholeVisits: 0,
     validTraversals: 0, invalidTraversals: 0, proofOfCrawl: 0, maxDepth: 0,
     score: 0, classification: 'unknown', scoreConvicted: false, signalNames: [], signals: [],
     userAgents: [], methods: {}, acceptSignatures: {}, robotsRequests: 0,
@@ -144,6 +150,7 @@ export function publicProfile(ipKey, p) {
     classification: classify(p),
     requestCount: p.requestCount,
     lureVisits: p.lureVisits,
+    blackholeVisits: p.blackholeVisits || 0,
     validTraversals: p.validTraversals,
     invalidTraversals: p.invalidTraversals,
     proofOfCrawl: p.proofOfCrawl,

@@ -1,6 +1,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import { Transform } from 'node:stream';
+import { rewriteOriginResponse, shouldRewriteOriginResponse } from './blackhole.js';
 
 const HOP_BY_HOP = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
@@ -42,6 +43,7 @@ export function createReverseProxy(config, deps = {}) {
     const target = new URL(incoming.pathname + incoming.search, origin);
     const headers = filteredHeaders(req.headers);
     headers.host = origin.host;
+    if (config.blackholeEnabled) headers['accept-encoding'] = 'identity';
 
     const ip = clientIp(req, config.trustProxy);
     if (ip) {
@@ -57,9 +59,68 @@ export function createReverseProxy(config, deps = {}) {
       timeout: config.proxyTimeoutMs,
       agent: deps.agent
     }, upstreamRes => {
+      const statusCode = upstreamRes.statusCode || 502;
       const responseHeaders = filteredHeaders(upstreamRes.headers);
-      res.writeHead(upstreamRes.statusCode || 502, responseHeaders);
-      upstreamRes.pipe(res);
+      const contentType = String(upstreamRes.headers['content-type'] || '');
+      const contentEncoding = String(upstreamRes.headers['content-encoding'] || '');
+      const rewrite = shouldRewriteOriginResponse({
+        pathname: incoming.pathname,
+        method: req.method,
+        statusCode,
+        contentType,
+        contentEncoding,
+        config
+      });
+
+      if (!rewrite) {
+        res.writeHead(statusCode, responseHeaders);
+        upstreamRes.pipe(res);
+        return;
+      }
+
+      const chunks = [];
+      let bytes = 0;
+      let passthrough = false;
+      const maxBytes = config.blackholeMaxResponseBytes || 2097152;
+
+      upstreamRes.on('data', chunk => {
+        if (passthrough) {
+          res.write(chunk);
+          return;
+        }
+
+        bytes += chunk.length;
+        if (bytes > maxBytes) {
+          passthrough = true;
+          res.writeHead(statusCode, responseHeaders);
+          for (const queued of chunks) res.write(queued);
+          res.write(chunk);
+          return;
+        }
+        chunks.push(chunk);
+      });
+
+      upstreamRes.on('end', () => {
+        if (passthrough) {
+          res.end();
+          return;
+        }
+
+        const original = Buffer.concat(chunks).toString('utf8');
+        const rewritten = rewriteOriginResponse(original, {
+          pathname: incoming.pathname,
+          contentType,
+          config
+        });
+        const body = Buffer.from(rewritten, 'utf8');
+
+        delete responseHeaders.etag;
+        delete responseHeaders['content-md5'];
+        delete responseHeaders.digest;
+        responseHeaders['content-length'] = String(body.length);
+        res.writeHead(statusCode, responseHeaders);
+        res.end(body);
+      });
     });
 
     upstream.on('timeout', () => upstream.destroy(new Error('origin_timeout')));

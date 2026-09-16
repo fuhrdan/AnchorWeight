@@ -11,6 +11,12 @@ export function validateConfig(config) {
   };
 
   if (!/^\/[A-Za-z0-9/_-]*$/.test(config.basePath || '')) errors.push('basePath must be an absolute URL path containing only letters, digits, /, _, or -');
+  if (config.blackholeEnabled) {
+    if (!/^\/[A-Za-z0-9/_-]*$/.test(config.blackholePath || '')) errors.push('blackholePath must be an absolute URL path containing only letters, digits, /, _, or -');
+    if (config.blackholePath === config.basePath || !String(config.blackholePath || '').startsWith(`${config.basePath}/`)) errors.push('blackholePath must be below basePath');
+    intRange('blackholeMaxResponseBytes', config.blackholeMaxResponseBytes, 16384, 16777216);
+    intRange('scoreBlackhole', config.scoreBlackhole, 0, 1000);
+  }
   intRange('port', config.port, 1, 65535);
   intRange('blockDepth', config.blockDepth, 2, 8);
   intRange('blockMinutes', config.blockMinutes, 1, 10080);
@@ -44,6 +50,7 @@ export function validateConfig(config) {
   if (config.trustProxy) warnings.push('trustProxy is enabled; only use it behind a trusted proxy that overwrites X-Forwarded-For.');
   if (config.allowQueryAdminToken) warnings.push('allowQueryAdminToken is enabled; bearer-only admin authentication is recommended.');
   if (config.scoreEnforcementEnabled) warnings.push('score-based enforcement is enabled; review Shadow Mode evidence before enabling in production.');
+  if (config.blackholeEnabled && !config.proxyEnabled) warnings.push('robots blackhole is enabled without the reverse proxy; automatic robots.txt and hidden-link injection require proxy mode.');
 
   return { schemaVersion: CONFIG_SCHEMA_VERSION, valid: errors.length === 0, errors, warnings };
 }

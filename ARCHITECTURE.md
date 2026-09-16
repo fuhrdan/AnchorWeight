@@ -20,6 +20,9 @@ Internet / trusted front proxy
           +-- trusted / normal client ----------> configured private origin
           |
           `-- quarantined client ---------------> deterministic inert HTTP 200 decoy
+          |
+          +-- /anchor/blackhole ----------------> robots-disallowed fast crawler signal
+          +-- /anchor/t/* ----------------------> signed Proof-of-Crawl traversal
 ```
 
 ## Major modules
@@ -41,7 +44,8 @@ Internet / trusted front proxy
 - `src/decoy.js`: deterministic, inert quarantine responses.
 - `src/config.js` / `src/config-schema.js`: configuration loading and formal validation.
 - `src/ops.js`: backups, restore, evidence reports, retention, state inspection/migration.
-
+- `src/blackhole.js`: robots.txt disallow handling, hidden-link generation, and bounded HTML/robots response rewriting.
+- 
 ## Trust boundaries
 
 The public network is untrusted. `X-Forwarded-For` is trusted only when `AW_TRUST_PROXY=true`, which must only be used behind a proxy that overwrites the header. The configured origin is a fixed operator-controlled destination and should not be publicly reachable when AnchorWeight is expected to protect the whole site. The dashboard token is an administrative credential.

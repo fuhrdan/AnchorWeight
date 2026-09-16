@@ -1,5 +1,5 @@
-AnchorWeight v1.0.0 — Plain Text Source Review Bundle
-Generated: 2026-09-06T20:34:53.199Z
+AnchorWeight v1.1.0 — Plain Text Source Review Bundle
+Generated: 2026-09-16T21:20:54.252Z
 
 
 ================================================================================
@@ -172,7 +172,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '1.0.0',
+        ok: true, service: 'AnchorWeight', version: '1.1.0',
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -181,7 +181,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'1.0.0', stateLoaded:true,
+        ok, service:'AnchorWeight', version:'1.1.0', stateLoaded:true,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin
@@ -209,7 +209,7 @@ const server = http.createServer(async (req, res) => {
     if (proxy) return proxy(req, res);
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.0.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.1.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -220,7 +220,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v1.0.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v1.1.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
   console.log(`Reverse proxy: ${config.proxyEnabled ? `ON -> ${config.originUrl}` : 'OFF'}`);
@@ -259,7 +259,7 @@ import { loadConfig } from '../src/config.js';
 import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, migrateStateFile } from '../src/ops.js';
 import { validateConfig } from '../src/config-schema.js';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -411,7 +411,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.0.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.1.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -646,7 +646,12 @@ FILE: config/profiles/production.json
     "AW_READINESS_ORIGIN_CHECK": "true",
     "AW_ADMIN_BODY_MAX_BYTES": "8192",
     "AW_PROXY_BODY_MAX_BYTES": "26214400",
-    "AW_SHUTDOWN_GRACE_MS": "10000"
+    "AW_SHUTDOWN_GRACE_MS": "10000",
+    "AW_BLACKHOLE_ENABLED": "true",
+    "AW_BLACKHOLE_PATH": "/anchor/blackhole",
+    "AW_BLACKHOLE_INJECT_LINK": "true",
+    "AW_BLACKHOLE_MAX_RESPONSE_BYTES": "2097152",
+    "AW_SCORE_BLACKHOLE": "100"
   }
 }
 
@@ -661,7 +666,12 @@ FILE: config/profiles/shadow.json
     "AW_PROXY_ENABLED": "true",
     "AW_SCORE_ENFORCEMENT_ENABLED": "false",
     "AW_GOOD_BOT_VERIFICATION_ENABLED": "true",
-    "AW_BLOCK_DEPTH": "3"
+    "AW_BLOCK_DEPTH": "3",
+    "AW_BLACKHOLE_ENABLED": "true",
+    "AW_BLACKHOLE_PATH": "/anchor/blackhole",
+    "AW_BLACKHOLE_INJECT_LINK": "true",
+    "AW_BLACKHOLE_MAX_RESPONSE_BYTES": "2097152",
+    "AW_SCORE_BLACKHOLE": "100"
   }
 }
 
@@ -702,7 +712,7 @@ FILE: package.json
 ================================================================================
 {
   "name": "anchorweight",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
   "type": "module",
   "main": "app.js",
@@ -953,11 +963,11 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.0.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.1.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.0.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.1.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (url.pathname === `${config.basePath}/api/events`) {
@@ -968,7 +978,7 @@ export function createAnchorWeight(config, deps = {}) {
           campaignId: url.searchParams.get('campaign') || '',
           search: url.searchParams.get('q') || ''
         });
-        return json(res, 200, { version:'1.0.0', events });
+        return json(res, 200, { version:'1.1.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate`) {
@@ -1019,6 +1029,10 @@ export function createAnchorWeight(config, deps = {}) {
       return text(res, 404, 'Not found');
     }
 
+    if (config.blackholeEnabled && url.pathname === config.blackholePath) {
+      return robotsBlackhole(req, res);
+    }
+
     if (url.pathname === config.basePath || url.pathname === `${config.basePath}/`) {
       return newLure(req, res);
     }
@@ -1030,6 +1044,37 @@ export function createAnchorWeight(config, deps = {}) {
     if (rest.length < 2) return text(res, 404, 'Not found');
     const [sid, ...tokens] = rest;
     return traverse(req, res, sid, tokens);
+  }
+
+  function robotsBlackhole(req, res) {
+    const key = ipKey(req);
+    const profile = store.getProfile(key);
+    store.stats.blackholeVisits = (store.stats.blackholeVisits || 0) + 1;
+
+    if (profile.manualPolicy === 'allow' || profile.goodBotVerified) {
+      log({ type:'trusted_blackhole_ignored', ipKey:key, provider:profile.goodBotProvider || null });
+      return html(res, 200, '<!doctype html><html><head><meta name="robots" content="noindex,nofollow,noarchive"><title>Archive</title></head><body><h1>Archive</h1><p>No indexed resources are available here.</p></body></html>');
+    }
+
+    behavior.noteBlackhole(key);
+    store.stats.blackholeConvictions = (store.stats.blackholeConvictions || 0) + 1;
+    store.stats.wouldBlock++;
+    const offenses = store.noteOffense(key);
+    const minutes = offenses > 1 ? config.repeatBlockMinutes : config.blockMinutes;
+    let until = null;
+
+    if (config.shadowMode) {
+      store.stats.wouldBlackholeQuarantine = (store.stats.wouldBlackholeQuarantine || 0) + 1;
+    } else {
+      until = store.block(key, minutes, 'robots_blackhole_violation');
+    }
+
+    log({
+      type: config.shadowMode ? 'would_block_blackhole' : 'block_blackhole',
+      ipKey:key, offenses, minutes, until, path:config.blackholePath
+    });
+
+    return html(res, 200, '<!doctype html><html><head><meta name="robots" content="noindex,nofollow,noarchive"><title>Archive</title></head><body><h1>Archive</h1><p>This archive entry is unavailable.</p></body></html>');
   }
 
   function newLure(req, res) {
@@ -1127,7 +1172,7 @@ export function createAuditLogger(file) {
   return function audit(event) {
     const record = {
       ts: new Date().toISOString(),
-      version: '1.0.0',
+      version: '1.1.0',
       ...event
     };
     try {
@@ -1207,6 +1252,12 @@ export class BehaviorEngine {
     this.addSignal(ipKey, 'lure_discovered', this.config.scoreLure);
   }
 
+  noteBlackhole(ipKey) {
+    const p = this.store.getProfile(ipKey);
+    p.blackholeVisits = (p.blackholeVisits || 0) + 1;
+    this.addSignal(ipKey, 'robots_blackhole_violation', this.config.scoreBlackhole ?? 100);
+  }
+
   noteTraversal(ipKey, depth, sessionId = '') {
     const p = this.store.getProfile(ipKey);
     p.validTraversals++;
@@ -1272,7 +1323,7 @@ export class BehaviorEngine {
 
 export function newProfile() {
   return {
-    firstSeen: 0, lastSeen: 0, requestCount: 0, lureVisits: 0,
+    firstSeen: 0, lastSeen: 0, requestCount: 0, lureVisits: 0, blackholeVisits: 0,
     validTraversals: 0, invalidTraversals: 0, proofOfCrawl: 0, maxDepth: 0,
     score: 0, classification: 'unknown', scoreConvicted: false, signalNames: [], signals: [],
     userAgents: [], methods: {}, acceptSignatures: {}, robotsRequests: 0,
@@ -1289,6 +1340,7 @@ export function publicProfile(ipKey, p) {
     classification: classify(p),
     requestCount: p.requestCount,
     lureVisits: p.lureVisits,
+    blackholeVisits: p.blackholeVisits || 0,
     validTraversals: p.validTraversals,
     invalidTraversals: p.invalidTraversals,
     proofOfCrawl: p.proofOfCrawl,
@@ -1325,6 +1377,73 @@ function inferTraversalStyle(p) {
   if (p.maxDepth >= 2 && p.validTraversals >= 2) return 'depth_first';
   if (p.lureVisits >= 2 && p.maxDepth <= 1) return 'breadth_or_restart';
   return p.validTraversals ? 'probing' : 'unknown';
+}
+
+
+================================================================================
+FILE: src/blackhole.js
+================================================================================
+function escapeAttr(value) {
+  return String(value).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+export function robotsDisallowLine(path) {
+  return `Disallow: ${path}`;
+}
+
+export function appendRobotsDisallow(body, path) {
+  const text = String(body ?? '');
+  const line = robotsDisallowLine(path);
+  if (text.split(/\r?\n/).some(existing => existing.trim() === line)) return text;
+
+  const prefix = text && !text.endsWith('\n') ? `${text}\n` : text;
+  return `${prefix}${prefix ? '\n' : ''}# AnchorWeight robots blackhole\nUser-agent: *\n${line}\n`;
+}
+
+export function hiddenBlackholeLink(path) {
+  const href = escapeAttr(path);
+  return `<a href="${href}" rel="nofollow" aria-hidden="true" tabindex="-1" hidden>archive index</a>`;
+}
+
+export function injectHiddenBlackholeLink(html, path) {
+  const text = String(html ?? '');
+  if (text.includes(`href="${path}"`) || text.includes(`href='${path}'`)) return text;
+
+  const link = hiddenBlackholeLink(path);
+  if (/<\/body\s*>/i.test(text)) return text.replace(/<\/body\s*>/i, `${link}</body>`);
+  return `${text}${link}`;
+}
+
+function isUtf8Like(contentType) {
+  const match = String(contentType || '').match(/charset\s*=\s*['"]?([^;\s'"]+)/i);
+  if (!match) return true;
+  const charset = match[1].toLowerCase();
+  return charset === 'utf-8' || charset === 'utf8';
+}
+
+export function shouldRewriteOriginResponse({ pathname, method, statusCode, contentType, contentEncoding, config }) {
+  if (!config?.blackholeEnabled || method !== 'GET') return false;
+  if (contentEncoding && String(contentEncoding).toLowerCase() !== 'identity') return false;
+  if (!isUtf8Like(contentType)) return false;
+
+  if (pathname === '/robots.txt') {
+    return statusCode === 200;
+  }
+
+  return !!config.blackholeInjectLink &&
+    statusCode >= 200 && statusCode < 300 &&
+    String(contentType || '').toLowerCase().includes('text/html') &&
+    !pathname.startsWith(`${config.basePath}/`);
+}
+
+export function rewriteOriginResponse(body, { pathname, contentType, config }) {
+  if (pathname === '/robots.txt') return appendRobotsDisallow(body, config.blackholePath);
+  if (String(contentType || '').toLowerCase().includes('text/html')) {
+    return injectHiddenBlackholeLink(body, config.blackholePath);
+  }
+  return String(body ?? '');
 }
 
 
@@ -1451,6 +1570,12 @@ export function validateConfig(config) {
   };
 
   if (!/^\/[A-Za-z0-9/_-]*$/.test(config.basePath || '')) errors.push('basePath must be an absolute URL path containing only letters, digits, /, _, or -');
+  if (config.blackholeEnabled) {
+    if (!/^\/[A-Za-z0-9/_-]*$/.test(config.blackholePath || '')) errors.push('blackholePath must be an absolute URL path containing only letters, digits, /, _, or -');
+    if (config.blackholePath === config.basePath || !String(config.blackholePath || '').startsWith(`${config.basePath}/`)) errors.push('blackholePath must be below basePath');
+    intRange('blackholeMaxResponseBytes', config.blackholeMaxResponseBytes, 16384, 16777216);
+    intRange('scoreBlackhole', config.scoreBlackhole, 0, 1000);
+  }
   intRange('port', config.port, 1, 65535);
   intRange('blockDepth', config.blockDepth, 2, 8);
   intRange('blockMinutes', config.blockMinutes, 1, 10080);
@@ -1484,6 +1609,7 @@ export function validateConfig(config) {
   if (config.trustProxy) warnings.push('trustProxy is enabled; only use it behind a trusted proxy that overwrites X-Forwarded-For.');
   if (config.allowQueryAdminToken) warnings.push('allowQueryAdminToken is enabled; bearer-only admin authentication is recommended.');
   if (config.scoreEnforcementEnabled) warnings.push('score-based enforcement is enabled; review Shadow Mode evidence before enabling in production.');
+  if (config.blackholeEnabled && !config.proxyEnabled) warnings.push('robots blackhole is enabled without the reverse proxy; automatic robots.txt and hidden-link injection require proxy mode.');
 
   return { schemaVersion: CONFIG_SCHEMA_VERSION, valid: errors.length === 0, errors, warnings };
 }
@@ -1528,10 +1654,15 @@ export function loadConfig(overrides = {}) {
   const prof = profileEnv();
   for (const [k,v] of Object.entries(prof.env || {})) if (process.env[k] == null) process.env[k]=v;
   const basePath = (process.env.AW_BASE_PATH || '/anchor').replace(/\/$/, '') || '/anchor';
+  const blackholePath = (process.env.AW_BLACKHOLE_PATH || `${basePath}/blackhole`).replace(/\/+$/, '') || `${basePath}/blackhole`;
   return {
     port: intEnv('PORT', 8080, 1, 65535),
     secret: process.env.AW_SECRET || crypto.randomBytes(32).toString('hex'),
     basePath,
+    blackholeEnabled: boolEnv('AW_BLACKHOLE_ENABLED', true),
+    blackholePath,
+    blackholeInjectLink: boolEnv('AW_BLACKHOLE_INJECT_LINK', true),
+    blackholeMaxResponseBytes: intEnv('AW_BLACKHOLE_MAX_RESPONSE_BYTES', 2097152, 16384, 16777216),
     shadowMode: boolEnv('AW_SHADOW_MODE', true),
     blockDepth: intEnv('AW_BLOCK_DEPTH', 3, 2, 8),
     blockMinutes: intEnv('AW_BLOCK_MINUTES', 60, 1, 10080),
@@ -1552,6 +1683,7 @@ export function loadConfig(overrides = {}) {
     scoreEnforcementEnabled: boolEnv('AW_SCORE_ENFORCEMENT_ENABLED', false),
     quarantineScore: intEnv('AW_QUARANTINE_SCORE', 100, 1, 1000),
     scoreLure: intEnv('AW_SCORE_LURE', 5, 0, 100),
+    scoreBlackhole: intEnv('AW_SCORE_BLACKHOLE', 100, 0, 1000),
     scoreTraversal: intEnv('AW_SCORE_TRAVERSAL', 20, 0, 100),
     scoreProofOfCrawl: intEnv('AW_SCORE_PROOF', 40, 0, 200),
     scoreInvalidTraversal: intEnv('AW_SCORE_INVALID', 8, 0, 100),
@@ -1871,7 +2003,7 @@ export function backupFiles(config, destination) {
       fs.copyFileSync(src,dest); copied.push({label,file:dest});
     } catch (err) { if (err?.code!=='ENOENT') throw err; }
   }
-  const manifest={version:'1.0.0',createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
+  const manifest={version:'1.1.0',createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
   fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2));
   return {dir,manifest};
 }
@@ -1892,7 +2024,7 @@ export function exportEvidence(config, destination) {
   const state=readJson(config.stateFile,{});
   const events=readJsonLines(config.logFile);
   const report={
-    version:'1.0.0',
+    version:'1.1.0',
     generatedAt:new Date().toISOString(),
     profile:config.profileName||null,
     summary:{
@@ -1952,7 +2084,7 @@ export function migrateStateFile(file, options={}) {
   const temp=`${resolved}.${process.pid}.tmp`;
   fs.writeFileSync(temp,JSON.stringify({
     ...migrated.state,
-    meta:{...(migrated.state.meta||{}),appVersion:'1.0.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
+    meta:{...(migrated.state.meta||{}),appVersion:'1.1.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
   }));
   fs.renameSync(temp,resolved);
   return {file:resolved,backup,dryRun:false,...migrated};
@@ -2002,7 +2134,7 @@ export class PersistentStore extends MemoryStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
       const temp = `${this.file}.${process.pid}.tmp`;
-      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.0.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
+      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.1.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
       fs.renameSync(temp, this.file);
     } catch (err) {
       console.error('[AnchorWeight] Unable to persist state:', err.message);
@@ -2069,6 +2201,7 @@ FILE: src/proxy.js
 import http from 'node:http';
 import https from 'node:https';
 import { Transform } from 'node:stream';
+import { rewriteOriginResponse, shouldRewriteOriginResponse } from './blackhole.js';
 
 const HOP_BY_HOP = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
@@ -2110,6 +2243,7 @@ export function createReverseProxy(config, deps = {}) {
     const target = new URL(incoming.pathname + incoming.search, origin);
     const headers = filteredHeaders(req.headers);
     headers.host = origin.host;
+    if (config.blackholeEnabled) headers['accept-encoding'] = 'identity';
 
     const ip = clientIp(req, config.trustProxy);
     if (ip) {
@@ -2125,9 +2259,68 @@ export function createReverseProxy(config, deps = {}) {
       timeout: config.proxyTimeoutMs,
       agent: deps.agent
     }, upstreamRes => {
+      const statusCode = upstreamRes.statusCode || 502;
       const responseHeaders = filteredHeaders(upstreamRes.headers);
-      res.writeHead(upstreamRes.statusCode || 502, responseHeaders);
-      upstreamRes.pipe(res);
+      const contentType = String(upstreamRes.headers['content-type'] || '');
+      const contentEncoding = String(upstreamRes.headers['content-encoding'] || '');
+      const rewrite = shouldRewriteOriginResponse({
+        pathname: incoming.pathname,
+        method: req.method,
+        statusCode,
+        contentType,
+        contentEncoding,
+        config
+      });
+
+      if (!rewrite) {
+        res.writeHead(statusCode, responseHeaders);
+        upstreamRes.pipe(res);
+        return;
+      }
+
+      const chunks = [];
+      let bytes = 0;
+      let passthrough = false;
+      const maxBytes = config.blackholeMaxResponseBytes || 2097152;
+
+      upstreamRes.on('data', chunk => {
+        if (passthrough) {
+          res.write(chunk);
+          return;
+        }
+
+        bytes += chunk.length;
+        if (bytes > maxBytes) {
+          passthrough = true;
+          res.writeHead(statusCode, responseHeaders);
+          for (const queued of chunks) res.write(queued);
+          res.write(chunk);
+          return;
+        }
+        chunks.push(chunk);
+      });
+
+      upstreamRes.on('end', () => {
+        if (passthrough) {
+          res.end();
+          return;
+        }
+
+        const original = Buffer.concat(chunks).toString('utf8');
+        const rewritten = rewriteOriginResponse(original, {
+          pathname: incoming.pathname,
+          contentType,
+          config
+        });
+        const body = Buffer.from(rewritten, 'utf8');
+
+        delete responseHeaders.etag;
+        delete responseHeaders['content-md5'];
+        delete responseHeaders.digest;
+        responseHeaders['content-length'] = String(body.length);
+        res.writeHead(statusCode, responseHeaders);
+        res.end(body);
+      });
     });
 
     upstream.on('timeout', () => upstream.destroy(new Error('origin_timeout')));
@@ -2177,6 +2370,9 @@ export class MemoryStore {
     this.campaigns = new Map();
     this.stats = {
       lureVisits: 0,
+      blackholeVisits: 0,
+      blackholeConvictions: 0,
+      wouldBlackholeQuarantine: 0,
       validTraversals: 0,
       invalidTraversals: 0,
       wouldBlock: 0,
@@ -2739,6 +2935,73 @@ test('CSRF expires and is client-bound',()=>{
 
 
 ================================================================================
+FILE: test/unit/blackhole.test.js
+================================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  appendRobotsDisallow,
+  hiddenBlackholeLink,
+  injectHiddenBlackholeLink,
+  shouldRewriteOriginResponse,
+  rewriteOriginResponse
+} from '../../src/blackhole.js';
+
+test('robots.txt receives one AnchorWeight disallow rule', () => {
+  const first = appendRobotsDisallow('User-agent: *\nAllow: /\n', '/anchor/blackhole');
+  assert.match(first, /Disallow: \/anchor\/blackhole/);
+  const second = appendRobotsDisallow(first, '/anchor/blackhole');
+  assert.equal(second, first);
+});
+
+test('hidden blackhole link is invisible to normal browser layout', () => {
+  const link = hiddenBlackholeLink('/anchor/blackhole');
+  assert.match(link, /hidden/);
+  assert.match(link, /aria-hidden="true"/);
+  assert.match(link, /href="\/anchor\/blackhole"/);
+});
+
+test('HTML injection occurs before closing body and is idempotent', () => {
+  const html = '<html><body><p>Hello</p></body></html>';
+  const first = injectHiddenBlackholeLink(html, '/anchor/blackhole');
+  assert.match(first, /<a[^>]+\/anchor\/blackhole/);
+  assert.ok(first.indexOf('/anchor/blackhole') < first.indexOf('</body>'));
+  assert.equal(injectHiddenBlackholeLink(first, '/anchor/blackhole'), first);
+});
+
+test('proxy rewrite is limited to successful UTF-8 robots or HTML responses', () => {
+  const config = { blackholeEnabled: true, blackholeInjectLink: true, blackholePath: '/anchor/blackhole', basePath: '/anchor' };
+  assert.equal(shouldRewriteOriginResponse({ pathname:'/robots.txt', method:'GET', statusCode:200, contentType:'text/plain; charset=utf-8', contentEncoding:'', config }), true);
+  assert.equal(shouldRewriteOriginResponse({ pathname:'/page', method:'GET', statusCode:200, contentType:'text/html; charset=UTF-8', contentEncoding:'', config }), true);
+  assert.equal(shouldRewriteOriginResponse({ pathname:'/page', method:'GET', statusCode:200, contentType:'text/html', contentEncoding:'gzip', config }), false);
+  assert.equal(shouldRewriteOriginResponse({ pathname:'/page', method:'POST', statusCode:200, contentType:'text/html', contentEncoding:'', config }), false);
+  assert.equal(shouldRewriteOriginResponse({
+      pathname:'/robots.txt',
+      method:'GET',
+      statusCode:304,
+      contentType:'text/plain',
+      contentEncoding:'',
+      config
+    }), false);
+
+    assert.equal(shouldRewriteOriginResponse({
+      pathname:'/robots.txt',
+      method:'GET',
+      statusCode:302,
+      contentType:'text/plain',
+      contentEncoding:'',
+      config
+    }), false);
+});
+
+test('rewrite helper changes robots and HTML bodies only as intended', () => {
+  const config = { blackholePath:'/anchor/blackhole' };
+  assert.match(rewriteOriginResponse('User-agent: *\n', { pathname:'/robots.txt', contentType:'text/plain', config }), /Disallow: \/anchor\/blackhole/);
+  assert.match(rewriteOriginResponse('<html><body>x</body></html>', { pathname:'/', contentType:'text/html', config }), /\/anchor\/blackhole/);
+});
+
+
+================================================================================
 FILE: test/unit/campaigns.test.js
 ================================================================================
 import test from 'node:test';
@@ -2840,7 +3103,7 @@ test('audit logger produces structured v1 records',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-audit-')); const file=path.join(dir,'audit.jsonl');
   createAuditLogger(file)({type:'operator_test',client:'abc'});
   const r=JSON.parse(fs.readFileSync(file,'utf8').trim());
-  assert.equal(r.version,'1.0.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
+  assert.equal(r.version,'1.1.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
   fs.rmSync(dir,{recursive:true,force:true});
 });
 

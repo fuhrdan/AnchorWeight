@@ -11,6 +11,9 @@ export class MemoryStore {
     this.campaigns = new Map();
     this.stats = {
       lureVisits: 0,
+      blackholeVisits: 0,
+      blackholeConvictions: 0,
+      wouldBlackholeQuarantine: 0,
       validTraversals: 0,
       invalidTraversals: 0,
       wouldBlock: 0,

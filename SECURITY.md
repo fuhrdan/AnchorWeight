@@ -1,4 +1,4 @@
-# AnchorWeight Security Notes — v1.0.0
+# AnchorWeight Security Notes — v1.1.0
 
 AnchorWeight is a proof of concept. Deploy it conservatively and begin in Shadow Mode.
 
@@ -8,7 +8,7 @@ AnchorWeight is designed to identify recursive automated crawling and protect th
 
 ## Good-bot verification
 
-A User-Agent is never sufficient evidence of crawler identity. v1.0.0 verifies supported Google and Bing claims using:
+A User-Agent is never sufficient evidence of crawler identity. v1.1.0 verifies supported Google and Bing claims using:
 
 1. Reverse DNS on the request source IP.
 2. Validation that the PTR hostname ends in an approved provider suffix.
@@ -47,7 +47,7 @@ Decoys are intentionally small. AnchorWeight does not attempt to exhaust a crawl
 
 ## Privacy
 
-Persistent Bot DNA is keyed from the configured secret. Normal dashboard data does not expose raw IP addresses or full User-Agent strings. Event logs in v1.0.0 also avoid writing raw User-Agent values for lure/traversal events.
+Persistent Bot DNA is keyed from the configured secret. Normal dashboard data does not expose raw IP addresses or full User-Agent strings. Event logs in v1.1.0 also avoid writing raw User-Agent values for lure/traversal events.
 
 ## Reporting vulnerabilities
 
@@ -59,16 +59,16 @@ Do not include production secrets, raw visitor logs, or private origin credentia
 Avoid placing long-lived secrets directly on a shared shell command line because process listings and shell history may expose arguments. Prefer `AW_SECRET` and `AW_DASHBOARD_TOKEN` environment configuration for durable deployments. The `config` and `check` commands redact secrets when printing effective configuration. Use `trap-test` in Shadow Mode for normal verification; running it from an enforced client intentionally exercises the same conviction path as a crawler.
 
 
-## v1.0.0 operator actions
+## v1.1.0 operator actions
 
 The investigation API never returns the internal keyed IP fingerprint. Manual policy changes require the dashboard bearer token and accept only existing `AW-XXXXXXXX` Bot DNA IDs. Campaign correlation does not automatically expand quarantine to other campaign members. Protect the dashboard token as an administrative credential and do not expose the dashboard publicly without TLS and appropriate network controls.
 
 
-## v1.0.0 operational security
+## v1.1.0 operational security
 
 Configuration profiles intentionally exclude secrets. Backups and exported evidence may contain behavioral security telemetry and should be access-controlled. Restore should be performed with the service stopped to avoid concurrent state writes. Log rotation is size-bounded and retention-bounded to reduce disk-exhaustion risk, but operators should still monitor filesystem utilization. `doctor` performs bounded network checks and does not modify enforcement state.
 
-## v1.0.0 administrative hardening
+## v1.1.0 administrative hardening
 
 Administrative APIs require a bearer token by default. Passing the dashboard token in a URL is disabled because URLs may leak through browser history, reverse-proxy logs, analytics, or referrer handling. `AW_ALLOW_QUERY_ADMIN_TOKEN=true` exists only for controlled compatibility scenarios and should not be used in normal production deployments.
 
