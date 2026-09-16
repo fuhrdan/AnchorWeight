@@ -221,6 +221,10 @@ export function createAnchorWeight(config, deps = {}) {
       return text(res, 404, 'Not found');
     }
 
+    if (config.blackholeEnabled && url.pathname === config.blackholePath) {
+      return robotsBlackhole(req, res);
+    }
+
     if (url.pathname === config.basePath || url.pathname === `${config.basePath}/`) {
       return newLure(req, res);
     }
@@ -232,6 +236,37 @@ export function createAnchorWeight(config, deps = {}) {
     if (rest.length < 2) return text(res, 404, 'Not found');
     const [sid, ...tokens] = rest;
     return traverse(req, res, sid, tokens);
+  }
+
+  function robotsBlackhole(req, res) {
+    const key = ipKey(req);
+    const profile = store.getProfile(key);
+    store.stats.blackholeVisits = (store.stats.blackholeVisits || 0) + 1;
+
+    if (profile.manualPolicy === 'allow' || profile.goodBotVerified) {
+      log({ type:'trusted_blackhole_ignored', ipKey:key, provider:profile.goodBotProvider || null });
+      return html(res, 200, '<!doctype html><html><head><meta name="robots" content="noindex,nofollow,noarchive"><title>Archive</title></head><body><h1>Archive</h1><p>No indexed resources are available here.</p></body></html>');
+    }
+
+    behavior.noteBlackhole(key);
+    store.stats.blackholeConvictions = (store.stats.blackholeConvictions || 0) + 1;
+    store.stats.wouldBlock++;
+    const offenses = store.noteOffense(key);
+    const minutes = offenses > 1 ? config.repeatBlockMinutes : config.blockMinutes;
+    let until = null;
+
+    if (config.shadowMode) {
+      store.stats.wouldBlackholeQuarantine = (store.stats.wouldBlackholeQuarantine || 0) + 1;
+    } else {
+      until = store.block(key, minutes, 'robots_blackhole_violation');
+    }
+
+    log({
+      type: config.shadowMode ? 'would_block_blackhole' : 'block_blackhole',
+      ipKey:key, offenses, minutes, until, path:config.blackholePath
+    });
+
+    return html(res, 200, '<!doctype html><html><head><meta name="robots" content="noindex,nofollow,noarchive"><title>Archive</title></head><body><h1>Archive</h1><p>This archive entry is unavailable.</p></body></html>');
   }
 
   function newLure(req, res) {

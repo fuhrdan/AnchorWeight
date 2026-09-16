@@ -34,10 +34,15 @@ export function loadConfig(overrides = {}) {
   const prof = profileEnv();
   for (const [k,v] of Object.entries(prof.env || {})) if (process.env[k] == null) process.env[k]=v;
   const basePath = (process.env.AW_BASE_PATH || '/anchor').replace(/\/$/, '') || '/anchor';
+  const blackholePath = (process.env.AW_BLACKHOLE_PATH || `${basePath}/blackhole`).replace(/\/+$/, '') || `${basePath}/blackhole`;
   return {
     port: intEnv('PORT', 8080, 1, 65535),
     secret: process.env.AW_SECRET || crypto.randomBytes(32).toString('hex'),
     basePath,
+    blackholeEnabled: boolEnv('AW_BLACKHOLE_ENABLED', true),
+    blackholePath,
+    blackholeInjectLink: boolEnv('AW_BLACKHOLE_INJECT_LINK', true),
+    blackholeMaxResponseBytes: intEnv('AW_BLACKHOLE_MAX_RESPONSE_BYTES', 2097152, 16384, 16777216),
     shadowMode: boolEnv('AW_SHADOW_MODE', true),
     blockDepth: intEnv('AW_BLOCK_DEPTH', 3, 2, 8),
     blockMinutes: intEnv('AW_BLOCK_MINUTES', 60, 1, 10080),
@@ -58,6 +63,7 @@ export function loadConfig(overrides = {}) {
     scoreEnforcementEnabled: boolEnv('AW_SCORE_ENFORCEMENT_ENABLED', false),
     quarantineScore: intEnv('AW_QUARANTINE_SCORE', 100, 1, 1000),
     scoreLure: intEnv('AW_SCORE_LURE', 5, 0, 100),
+    scoreBlackhole: intEnv('AW_SCORE_BLACKHOLE', 100, 0, 1000),
     scoreTraversal: intEnv('AW_SCORE_TRAVERSAL', 20, 0, 100),
     scoreProofOfCrawl: intEnv('AW_SCORE_PROOF', 40, 0, 200),
     scoreInvalidTraversal: intEnv('AW_SCORE_INVALID', 8, 0, 100),
