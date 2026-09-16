@@ -2,6 +2,9 @@
 
 **Let bots identify themselves.**
 
+[![CI](https://github.com/fuhrdan/AnchorWeight/actions/workflows/ci.yml/badge.svg)](https://github.com/fuhrdan/AnchorWeight/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/fuhrdan/AnchorWeight/actions/workflows/codeql.yml/badge.svg)](https://github.com/fuhrdan/AnchorWeight/actions/workflows/codeql.yml)
+
 AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification system. It exposes a bounded procedural lure whose valid paths are cryptographically derived and must be traversed sequentially. A client that follows the issued path to the configured depth establishes **Proof-of-Crawl**. AnchorWeight can then observe that evidence in Shadow Mode or temporarily isolate the client behind inert HTTP 200 decoy responses while normal traffic continues to the private origin.
 
 ![AnchorWeight Dashboard](docs/images/anchorweight-dashboard.png)
@@ -9,6 +12,67 @@ AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification
 > **The maze is not the weapon. The maze is the test.**
 
 AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, or connection-exhaustion system.
+
+## Security Engineering Evidence
+
+AnchorWeight is designed as a **bounded defensive control**, not as a resource-exhaustion mechanism. Its security model emphasizes observable crawler behavior, explicit trust boundaries, reversible enforcement, and conservative defaults.
+
+| Area                                | Evidence                                                                                                                                            |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Threat model**                    | [THREAT-MODEL.md](THREAT-MODEL.md) documents protected assets, adversaries, trust assumptions, controls, abuse cases, and residual risks            |
+| **Architecture / trust boundaries** | [ARCHITECTURE.md](ARCHITECTURE.md) documents request flow, origin isolation, administrative surfaces, crawler evidence, and enforcement boundaries  |
+| **Safe rollout**                    | Shadow Mode is enabled by default; proxy and score enforcement remain disabled until an operator deliberately enables them                          |
+| **Crawler evidence**                | Proof-of-Crawl uses signed sequential paths rather than treating ordinary browsing behavior as automatic proof of abuse                             |
+| **Good-bot verification**           | Claimed Google/Bing identities are verified using reverse and forward DNS rather than trusted from User-Agent strings alone                         |
+| **Bounded enforcement**             | Convicted traffic receives deterministic inert HTTP 200 decoys rather than unbounded files, connection exhaustion, or infinite resource consumption |
+| **State integrity**                 | Schema compatibility checks and explicit migrations fail closed on corrupt, unsupported-old, or future-version state                                |
+| **Release gates**                   | Tests, `npm audit`, release validation, CodeQL, container builds, configuration checks, and runtime diagnostics support production readiness        |
+
+### Safe-by-Default Operating Model
+
+```text
+Observe
+   ↓
+Shadow Mode
+   ↓
+Collect crawler evidence
+   ↓
+Verify legitimate automation
+   ↓
+Review policy
+   ↓
+Deliberately enable enforcement
+   ↓
+Temporary, bounded quarantine
+```
+
+AnchorWeight intentionally separates **detection evidence** from **enforcement policy**.
+
+A crawler classification, behavioral score, or campaign correlation does not need to become an automatic permanent block. This matters because shared NAT, VPN, mobile, and enterprise egress addresses can represent multiple unrelated users.
+
+The preferred operating model is therefore:
+
+* observe before enforcing;
+* use layered evidence rather than one heuristic;
+* distinguish verified good bots from unverified identities;
+* make quarantine temporary and reversible;
+* keep the real origin private;
+* preserve evidence and audit history;
+* fail safely when configuration or state integrity cannot be established.
+
+## Security Boundary
+
+For Silent Quarantine to provide meaningful isolation, the protected origin must not remain directly reachable from the public Internet.
+
+```text
+Internet
+   ↓
+AnchorWeight
+   ├── trusted / normal traffic ──→ private origin
+   └── quarantined traffic ──────→ deterministic decoy
+```
+
+If clients can bypass AnchorWeight and reach the origin directly, the reverse proxy cannot enforce the intended boundary.
 
 ## v1.0.0 highlights
 
