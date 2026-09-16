@@ -1,4 +1,4 @@
-# AnchorWeight v1.0.0
+# AnchorWeight v1.1.0
 
 **Let bots identify themselves.**
 
@@ -92,6 +92,15 @@ If clients can bypass AnchorWeight and reach the origin directly, the reverse pr
 - Expanded unit, security, integration, persistence, and proxy test coverage.
 - GitHub Actions CI, `npm audit`, CodeQL, and container-build validation.
 - Non-root multi-stage Docker image plus cPanel, systemd, Nginx/Apache, and Docker deployment examples.
+
+## v1.1.0 highlights
+
+- **Robots Blackhole** detection using a hidden link explicitly disallowed by `robots.txt`.
+- Blackhole evidence feeds the existing Bot DNA and temporary quarantine system.
+- Verified good bots and explicit allow policies remain exempt.
+- Shadow Mode can measure blackhole activity before enforcement.
+- Dashboard metrics for blackhole hits, convictions, and would-quarantine events.
+- Existing signed sequential Proof-of-Crawl remains the stronger deep-traversal signal.
 
 ## Architecture
 
@@ -227,7 +236,7 @@ GitHub workflows provide:
 - CodeQL JavaScript/TypeScript scanning.
 - Docker image build validation.
 
-AnchorWeight has no runtime npm dependencies in v1.0.0, but the audit gate is kept in place so future dependency additions do not silently bypass SCA.
+AnchorWeight has no runtime npm dependencies in v1.1.0, but the audit gate is kept in place so future dependency additions do not silently bypass SCA.
 
 ## Documentation
 

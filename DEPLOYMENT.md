@@ -1,4 +1,4 @@
-# AnchorWeight v1.0.0 Deployment
+# AnchorWeight v1.1.0 Deployment
 
 ## Recommended topology
 
@@ -119,11 +119,11 @@ node bin/anchorweight.js config
 After startup, verify the running service with `status`, then use `trap-test` while still in Shadow Mode. See `CLI.md` for the complete reference.
 
 
-## v1.0.0 deployment gate
+## v1.1.0 deployment gate
 
 Before enabling enforcement, run `anchorweight doctor` with the same profile and origin settings used by the service. Keep `AW_SECRET` and `AW_DASHBOARD_TOKEN` in the hosting environment rather than committing them into a configuration profile. Back up state/evidence before upgrades and stop AnchorWeight before a restore.
 
-## v1.0.0 production presets
+## v1.1.0 production presets
 
 Deployment examples are included under:
 

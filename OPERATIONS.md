@@ -1,4 +1,4 @@
-# AnchorWeight v1.0.0 Operations Guide
+# AnchorWeight v1.1.0 Operations Guide
 
 ## Configuration profiles
 
@@ -73,7 +73,7 @@ The report contains generation metadata, counts, and a bounded set of recent eve
 
 ## Production process lifecycle
 
-v1.0.0 handles `SIGTERM` and `SIGINT` by stopping new connections, flushing persistent state, waiting for active connections to close, and exiting within `AW_SHUTDOWN_GRACE_MS`.
+v1.1.0 handles `SIGTERM` and `SIGINT` by stopping new connections, flushing persistent state, waiting for active connections to close, and exiting within `AW_SHUTDOWN_GRACE_MS`.
 
 Health semantics:
 

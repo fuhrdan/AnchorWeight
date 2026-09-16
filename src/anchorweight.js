@@ -155,11 +155,11 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.0.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.1.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.0.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.1.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (url.pathname === `${config.basePath}/api/events`) {
@@ -170,7 +170,7 @@ export function createAnchorWeight(config, deps = {}) {
           campaignId: url.searchParams.get('campaign') || '',
           search: url.searchParams.get('q') || ''
         });
-        return json(res, 200, { version:'1.0.0', events });
+        return json(res, 200, { version:'1.1.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate`) {

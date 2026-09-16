@@ -13,7 +13,7 @@ export function backupFiles(config, destination) {
       fs.copyFileSync(src,dest); copied.push({label,file:dest});
     } catch (err) { if (err?.code!=='ENOENT') throw err; }
   }
-  const manifest={version:'1.0.0',createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
+  const manifest={version:'1.1.0',createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
   fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2));
   return {dir,manifest};
 }
@@ -34,7 +34,7 @@ export function exportEvidence(config, destination) {
   const state=readJson(config.stateFile,{});
   const events=readJsonLines(config.logFile);
   const report={
-    version:'1.0.0',
+    version:'1.1.0',
     generatedAt:new Date().toISOString(),
     profile:config.profileName||null,
     summary:{
@@ -94,7 +94,7 @@ export function migrateStateFile(file, options={}) {
   const temp=`${resolved}.${process.pid}.tmp`;
   fs.writeFileSync(temp,JSON.stringify({
     ...migrated.state,
-    meta:{...(migrated.state.meta||{}),appVersion:'1.0.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
+    meta:{...(migrated.state.meta||{}),appVersion:'1.1.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
   }));
   fs.renameSync(temp,resolved);
   return {file:resolved,backup,dryRun:false,...migrated};

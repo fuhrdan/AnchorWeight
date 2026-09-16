@@ -73,3 +73,11 @@ Score enforcement is disabled by default. See `.env.example` for individual sign
 | `AW_SHUTDOWN_GRACE_MS` | `10000` | Graceful shutdown deadline |
 
 Use `anchorweight release-check --profile production` before a production v1.0 deployment.
+
+## Blackhole
+
+AW_BLACKHOLE_ENABLED              true
+AW_BLACKHOLE_PATH                 /anchor/blackhole
+AW_BLACKHOLE_INJECT_LINK          true
+AW_BLACKHOLE_MAX_RESPONSE_BYTES   2097152
+AW_SCORE_BLACKHOLE                100

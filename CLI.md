@@ -1,4 +1,4 @@
-# AnchorWeight v1.0.0 CLI
+# AnchorWeight v1.1.0 CLI
 
 AnchorWeight ships a zero-runtime-dependency operator CLI:
 

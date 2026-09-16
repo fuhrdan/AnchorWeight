@@ -43,9 +43,9 @@ export function shouldRewriteOriginResponse({ pathname, method, statusCode, cont
   if (contentEncoding && String(contentEncoding).toLowerCase() !== 'identity') return false;
   if (!isUtf8Like(contentType)) return false;
 
-  const ok = statusCode >= 200 && statusCode < 400;
-  if (!ok) return false;
-  if (pathname === '/robots.txt') return true;
+  if (pathname === '/robots.txt') {
+    return statusCode === 200;
+  }
 
   return !!config.blackholeInjectLink &&
     statusCode >= 200 && statusCode < 300 &&

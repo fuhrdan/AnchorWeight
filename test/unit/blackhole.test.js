@@ -36,6 +36,23 @@ test('proxy rewrite is limited to successful UTF-8 robots or HTML responses', ()
   assert.equal(shouldRewriteOriginResponse({ pathname:'/page', method:'GET', statusCode:200, contentType:'text/html; charset=UTF-8', contentEncoding:'', config }), true);
   assert.equal(shouldRewriteOriginResponse({ pathname:'/page', method:'GET', statusCode:200, contentType:'text/html', contentEncoding:'gzip', config }), false);
   assert.equal(shouldRewriteOriginResponse({ pathname:'/page', method:'POST', statusCode:200, contentType:'text/html', contentEncoding:'', config }), false);
+  assert.equal(shouldRewriteOriginResponse({
+      pathname:'/robots.txt',
+      method:'GET',
+      statusCode:304,
+      contentType:'text/plain',
+      contentEncoding:'',
+      config
+    }), false);
+
+    assert.equal(shouldRewriteOriginResponse({
+      pathname:'/robots.txt',
+      method:'GET',
+      statusCode:302,
+      contentType:'text/plain',
+      contentEncoding:'',
+      config
+    }), false);
 });
 
 test('rewrite helper changes robots and HTML bodies only as intended', () => {
