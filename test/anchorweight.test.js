@@ -247,9 +247,9 @@ test('v0.8 backup, report, prune, and restore operate on bounded local files', a
     JSON.stringify({ts:new Date().toISOString(),type:'new'})
   ].join('\n')+'\n');
   const config={stateFile:state,logFile:log,eventRetentionDays:30,profileName:'test'};
-  const backup=backupFiles(config,path.join(dir,'backups'));
+  const backup=await backupFiles(config,path.join(dir,'backups'));
   assert.equal(fs.existsSync(path.join(backup.dir,'manifest.json')),true);
-  const report=exportEvidence(config,path.join(dir,'report.json'));
+  const report=await exportEvidence(config,path.join(dir,'report.json'));
   assert.equal(report.summary.events,2);
   const pruned=pruneEvents(config);
   assert.equal(pruned.removed,1);

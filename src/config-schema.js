@@ -1,3 +1,4 @@
+import path from 'node:path';
 export const CONFIG_SCHEMA_VERSION = 1;
 
 export function validateConfig(config) {
@@ -29,6 +30,9 @@ export function validateConfig(config) {
   intRange('adminBodyMaxBytes', config.adminBodyMaxBytes, 512, 1048576);
   intRange('proxyBodyMaxBytes', config.proxyBodyMaxBytes, 1024, 1073741824);
   intRange('shutdownGraceMs', config.shutdownGraceMs, 1000, 120000);
+  oneOf('stateBackend', config.stateBackend ?? 'json', ['json','sqlite']);
+  if (config.stateBackend === 'sqlite' && !config.sqliteFile) errors.push('sqliteFile is required for the SQLite backend');
+  if (config.stateBackend === 'sqlite' && config.sqliteFile && config.stateFile && path.resolve(config.sqliteFile) === path.resolve(config.stateFile)) errors.push('sqliteFile and stateFile must be different files');
   oneOf('quarantineMode', config.quarantineMode, ['decoy','429']);
   oneOf('publicScheme', config.publicScheme, ['http','https']);
 

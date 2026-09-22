@@ -1,4 +1,4 @@
-# AnchorWeight v1.1.0 Release Guide
+# AnchorWeight v1.2.0 Release Guide
 
 ## Pre-release gate
 
@@ -34,4 +34,12 @@ anchorweight migrate --profile production
 
 ## Release artifacts
 
-A v1.1.0 release should include the source ZIP and a SHA-256 checksum file. `SOURCE-MANIFEST.json` records SHA-256 hashes of reviewable source files.
+A v1.2.0 release should include the source ZIP and a SHA-256 checksum file. `SOURCE-MANIFEST.json` records SHA-256 hashes of reviewable source files.
+
+## v1.2.0 SQLite release considerations
+
+Test both default JSON and opt-in SQLite on Node 22/24. Existing Node 20
+installs retain JSON without loading `node:sqlite`. Verify a migrated JSON
+profile and campaign, consistent SQLite backup, and successful restore while
+stopped. Benchmark representative requests in Shadow Mode before enabling
+enforcement on an existing site.

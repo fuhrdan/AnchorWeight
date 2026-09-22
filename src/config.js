@@ -55,6 +55,8 @@ export function loadConfig(overrides = {}) {
     dashboardToken: process.env.AW_DASHBOARD_TOKEN || '',
     logFile: process.env.AW_LOG_FILE || './data/anchorweight-events.jsonl',
     stateFile: process.env.AW_STATE_FILE || './data/anchorweight-state.json',
+    stateBackend: (process.env.AW_STATE_BACKEND || 'json').toLowerCase(),
+    sqliteFile: process.env.AW_SQLITE_FILE || './data/anchorweight-state.sqlite',
     proxyEnabled: boolEnv('AW_PROXY_ENABLED', false),
     originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),

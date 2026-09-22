@@ -1,4 +1,4 @@
-# AnchorWeight v1.1.0 Deployment
+# AnchorWeight v1.2.0 Deployment
 
 ## Recommended topology
 
@@ -119,11 +119,11 @@ node bin/anchorweight.js config
 After startup, verify the running service with `status`, then use `trap-test` while still in Shadow Mode. See `CLI.md` for the complete reference.
 
 
-## v1.1.0 deployment gate
+## v1.2.0 deployment gate
 
 Before enabling enforcement, run `anchorweight doctor` with the same profile and origin settings used by the service. Keep `AW_SECRET` and `AW_DASHBOARD_TOKEN` in the hosting environment rather than committing them into a configuration profile. Back up state/evidence before upgrades and stop AnchorWeight before a restore.
 
-## v1.1.0 production presets
+## v1.2.0 production presets
 
 Deployment examples are included under:
 
@@ -136,3 +136,9 @@ docker-compose.yml
 For cPanel, prefer the hosting panel's **Setup Node.js App** workflow: set `app.js` as the startup file and configure secrets/environment variables through the UI. Terminal is not required for the normal cPanel setup.
 
 Before routing public traffic through an enforcement-mode instance, verify `/live`, `/ready`, the dashboard/API, origin isolation, and `anchorweight doctor`.
+
+## Optional SQLite storage (v1.2.0)
+
+Set `AW_STATE_BACKEND=sqlite` only with Node 22.13+ and read
+[SQLITE-MIGRATION.md](SQLITE-MIGRATION.md) first. JSON remains the default
+on Node 20, 22 and 24. Do not run multiple workers against one SQLite file.

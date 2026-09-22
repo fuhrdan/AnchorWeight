@@ -1,4 +1,4 @@
-# AnchorWeight v1.1.0
+# AnchorWeight v1.2.0
 
 **Let bots identify themselves.**
 
@@ -101,6 +101,16 @@ If clients can bypass AnchorWeight and reach the origin directly, the reverse pr
 - Shadow Mode can measure blackhole activity before enforcement.
 - Dashboard metrics for blackhole hits, convictions, and would-quarantine events.
 - Existing signed sequential Proof-of-Crawl remains the stronger deep-traversal signal.
+
+## v1.2.0 highlights
+
+- **Optional SQLite persistence** on Node 22.13+, with zero additional npm runtime dependencies.
+- Existing JSON deployment remains the default; Node 20 installations are not forced to upgrade.
+- Transactional JSON-to-SQLite import; the legacy JSON file remains unchanged for rollback.
+- Changed-row persistence and SQLite-aware backup, restore, inspection, and reporting.
+- Local benchmark script, expanded regression tests, and storage documentation.
+
+**Start with [SQLITE-MIGRATION.md](SQLITE-MIGRATION.md) before enabling SQLite on a live site.**
 
 ## Architecture
 
@@ -236,7 +246,7 @@ GitHub workflows provide:
 - CodeQL JavaScript/TypeScript scanning.
 - Docker image build validation.
 
-AnchorWeight has no runtime npm dependencies in v1.1.0, but the audit gate is kept in place so future dependency additions do not silently bypass SCA.
+AnchorWeight has no runtime npm dependencies in v1.2.0, but the audit gate is kept in place so future dependency additions do not silently bypass SCA.
 
 ## Documentation
 

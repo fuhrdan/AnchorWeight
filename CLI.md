@@ -1,4 +1,4 @@
-# AnchorWeight v1.1.0 CLI
+# AnchorWeight v1.2.0 CLI
 
 AnchorWeight ships a zero-runtime-dependency operator CLI:
 
@@ -184,3 +184,10 @@ npm audit --audit-level=high
 npm run release:check
 anchorweight release-check --profile production
 ```
+
+## SQLite storage (v1.2.0)
+
+`AW_STATE_BACKEND=sqlite` opts into SQLite on Node 22.13+. The `backup`,
+`report`, and `state-check` commands then inspect SQLite, rather than stale
+legacy JSON. Back up before switching; stop AnchorWeight before restore.
+`migrate` remains the JSON schema-migration tool. See [SQLITE-MIGRATION.md](SQLITE-MIGRATION.md).

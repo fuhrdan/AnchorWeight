@@ -2,10 +2,10 @@
 import process from 'node:process';
 import { parseStartFlags } from '../src/cli-options.js';
 import { loadConfig } from '../src/config.js';
-import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, migrateStateFile } from '../src/ops.js';
+import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, inspectConfiguredState, migrateStateFile } from '../src/ops.js';
 import { validateConfig } from '../src/config-schema.js';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -53,6 +53,8 @@ function redactedConfig(c) {
     dashboardToken: c.dashboardToken ? '[set]' : '[not set]',
     goodBotVerificationEnabled: c.goodBotVerificationEnabled,
     stateFile: c.stateFile,
+    stateBackend: c.stateBackend,
+    sqliteFile: c.sqliteFile,
     logFile: c.logFile,
     eventRetentionDays: c.eventRetentionDays,
     eventMaxMb: c.eventMaxMb,
@@ -157,7 +159,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.1.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.2.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -325,23 +327,24 @@ try {
     process.exitCode = await doctor(args);
   } else if (command === 'backup') {
     const a=localOpsArgs(args); Object.assign(process.env,parseStartFlags(a.startArgs)); const c=loadConfig();
-    const result=backupFiles(c,a.dest||'./backups'); console.log(`Backup created: ${result.dir}`);
+    const result=await backupFiles(c,a.dest||'./backups'); console.log(`Backup created: ${result.dir}`);
   } else if (command === 'restore') {
     const a=localOpsArgs(args); if(!a.source) throw new Error('restore requires --source <backup-directory>');
     Object.assign(process.env,parseStartFlags(a.startArgs)); const c=loadConfig();
     const manifest=restoreFiles(c,a.source); console.log(`Restored backup from ${a.source} (${manifest.createdAt||'unknown date'})`);
   } else if (command === 'report') {
     const a=localOpsArgs(args); Object.assign(process.env,parseStartFlags(a.startArgs)); const c=loadConfig();
-    const result=exportEvidence(c,a.out); console.log(`Evidence report: ${result.file}`); console.log(JSON.stringify(result.summary,null,2));
+    const result=await exportEvidence(c,a.out); console.log(`Evidence report: ${result.file}`); console.log(JSON.stringify(result.summary,null,2));
   } else if (command === 'prune') {
     const a=localOpsArgs(args); Object.assign(process.env,parseStartFlags(a.startArgs)); const c=loadConfig();
     const result=pruneEvents(c); console.log(`Event retention applied: ${result.before} -> ${result.after} (${result.removed||0} removed)`);
   } else if (command === 'state-check') {
     const a=stateCommandArgs(args); Object.assign(process.env,parseStartFlags(a.startArgs)); const c=loadConfig();
-    const result=inspectState(a.stateFile||c.stateFile);
+    const result=await inspectConfiguredState(c,a.stateFile);
     console.log(JSON.stringify(result,null,2));
   } else if (command === 'migrate') {
     const a=stateCommandArgs(args); Object.assign(process.env,parseStartFlags(a.startArgs)); const c=loadConfig();
+    if(c.stateBackend==='sqlite' && !a.stateFile) throw new Error('SQLite imports legacy JSON automatically on first start; migrate only accepts JSON files (--state <path>)');
     const result=migrateStateFile(a.stateFile||c.stateFile,{dryRun:a.dryRun});
     console.log(JSON.stringify({file:result.file,dryRun:result.dryRun,fromVersion:result.fromVersion,toVersion:result.toVersion,migrations:result.applied,backup:result.backup||null},null,2));
   } else if (command === 'release-check') {
@@ -352,7 +355,7 @@ try {
     for(const e of cfg.errors) console.error(`ERROR: ${e}`);
     let stateOk=true;
     try{
-      const st=inspectState(a.stateFile||c.stateFile);
+      const st=await inspectConfiguredState(c,a.stateFile);
       console.log(`State: v${st.fromVersion} -> v${st.toVersion}; profiles=${st.counts.profiles}; campaigns=${st.counts.campaigns}`);
       if(st.migrations.length) console.log(`Pending migrations: ${st.migrations.join(', ')}`);
     }catch(e){

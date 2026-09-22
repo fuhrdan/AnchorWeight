@@ -2,18 +2,55 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { migrateState, CURRENT_STATE_VERSION } from './migrations.js';
 
-export function backupFiles(config, destination) {
+/** Return a stable SQLite snapshot. Never copy a live WAL-mode database file. */
+async function backupSqlite(source, destination) {
+  const { DatabaseSync, backup } = await import('node:sqlite');
+  const db = new DatabaseSync(path.resolve(source), { readOnly: true });
+  try { await backup(db, destination); } finally { db.close(); }
+}
+
+/** Reconstruct state for reports and inspections without changing the database. */
+async function readSqliteState(file) {
+  const { DatabaseSync } = await import('node:sqlite');
+  const db = new DatabaseSync(path.resolve(file), { readOnly: true });
+  try {
+    const version = db.prepare("SELECT value FROM metadata WHERE key='state_version'").get();
+    if (!version) throw new Error('Missing SQLite state version');
+    if (Number(version.value) !== CURRENT_STATE_VERSION) throw new Error('Unsupported SQLite state version');
+    const result = { version: CURRENT_STATE_VERSION, blocks:[], offenses:[], profiles:[], campaigns:[] };
+    for (const r of db.prepare('SELECT kind,key,value FROM entries').all()) {
+      if (!Array.isArray(result[r.kind])) throw new Error(`Unexpected SQLite state kind ${r.kind}`);
+      result[r.kind].push([r.key, JSON.parse(r.value)]);
+    }
+    return result;
+  } finally { db.close(); }
+}
+
+
+export async function backupFiles(config, destination) {
   const stamp = new Date().toISOString().replace(/[:.]/g,'-');
   const dir = path.resolve(destination || './backups', `anchorweight-${stamp}`);
   fs.mkdirSync(dir, {recursive:true});
   const copied=[];
-  for (const [label,file] of [['state',config.stateFile],['events',config.logFile]]) {
-    try {
-      const src=path.resolve(file), dest=path.join(dir,path.basename(file));
-      fs.copyFileSync(src,dest); copied.push({label,file:dest});
-    } catch (err) { if (err?.code!=='ENOENT') throw err; }
+  const backend=config.stateBackend || 'json';
+  if (backend==='sqlite' && fs.existsSync(config.sqliteFile)) {
+    const dest=path.join(dir,path.basename(config.sqliteFile));
+    await backupSqlite(config.sqliteFile,dest);
+    copied.push({label:'sqlite-state',file:dest});
+  } else if (backend==='json' && fs.existsSync(config.stateFile)) {
+    const dest=path.join(dir,path.basename(config.stateFile));
+    fs.copyFileSync(config.stateFile,dest);copied.push({label:'state',file:dest});
   }
-  const manifest={version:'1.1.0',createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
+  if (backend==='sqlite' && fs.existsSync(config.stateFile)) {
+    const dest=path.join(dir,path.basename(config.stateFile));
+    fs.copyFileSync(config.stateFile,dest);copied.push({label:'legacy-json',file:dest});
+  }
+  for(const [label,file] of [['events',config.logFile],['audit',config.auditLogFile]]) {
+    if (!file || !fs.existsSync(file)) continue;
+    const dest=path.join(dir,path.basename(file));
+    fs.copyFileSync(file,dest);copied.push({label,file:dest});
+  }
+  const manifest={version:'1.2.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
   fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2));
   return {dir,manifest};
 }
@@ -21,22 +58,33 @@ export function backupFiles(config, destination) {
 export function restoreFiles(config, source) {
   const dir=path.resolve(source);
   const manifest=JSON.parse(fs.readFileSync(path.join(dir,'manifest.json'),'utf8'));
+  const backend=config.stateBackend || 'json';
+  if ((manifest.stateBackend || 'json') !== backend) throw new Error('Backup backend does not match AW_STATE_BACKEND; restore using the original backend');
+  // Restore only while AnchorWeight is stopped. SQLite WAL files must not be replayed over the snapshot.
   for (const item of manifest.copied||[]) {
     const src=path.join(dir,path.basename(item.file));
-    const dest=item.label==='state'?path.resolve(config.stateFile):path.resolve(config.logFile);
+    const dest=item.label==='sqlite-state'?path.resolve(config.sqliteFile)
+      : item.label==='state'||item.label==='legacy-json'?path.resolve(config.stateFile)
+      : item.label==='audit'?path.resolve(config.auditLogFile):path.resolve(config.logFile);
     fs.mkdirSync(path.dirname(dest),{recursive:true});
+    if (item.label==='sqlite-state') {
+      // Checkpointed backup is self-contained: remove obsolete sidecars while service is stopped.
+      for (const sidecar of [`${dest}-wal`,`${dest}-shm`]) fs.rmSync(sidecar,{force:true});
+    }
     fs.copyFileSync(src,dest);
   }
   return manifest;
 }
 
-export function exportEvidence(config, destination) {
-  const state=readJson(config.stateFile,{});
+export async function exportEvidence(config, destination) {
+  const state=(config.stateBackend==='sqlite' && fs.existsSync(config.sqliteFile))
+    ? await readSqliteState(config.sqliteFile) : config.stateBackend==='sqlite' ? {} : readJson(config.stateFile,{});
   const events=readJsonLines(config.logFile);
   const report={
-    version:'1.1.0',
+    version:'1.2.0',
     generatedAt:new Date().toISOString(),
     profile:config.profileName||null,
+    stateBackend:config.stateBackend||'json',
     summary:{
       events:events.length,
       blocks:(state.blocks||[]).length,
@@ -64,6 +112,13 @@ export function pruneEvents(config) {
 function readJson(file,fallback){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
 function readJsonLines(file){try{return fs.readFileSync(file,'utf8').split(/\r?\n/).filter(Boolean).map(x=>{try{return JSON.parse(x)}catch{return null}}).filter(Boolean)}catch{return []}}
 
+
+export async function inspectConfiguredState(config, override) {
+  if (override || config.stateBackend!=='sqlite') return inspectState(override||config.stateFile);
+  const state=await readSqliteState(config.sqliteFile);
+  return { file:path.resolve(config.sqliteFile),backend:'sqlite',fromVersion:state.version,toVersion:state.version,migrations:[],
+    counts:{blocks:state.blocks.length,offenses:state.offenses.length,profiles:state.profiles.length,campaigns:state.campaigns.length} };
+}
 
 export function inspectState(file) {
   const resolved=path.resolve(file);
@@ -94,7 +149,7 @@ export function migrateStateFile(file, options={}) {
   const temp=`${resolved}.${process.pid}.tmp`;
   fs.writeFileSync(temp,JSON.stringify({
     ...migrated.state,
-    meta:{...(migrated.state.meta||{}),appVersion:'1.1.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
+    meta:{...(migrated.state.meta||{}),appVersion:'1.2.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
   }));
   fs.renameSync(temp,resolved);
   return {file:resolved,backup,dryRun:false,...migrated};

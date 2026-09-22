@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 — Production reliability groundwork
+
+- Optional dependency-free Node.js SQLite storage on Node 22.13+; JSON remains the default on Node 20/22/24.
+- One-time transactional JSON-to-SQLite import, retaining original JSON as a rollback copy.
+- Changed-row SQLite persistence rather than rewriting the full state after every event.
+- SQLite-aware backups, local evidence reports, and state inspections; backend mismatch is rejected during restore.
+- Storage backend and compatible state version exposed in the readiness response.
+- SQLite migration, restart, corruption, expiration, and recovery regression coverage.
+- Local repeatable HTTP benchmark utility and documented migration/rollback steps.
+
 ## 1.1.0
 
 - Added robots-blackhole crawler detection alongside signed Proof-of-Crawl.

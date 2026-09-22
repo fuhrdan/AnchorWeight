@@ -1,4 +1,4 @@
-# AnchorWeight v1.1.0 Operations Guide
+# AnchorWeight v1.2.0 Operations Guide
 
 ## Configuration profiles
 
@@ -73,7 +73,7 @@ The report contains generation metadata, counts, and a bounded set of recent eve
 
 ## Production process lifecycle
 
-v1.1.0 handles `SIGTERM` and `SIGINT` by stopping new connections, flushing persistent state, waiting for active connections to close, and exiting within `AW_SHUTDOWN_GRACE_MS`.
+v1.2.0 handles `SIGTERM` and `SIGINT` by stopping new connections, flushing persistent state, waiting for active connections to close, and exiting within `AW_SHUTDOWN_GRACE_MS`.
 
 Health semantics:
 
@@ -82,3 +82,15 @@ Health semantics:
 - `/health`: compatibility alias for `/live`.
 
 Administrative actions are separately written to `AW_AUDIT_LOG_FILE` when `AW_AUDIT_ENABLED=true`.
+
+## v1.2.0 storage operations
+
+`backup`, `restore`, `report`, and `state-check` respect `AW_STATE_BACKEND`.
+SQLite backup uses a consistent SQLite snapshot, not a raw copy of a live WAL
+database. Stop the service before restore. JSON `migrate` remains available;
+SQLite imports JSON automatically when first initialized. See
+[SQLITE-MIGRATION.md](SQLITE-MIGRATION.md) for rollback limitations.
+
+`npm run benchmark -- http://127.0.0.1:8080/health 500 10` provides a
+repeatable localhost server baseline and reports p50/p95/p99 latency. It is
+not a substitute for authorized production-like proxy load tests.

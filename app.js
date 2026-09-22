@@ -5,16 +5,19 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAnchorWeight } from './src/anchorweight.js';
 import { loadConfig } from './src/config.js';
-import { PersistentStore } from './src/persistent-store.js';
+import { createStore } from './src/create-store.js';
 import { createReverseProxy } from './src/proxy.js';
 import { validateConfig } from './src/config-schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Keep startup synchronous to the module loader; initialize the selected store inside main().
+// Some cPanel/Passenger Node loaders use require(), which rejects top-level await.
+async function main() {
 const config = loadConfig();
 const validation = validateConfig(config);
 if (!validation.valid) throw new Error(`Invalid AnchorWeight configuration: ${validation.errors.join('; ')}`);
 for (const warning of validation.warnings) console.warn(`[AnchorWeight] WARNING: ${warning}`);
-const store = new PersistentStore(config.stateFile);
+const store = await createStore(config);
 const aw = createAnchorWeight(config, { store });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
@@ -54,7 +57,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '1.1.0',
+        ok: true, service: 'AnchorWeight', version: '1.2.0',
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -63,7 +66,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'1.1.0', stateLoaded:true,
+        ok, service:'AnchorWeight', version:'1.2.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin
@@ -91,7 +94,7 @@ const server = http.createServer(async (req, res) => {
     if (proxy) return proxy(req, res);
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.1.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.2.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -102,8 +105,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v1.1.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v1.2.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
+  console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
   console.log(`Reverse proxy: ${config.proxyEnabled ? `ON -> ${config.originUrl}` : 'OFF'}`);
 });
@@ -121,7 +125,7 @@ function shutdown(signal) {
   timer.unref();
   server.close(() => {
     clearTimeout(timer);
-    try { store.flush?.(); } catch {}
+    try { if (store.close) store.close(); else store.flush?.(); } catch (err) { console.error('[AnchorWeight] state close:', err.message); }
     console.log('[AnchorWeight] graceful shutdown complete');
     process.exit(0);
   });
@@ -129,3 +133,10 @@ function shutdown(signal) {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+}
+
+main().catch(err => {
+  console.error('[AnchorWeight] startup failed:', err);
+  process.exitCode = 1;
+});
