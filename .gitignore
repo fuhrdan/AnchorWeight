@@ -11,3 +11,6 @@ backups/
 *.backup
 *.bak
 main
+
+# v1.9 private operator route definitions (also under ignored data/)
+anchorweight-routes.json

@@ -39,7 +39,7 @@ export class PersistentStore extends MemoryStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
       const temp = `${this.file}.${process.pid}.tmp`;
-      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.8.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
+      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.9.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
       fs.renameSync(temp, this.file);
     } catch (err) {
       console.error('[AnchorWeight] Unable to persist state:', err.message);

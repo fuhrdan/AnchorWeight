@@ -4,8 +4,9 @@ import { parseStartFlags } from '../src/cli-options.js';
 import { loadConfig } from '../src/config.js';
 import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, inspectConfiguredState, migrateStateFile } from '../src/ops.js';
 import { validateConfig } from '../src/config-schema.js';
+import { loadRoutes } from '../src/routing.js';
 
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -42,6 +43,8 @@ function redactedConfig(c) {
     basePath: c.basePath,
     mode: c.shadowMode ? 'shadow' : 'enforce',
     proxyEnabled: c.proxyEnabled,
+    routesEnabled: !!c.routesEnabled,
+    routeFile: c.routesEnabled ? c.routesFile : '[disabled]',
     originUrl: c.originUrl,
     trustProxy: c.trustProxy,
     blockDepth: c.blockDepth,
@@ -159,7 +162,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.8.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.9.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -251,6 +254,7 @@ function stateCommandArgs(argv) {
 function formalValidation(c) {
   const schema=validateConfig(c);
   const legacy=validate(c);
+  try { loadRoutes(c); } catch(err) { schema.errors.push(`Multi-origin routes: ${err.message}`); }
   return {
     schemaVersion:schema.schemaVersion,
     errors:[...new Set([...schema.errors,...legacy.errors])],

@@ -60,6 +60,11 @@ export function validateConfig(config) {
   if (config.dashboardEnabled && !config.dashboardToken) warnings.push('Dashboard is enabled but AW_DASHBOARD_TOKEN is empty; authenticated API requests will be rejected.');
   if (config.dashboardToken && config.dashboardToken.length < 16) warnings.push('AW_DASHBOARD_TOKEN should be at least 16 characters; 32+ random bytes recommended.');
 
+  if (config.routesEnabled != null && typeof config.routesEnabled !== 'boolean') errors.push('routesEnabled must be boolean');
+  if (config.routesEnabled && (!config.routesFile || !config.setupPublicHost)) errors.push('routesEnabled requires routesFile and setupPublicHost');
+  if ((config.routeAllowedOrigins||[]).length > 32) errors.push('routeAllowedOrigins must contain no more than 32 entries');
+  if (config.routesEnabled) warnings.push('Multi-origin routes are restart-only, explicitly approved and apply to proxy traffic only.');
+
   if (config.proxyEnabled) {
     try {
       const u = new URL(config.originUrl);

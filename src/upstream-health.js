@@ -63,6 +63,6 @@ export function createUpstreamHealth(config,{getOrigin=()=>config.originUrl,getP
   }
   function stop(){stopped=true;if(timer)clearInterval(timer);timer=null;}
   function snapshot(){const current=getProxyEnabled()?new URL(getOrigin()).href:null;
-    return {...state,status:!config.gatewayHealthEnabled||!current?'disabled':current!==activeOrigin?'unknown':state.status,enabled:!!config.gatewayHealthEnabled,probeMethod:'HEAD',scope:'local_process'};}
+    return {...state,status:!config.gatewayHealthEnabled||!current?'disabled':current!==activeOrigin?'unknown':state.status,enabled:!!config.gatewayHealthEnabled,probeMethod:'HEAD',scope:config.routesEnabled?'default_origin_only':'local_process'};}
   return {start,stop,probe,snapshot};
 }

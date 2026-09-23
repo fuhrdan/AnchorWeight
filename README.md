@@ -1,4 +1,4 @@
-# AnchorWeight v1.8.0
+# AnchorWeight v1.9.0
 
 **Let bots identify themselves.**
 
@@ -35,6 +35,15 @@ AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file 
 - Optional bounded upstream HEAD health probes and opt-in 503 maintenance responses for transport errors on GET/HEAD.
 - Authenticated dashboard displays access, rate and upstream status without leaking IPs or paths.
 - No new runtime dependencies or state migration; [operator guide](GATEWAY-PROTECTION.md).
+
+## v1.9 Multi-Origin Routing
+
+- Optional private route-file mapping of approved URL path prefixes to up to 16 distinct origins.
+- Existing `AW_ORIGIN_URL` remains the default fallback, including via the existing setup wizard.
+- Route table is validated at startup and is restart-only; no external HTTP request can select an arbitrary upstream.
+- Authenticated dashboard displays path-only route status; `/ready` checks the default and each configured route.
+- Existing client evidence and JSON/SQLite state schema v5 are unchanged.
+- See [Multi-origin routing and rollback](MULTI-ORIGIN-ROUTING.md).
 
 ## v1.6 Distributed Intelligence Foundation
 

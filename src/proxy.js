@@ -40,7 +40,10 @@ export function createReverseProxy(config, deps = {}) {
       return;
     }
     const incoming = new URL(req.url, 'http://anchorweight.local');
-    const target = new URL(incoming.pathname + incoming.search, origin);
+    // Never resolve request-target as a URL: leading // could replace the approved origin host.
+    const target = new URL(origin);
+    target.pathname = incoming.pathname;
+    target.search = incoming.search;
     const headers = filteredHeaders(req.headers);
     headers.host = origin.host;
     if (config.blackholeEnabled) headers['accept-encoding'] = 'identity';

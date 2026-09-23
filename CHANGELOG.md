@@ -1,3 +1,13 @@
+## 1.9.0 — Multi-Origin Routing & Release Hardening
+
+- Added optional restart-only path-based routing to up to 16 explicitly approved HTTP(S) root origins.
+- Kept AW_ORIGIN_URL as the default fallback, including live wizard changes to that default origin.
+- Enforced longest segment-prefix matching, protected admin/trap endpoints, and fail-closed route validation.
+- Prevented protocol-relative request paths from changing the configured proxy destination.
+- Added per-route readiness checks and path-only routing metadata in the authenticated dashboard.
+- Preserved v1.8 gateway controls, privacy boundaries, cPanel startup fix, and state schema v5.
+- Kept routing OFF by default; no new runtime dependencies or automatic origin changes.
+
 ## 1.8.0 — Gateway Protection & Reliability
 
 - Added opt-in IPv4/IPv6 CIDR access rules and per-IP fixed-window rate limits, including path-specific ceilings and shadow-only reporting.

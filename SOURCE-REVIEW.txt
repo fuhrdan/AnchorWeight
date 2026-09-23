@@ -1,5 +1,5 @@
-AnchorWeight v1.8.0 — Plain Text Source Review Bundle
-Generated: 2026-09-23T17:47:53.522Z
+AnchorWeight v1.9.0 — Plain Text Source Review Bundle
+Generated: 2026-09-23T18:21:40.364Z
 
 
 ================================================================================
@@ -130,6 +130,7 @@ import { createTrafficTelemetry } from './src/telemetry.js';
 import { createSetupController, readOperatorSettings } from './src/setup.js';
 import { createGatewayPolicy } from './src/gateway-policy.js';
 import { createUpstreamHealth, maintenanceResponse } from './src/upstream-health.js';
+import { loadRoutes, routeForPath, unsafeRoutePath, routeSummary } from './src/routing.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep startup synchronous to the module loader; initialize the selected store inside main().
@@ -144,6 +145,8 @@ if (saved) {
 const validation = validateConfig(config);
 if (!validation.valid) throw new Error(`Invalid AnchorWeight configuration: ${validation.errors.join('; ')}`);
 for (const warning of validation.warnings) console.warn(`[AnchorWeight] WARNING: ${warning}`);
+const routes = loadRoutes(config); // Fail before binding if an explicitly enabled route file is invalid.
+const routeStatus = routeSummary(routes,config.routesEnabled);
 const store = await createStore(config);
 const telemetry = createTrafficTelemetry();
 const gateway = createGatewayPolicy(config);
@@ -159,9 +162,21 @@ function makeProxy(settings) {
     onMaintenance:(req,res)=>maintenanceResponse(req,res,{title:config.gatewayMaintenanceTitle,message:config.gatewayMaintenanceMessage})
   });
 }
-let activeProxy = config.proxyEnabled ? makeProxy(config) : null;
+const routeProxies = new Map(routes.map(route=>[route.origin,makeProxy({originUrl:route.origin})]));
+function prepareDefault(settings){
+  const fallback=makeProxy(settings);
+  return (req,res)=>{
+    const pathname=new URL(req.url,'http://anchorweight.local').pathname;
+    if(routes.length && (unsafeRoutePath(pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/'))){
+      return send(res,400,'application/json; charset=utf-8',JSON.stringify({error:'ambiguous_route_path'}),{'Cache-Control':'no-store'});
+    }
+    const route=routeForPath(routes,pathname);
+    return (route?routeProxies.get(route.origin):fallback)(req,res);
+  };
+}
+let activeProxy = config.proxyEnabled ? prepareDefault(config) : null;
 const setup = createSetupController(config, { onActivate:settings => {
-  const nextProxy = settings.proxyEnabled ? makeProxy(settings) : null;
+  const nextProxy = settings.proxyEnabled ? prepareDefault(settings) : null;
   return () => {
     config.originUrl=settings.originUrl;
     config.proxyEnabled=settings.proxyEnabled;
@@ -169,7 +184,7 @@ const setup = createSetupController(config, { onActivate:settings => {
     health.probe().catch(err=>console.error('[AnchorWeight] health probe:',err.message));
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, health });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, health, routing:routeStatus });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -185,20 +200,25 @@ function send(res, status, type, body, headers = {}) {
   res.end(body);
 }
 
-function checkOriginReady() {
-  if (!config.proxyEnabled || !config.readinessOriginCheck) return Promise.resolve({ok:true, detail:'origin check skipped'});
-  return new Promise(resolve => {
-    let origin;
-    try { origin = new URL(config.originUrl); } catch { return resolve({ok:false, detail:'invalid origin URL'}); }
-    const transport = origin.protocol === 'https:' ? https : http;
-    const req = transport.request(origin, { method:'HEAD', timeout:Math.min(config.proxyTimeoutMs, 3000) }, res => {
-      res.resume();
-      resolve({ok:(res.statusCode || 500) < 600, detail:`HTTP ${res.statusCode || 0}`});
+async function checkOriginReady() {
+  if (!config.proxyEnabled || !config.readinessOriginCheck)
+    return {ok:true,detail:'origin check skipped',routes:[]};
+  async function probe(value) {
+    return new Promise(resolve => {
+      let origin;
+      try {origin = new URL(value);}catch{return resolve({ok:false,detail:'invalid origin URL'});}
+      const transport=origin.protocol==='https:'?https:http;
+      const req=transport.request(origin,{method:'HEAD',timeout:Math.min(config.proxyTimeoutMs,3000)},upstream=>{
+        upstream.resume();resolve({ok:(upstream.statusCode||500)<500,detail:`HTTP ${upstream.statusCode||0}`});
+      });
+      req.once('timeout',()=>req.destroy(new Error('timeout')));
+      req.once('error',()=>resolve({ok:false,detail:'connection failed'}));
+      req.end();
     });
-    req.on('timeout', () => req.destroy(new Error('timeout')));
-    req.on('error', err => resolve({ok:false, detail:err.message}));
-    req.end();
-  });
+  }
+  const result=await probe(config.originUrl);
+  const perRoute=await Promise.all(routes.map(async route=>({path:route.path,...await probe(route.origin)})));
+  return {...result,ok:result.ok&&perRoute.every(r=>r.ok),routes:perRoute};
 }
 
 const server = http.createServer(async (req, res) => {
@@ -211,7 +231,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '1.8.0',
+        ok: true, service: 'AnchorWeight', version: '1.9.0', routesEnabled:config.routesEnabled, routeCount:routes.length,
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -220,10 +240,10 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'1.8.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'1.9.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
-        proxyEnabled:config.proxyEnabled, origin
+        proxyEnabled:config.proxyEnabled, origin, routing:routeStatus
       }), { 'Cache-Control':'no-store' });
     }
     if (url.pathname === '/setup.html' && config.dashboardEnabled && req.method === 'GET') {
@@ -252,6 +272,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (activeProxy) {
+      if(routes.length && (unsafeRoutePath(url.pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/')))
+        return send(res,400,'application/json; charset=utf-8',JSON.stringify({error:'ambiguous_route_path'}),{'Cache-Control':'no-store'});
       const policy=gateway.check(req,url.pathname);
       if (policy.action!=='pass') {
         if(policy.retryAfter)res.setHeader('Retry-After',String(policy.retryAfter));
@@ -263,7 +285,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.8.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.9.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -275,7 +297,7 @@ const server = http.createServer(async (req, res) => {
 
 health.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v1.8.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v1.9.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
@@ -323,8 +345,9 @@ import { parseStartFlags } from '../src/cli-options.js';
 import { loadConfig } from '../src/config.js';
 import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, inspectConfiguredState, migrateStateFile } from '../src/ops.js';
 import { validateConfig } from '../src/config-schema.js';
+import { loadRoutes } from '../src/routing.js';
 
-const VERSION = '1.8.0';
+const VERSION = '1.9.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -361,6 +384,8 @@ function redactedConfig(c) {
     basePath: c.basePath,
     mode: c.shadowMode ? 'shadow' : 'enforce',
     proxyEnabled: c.proxyEnabled,
+    routesEnabled: !!c.routesEnabled,
+    routeFile: c.routesEnabled ? c.routesFile : '[disabled]',
     originUrl: c.originUrl,
     trustProxy: c.trustProxy,
     blockDepth: c.blockDepth,
@@ -478,7 +503,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.8.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.9.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -570,6 +595,7 @@ function stateCommandArgs(argv) {
 function formalValidation(c) {
   const schema=validateConfig(c);
   const legacy=validate(c);
+  try { loadRoutes(c); } catch(err) { schema.errors.push(`Multi-origin routes: ${err.message}`); }
   return {
     schemaVersion:schema.schemaVersion,
     errors:[...new Set([...schema.errors,...legacy.errors])],
@@ -708,7 +734,7 @@ try {
   const sites = JSON.parse(fs.readFileSync(siteFile,'utf8'));
   const {server} = createIntelligenceHub({sites,file:process.env.AW_HUB_STATE_FILE || './data/intelligence-events.jsonl',
     adminToken:process.env.AW_HUB_ADMIN_TOKEN});
-  server.listen(port,()=>console.log(`AnchorWeight intelligence hub v1.8.0 listening on :${port}`));
+  server.listen(port,()=>console.log(`AnchorWeight intelligence hub v1.9.0 listening on :${port}`));
 } catch (err) { console.error('[AnchorWeight hub] startup failed:',err.message); process.exitCode=1; }
 
 
@@ -806,7 +832,7 @@ FILE: package.json
 ================================================================================
 {
   "name": "anchorweight",
-  "version": "1.8.0",
+  "version": "1.9.0",
   "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
   "type": "module",
   "main": "app.js",
@@ -1076,11 +1102,11 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.8.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.9.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.8.0', telemetry:telemetry?.snapshot() || null, gateway:gateway?.snapshot() || null, upstreamHealth:health?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.9.0', routing:deps.routing || null, telemetry:telemetry?.snapshot() || null, gateway:gateway?.snapshot() || null, upstreamHealth:health?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
@@ -1132,7 +1158,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'1.8.0', events });
+        return json(res, 200, { version:'1.9.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -1142,7 +1168,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'1.8.0', profile:null, campaign:null, events:[], timeline:[]
+          version:'1.9.0', profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });
@@ -1437,7 +1463,7 @@ export function createAuditLogger(file) {
   return function audit(event) {
     const record = {
       ts: new Date().toISOString(),
-      version: '1.8.0',
+      version: '1.9.0',
       ...event
     };
     try {
@@ -1909,6 +1935,11 @@ export function validateConfig(config) {
   if (config.dashboardEnabled && !config.dashboardToken) warnings.push('Dashboard is enabled but AW_DASHBOARD_TOKEN is empty; authenticated API requests will be rejected.');
   if (config.dashboardToken && config.dashboardToken.length < 16) warnings.push('AW_DASHBOARD_TOKEN should be at least 16 characters; 32+ random bytes recommended.');
 
+  if (config.routesEnabled != null && typeof config.routesEnabled !== 'boolean') errors.push('routesEnabled must be boolean');
+  if (config.routesEnabled && (!config.routesFile || !config.setupPublicHost)) errors.push('routesEnabled requires routesFile and setupPublicHost');
+  if ((config.routeAllowedOrigins||[]).length > 32) errors.push('routeAllowedOrigins must contain no more than 32 entries');
+  if (config.routesEnabled) warnings.push('Multi-origin routes are restart-only, explicitly approved and apply to proxy traffic only.');
+
   if (config.proxyEnabled) {
     try {
       const u = new URL(config.originUrl);
@@ -2024,6 +2055,9 @@ export function loadConfig(overrides = {}) {
     setupAllowedOrigins: listEnv('AW_SETUP_ALLOWED_ORIGINS'),
     setupPublicHost: process.env.AW_SETUP_PUBLIC_HOST || '',
     setupBaselineOrigin: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
+    routesEnabled: boolEnv('AW_ROUTES_ENABLED', false),
+    routesFile: process.env.AW_ROUTES_FILE || './data/anchorweight-routes.json',
+    routeAllowedOrigins: listEnv('AW_ROUTE_ALLOWED_ORIGINS'),
     proxyEnabled: boolEnv('AW_PROXY_ENABLED', false),
     originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),
@@ -2537,11 +2571,11 @@ export function createIntelligenceHub({sites, file, adminToken, now = () => Date
   }
   const server = http.createServer((req,res) => {
     const pathname = new URL(req.url,'http://localhost').pathname;
-    if (pathname === '/live' && req.method === 'GET') return response(res,200,{ok:true,service:'AnchorWeight Intelligence Hub',version:'1.8.0'});
+    if (pathname === '/live' && req.method === 'GET') return response(res,200,{ok:true,service:'AnchorWeight Intelligence Hub',version:'1.9.0'});
     if (pathname === '/v1/events' && req.method === 'GET') {
       if (!authenticate(req)) return response(res,401,{error:'unauthorized'});
       const limit = Math.min(100,Math.max(1,Number(new URL(req.url,'http://localhost').searchParams.get('limit')) || 50));
-      return response(res,200,{version:'1.8.0',siteCount:new Set(events.map(e=>e.siteId)).size,
+      return response(res,200,{version:'1.9.0',siteCount:new Set(events.map(e=>e.siteId)).size,
         total:events.length,events:events.slice(-limit).reverse(),limitations:[
           'Bot IDs are site-scoped; a matching ID from different sites is not an identity correlation.',
           'A site attests to local evidence; the hub does not independently verify signed canary paths.',
@@ -2675,7 +2709,7 @@ export function buildInvestigation(store, logFile, options) {
   const truncated = allMatching.length > limit;
   const events = allMatching.slice(-limit);
   return {
-    version:'1.8.0', kind:campaignId ? 'campaign' : 'bot',
+    version:'1.9.0', kind:campaignId ? 'campaign' : 'bot',
     caseId:campaignId || botId, profile, campaign, relatedCampaigns, memberProfiles,
     // events stays newest-first for v1.4 API compatibility; timeline is chronological.
     events:[...events].reverse(), timeline:events,
@@ -2691,7 +2725,7 @@ export function buildInvestigation(store, logFile, options) {
 export function buildCaseReport(investigation) {
   return {
     format:'anchorweight-investigation-v1', generatedAt:new Date().toISOString(),
-    version:'1.8.0', caseId:investigation.caseId, kind:investigation.kind,
+    version:'1.9.0', caseId:investigation.caseId, kind:investigation.kind,
     profile:investigation.profile, campaign:investigation.campaign,
     relatedCampaigns:investigation.relatedCampaigns,
     memberProfiles:investigation.memberProfiles,
@@ -2925,7 +2959,7 @@ export async function backupFiles(config, destination) {
     const dest=path.join(dir,path.basename(file));
     fs.copyFileSync(file,dest);copied.push({label,file:dest});
   }
-  const manifest={version:'1.8.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
+  const manifest={version:'1.9.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
   fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2));
   return {dir,manifest};
 }
@@ -2956,7 +2990,7 @@ export async function exportEvidence(config, destination) {
     ? await readSqliteState(config.sqliteFile) : config.stateBackend==='sqlite' ? {} : readJson(config.stateFile,{});
   const events=readJsonLines(config.logFile);
   const report={
-    version:'1.8.0',
+    version:'1.9.0',
     generatedAt:new Date().toISOString(),
     profile:config.profileName||null,
     stateBackend:config.stateBackend||'json',
@@ -3024,7 +3058,7 @@ export function migrateStateFile(file, options={}) {
   const temp=`${resolved}.${process.pid}.tmp`;
   fs.writeFileSync(temp,JSON.stringify({
     ...migrated.state,
-    meta:{...(migrated.state.meta||{}),appVersion:'1.8.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
+    meta:{...(migrated.state.meta||{}),appVersion:'1.9.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
   }));
   fs.renameSync(temp,resolved);
   return {file:resolved,backup,dryRun:false,...migrated};
@@ -3075,7 +3109,7 @@ export class PersistentStore extends MemoryStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
       const temp = `${this.file}.${process.pid}.tmp`;
-      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.8.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
+      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.9.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
       fs.renameSync(temp, this.file);
     } catch (err) {
       console.error('[AnchorWeight] Unable to persist state:', err.message);
@@ -3207,7 +3241,10 @@ export function createReverseProxy(config, deps = {}) {
       return;
     }
     const incoming = new URL(req.url, 'http://anchorweight.local');
-    const target = new URL(incoming.pathname + incoming.search, origin);
+    // Never resolve request-target as a URL: leading // could replace the approved origin host.
+    const target = new URL(origin);
+    target.pathname = incoming.pathname;
+    target.search = incoming.search;
     const headers = filteredHeaders(req.headers);
     headers.host = origin.host;
     if (config.blackholeEnabled) headers['accept-encoding'] = 'identity';
@@ -3331,6 +3368,87 @@ export function createReverseProxy(config, deps = {}) {
 
 
 ================================================================================
+FILE: src/routing.js
+================================================================================
+// v1.9 optional, file-backed multi-origin routing. No requests or secrets in route metadata.
+// Route definitions are loaded at startup, not from HTTP request data or forwarded headers.
+import fs from 'node:fs';
+import path from 'node:path';
+
+const MAX_BYTES=32768;
+const MAX_ROUTES=16;
+
+export function normalizeRouteOrigin(value){
+  if(typeof value!=='string'||value.trim()!==value||value.length>2048||!value)throw Error('invalid_route_origin');
+  let u;
+  try{u=new URL(value);}catch{throw Error('invalid_route_origin');}
+  if(!['http:','https:'].includes(u.protocol)||u.username||u.password||u.hash||u.search||u.pathname!=='/'||
+      /[\x00-\x20\x7f]/.test(value))throw Error('invalid_route_origin');
+  return `${u.origin}/`;
+}
+
+export function normalizeRoutePath(value){
+  if(typeof value!=='string'||value.length>128||value==='/'||!/^\/[A-Za-z0-9/_-]+$/.test(value)||
+      value.endsWith('/')||value.includes('//')||value.split('/').includes('..')||value.split('/').includes('.'))
+    throw Error('invalid_route_path');
+  return value;
+}
+function matches(prefix,pathname){return pathname===prefix||pathname.startsWith(`${prefix}/`);}
+function reservedPath(prefix,basePath){
+  const protectedPaths=['/live','/health','/ready','/dashboard.html','/setup.html',basePath];
+  return protectedPaths.some(p=>matches(prefix,p)||matches(p,prefix));
+}
+export function validateRouteDocument(doc,config){
+  if(!doc||typeof doc!=='object'||Array.isArray(doc)||Object.keys(doc).sort().join(',')!=='routes,version'||
+      doc.version!==1||!Array.isArray(doc.routes)||doc.routes.length<1||doc.routes.length>MAX_ROUTES)
+    throw Error('invalid_route_document');
+  const allow=new Set((config.routeAllowedOrigins||[]).map(normalizeRouteOrigin));
+  const seen=new Set();
+  const publicHost=String(config.setupPublicHost||'').toLowerCase();
+  if(!publicHost)throw Error('route_public_host_required');
+  const routes=doc.routes.map(route=>{
+    if(!route||typeof route!=='object'||Array.isArray(route)||Object.keys(route).sort().join(',')!=='origin,path')
+      throw Error('invalid_route_entry');
+    const path=normalizeRoutePath(route.path);
+    if(seen.has(path))throw Error('duplicate_route_path');
+    if(reservedPath(path,config.basePath||'/anchor'))throw Error('reserved_route_path');
+    const origin=normalizeRouteOrigin(route.origin);
+    const u=new URL(origin);
+    if(u.hostname.toLowerCase()===publicHost||u.host.toLowerCase()===publicHost)throw Error('self_proxy_route');
+    if(!allow.has(origin))throw Error('route_origin_not_approved');
+    seen.add(path);
+    return Object.freeze({path,origin});
+  });
+  return Object.freeze(routes.sort((a,b)=>b.path.length-a.path.length||a.path.localeCompare(b.path)));
+}
+export function loadRoutes(config){
+  if(!config.routesEnabled)return Object.freeze([]);
+  const file=path.resolve(config.routesFile||'./data/anchorweight-routes.json');
+  // O_NOFOLLOW (where supported) also prevents a symlink swapped after lstat.
+  const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
+  try{
+    const stat=fs.fstatSync(fd);
+    if(!stat.isFile()||stat.size>MAX_BYTES)throw Error('route_file_invalid_size_or_type');
+    const buf=Buffer.alloc(stat.size+1);
+    const read=fs.readSync(fd,buf,0,buf.length,0);
+    if(read>MAX_BYTES)throw Error('route_file_too_large');
+    return validateRouteDocument(JSON.parse(buf.subarray(0,read).toString('utf8')),config);
+  }finally{fs.closeSync(fd);}
+}
+export function routeForPath(routes,pathname){
+  for(const route of routes)if(matches(route.path,pathname))return route;
+  return null;
+}
+export function unsafeRoutePath(pathname){
+  // Refuse ambiguous URL spellings instead of letting routing and the upstream normalize differently.
+  return pathname.startsWith('//')||pathname.includes('\\')||/%(?:2f|5c|2e)/i.test(pathname);
+}
+export function routeSummary(routes,enabled){return {enabled:!!enabled,count:routes.length,
+  routes:routes.map(({path})=>({path})),defaultRoute:'AW_ORIGIN_URL',selection:'longest_segment_prefix',
+  scope:'local_process',configuration:'restart_required'};}
+
+
+================================================================================
 FILE: src/setup.js
 ================================================================================
 // Browser-editable settings are intentionally limited to an allowlisted proxy origin and enable switch.
@@ -3378,7 +3496,7 @@ export function readOperatorSettings(config,file=OPERATOR_CONFIG_FILE) {
 }
 export function createSetupController(config,{file=OPERATOR_CONFIG_FILE,onActivate=()=>{}}={}) {
   function snapshot() {return {
-    version:'1.8.0',configEnabled:!!config.setupConfigEnabled,
+    version:'1.9.0',configEnabled:!!config.setupConfigEnabled,
     writesEnabled:!!config.setupConfigEnabled&&!!config.setupWritesEnabled,
     settings:{proxyEnabled:config.proxyEnabled,originUrl:config.originUrl},
     allowedOrigins:allowedOrigins(config),shadowMode:config.shadowMode,
@@ -3496,7 +3614,7 @@ export class SqliteStore extends MemoryStore {
         this.migrationsApplied = [...migrated.applied, 'JSON->SQLite'];
       }
       this.db.prepare("INSERT INTO metadata (key,value) VALUES ('state_version',?)").run(String(CURRENT_STATE_VERSION));
-      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','1.8.0')").run();
+      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','1.9.0')").run();
       this.db.exec('COMMIT');
     } catch (err) {
       this.db.exec('ROLLBACK');
@@ -3826,7 +3944,7 @@ export function createUpstreamHealth(config,{getOrigin=()=>config.originUrl,getP
   }
   function stop(){stopped=true;if(timer)clearInterval(timer);timer=null;}
   function snapshot(){const current=getProxyEnabled()?new URL(getOrigin()).href:null;
-    return {...state,status:!config.gatewayHealthEnabled||!current?'disabled':current!==activeOrigin?'unknown':state.status,enabled:!!config.gatewayHealthEnabled,probeMethod:'HEAD',scope:'local_process'};}
+    return {...state,status:!config.gatewayHealthEnabled||!current?'disabled':current!==activeOrigin?'unknown':state.status,enabled:!!config.gatewayHealthEnabled,probeMethod:'HEAD',scope:config.routesEnabled?'default_origin_only':'local_process'};}
   return {start,stop,probe,snapshot};
 }
 
@@ -4203,7 +4321,7 @@ test('v1.8 cPanel require startup: proxy-only access rules, operator endpoints r
   const admin=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`);
   assert.equal(admin.status,401);
   const stats=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`,{headers:{Authorization:'Bearer long-dashboard-token-for-gateway-18'}});
-  const body=await stats.json();assert.equal(body.version,'1.8.0');assert.equal(body.gateway.denied,1);
+  const body=await stats.json();assert.equal(body.version,'1.9.0');assert.equal(body.gateway.denied,1);
   assert.equal(body.upstreamHealth.status,'disabled');
   const setup=await fetch(`http://127.0.0.1:${inst.port}/setup.html`);assert.equal(setup.status,200);
   const live=await fetch(`http://127.0.0.1:${inst.port}/live`);assert.equal(live.status,200);
@@ -4227,6 +4345,86 @@ test('rate limiting then upstream outage: GET 503 maintenance, POST 502 and norm
   const post=await fetch(`http://127.0.0.1:${inst.port}/submit`,{method:'POST',body:'x'});
   assert.equal(post.status,502,'state-changing requests are never retried or converted into generic GET maintenance');
  }finally{await stop(inst);}
+});
+
+
+================================================================================
+FILE: test/multi-origin.integration.test.js
+================================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import http from 'node:http';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
+import {fileURLToPath} from 'node:url';
+import {createReverseProxy} from '../src/proxy.js';
+const app=fileURLToPath(new URL('../app.js',import.meta.url));
+async function listen(server){server.listen(0,'127.0.0.1');await once(server,'listening');return server.address().port;}
+async function waitLive(port,child){for(let i=0;i<80;i++){
+  if(child.exitCode!==null)throw Error('failed startup: '+child.errors);
+  try{const r=await fetch(`http://127.0.0.1:${port}/live`);if(r.ok)return r.json();}catch{}
+  await new Promise(resolve=>setTimeout(resolve,50));
+}throw Error('startup timeout: '+child.errors);}
+async function stop(child){if(child.exitCode!==null||child.signalCode!==null)return;const done=once(child,'exit');child.kill('SIGKILL');await done;}
+test('cPanel-style multi-origin routing, fallback, query, proxy hot-switch and readiness',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-multi-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ const mk=name=>http.createServer((req,res)=>{res.setHeader('Content-Type','text/plain');res.end(`${name} ${req.method} ${req.url}`);});
+ const a=mk('API'),b=mk('STATIC'),c=mk('DEFAULT'),d=mk('CHANGED');
+ const ports=await Promise.all([listen(a),listen(b),listen(c),listen(d)]);
+ 
+ const [ap,bp,cp,dp]=ports;const target=`http://127.0.0.1:${cp}/`;
+ fs.mkdirSync(path.join(dir,'data'));
+ fs.writeFileSync(path.join(dir,'data','anchorweight-routes.json'),JSON.stringify({version:1,routes:[
+  {path:'/api',origin:`http://127.0.0.1:${ap}/`},{path:'/assets',origin:`http://127.0.0.1:${bp}/`}]}));
+ const env={...Object.fromEntries(Object.entries(process.env).filter(([k])=>!k.startsWith('AW_'))),
+  PORT:'0',AW_SECRET:'long-testing-secret-1234567890',AW_DASHBOARD_TOKEN:'long-testing-admin-token-1234567890',
+  AW_ORIGIN_URL:target,AW_PROXY_ENABLED:'true',AW_ROUTES_ENABLED:'true',
+  AW_ROUTE_ALLOWED_ORIGINS:`http://127.0.0.1:${ap}/,http://127.0.0.1:${bp}/`,
+  AW_SETUP_PUBLIC_HOST:'aw.example.com',AW_SETUP_CONFIG_ENABLED:'true',AW_SETUP_WRITES_ENABLED:'true',AW_SETUP_ALLOWED_ORIGINS:`http://127.0.0.1:${dp}/`,AW_SHADOW_MODE:'true',AW_AUDIT_ENABLED:'false',AW_BLACKHOLE_ENABLED:'false'};
+ const server=http.createServer();const port=await listen(server);const closed=once(server,'close');server.close();await closed;env.PORT=String(port);
+ const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});
+ child.errors='';child.stderr.on('data',chunk=>child.errors+=chunk.toString());t.after(async()=>{await stop(child);for(const s of [a,b,c,d]){s.closeAllConnections();s.close();}});
+ const live=await waitLive(port,child);assert.equal(live.version,'1.9.0');assert.equal(live.routeCount,2);
+ async function get(p,init){return fetch(`http://127.0.0.1:${port}${p}`,init);}
+ assert.equal(await (await get('/api?x=1')).text(),'API GET /api?x=1');
+ assert.equal(await (await get('/api/hello?x=1')).text(),'API GET /api/hello?x=1');
+ assert.equal(await (await get('/assets/a.png')).text(),'STATIC GET /assets/a.png');
+ assert.equal(await (await get('/apiary')).text(),'DEFAULT GET /apiary');
+ assert.equal(await (await get('/other')).text(),'DEFAULT GET /other');
+ const posted=await get('/api/submit',{method:'POST',body:'ok'});assert.equal(posted.status,200);
+ assert.equal(await posted.text(),'API POST /api/submit');
+ const readiness=await (await get('/ready')).json();assert.equal(readiness.ok,true);
+ assert.deepEqual(readiness.origin.routes.map(r=>r.path).sort(),['/api','/assets']);
+ assert.equal((await get('/api/%2fadmin')).status,400);
+ assert.equal((await get('/anchor/api/stats')).status,401);
+ const stats=await (await get('/anchor/api/stats',{headers:{authorization:'Bearer long-testing-admin-token-1234567890'}})).json();
+ assert.equal(stats.routing.count,2);assert.deepEqual(stats.routing.routes.map(r=>r.path).sort(),['/api','/assets']);
+ assert.doesNotMatch(JSON.stringify(stats.routing),new RegExp(String(ap)));
+ const token='Bearer long-testing-admin-token-1234567890';
+ const csrf=(await (await get('/anchor/api/session',{headers:{authorization:token}})).json()).csrfToken;
+ const applied=await get('/anchor/api/setup/apply',{method:'POST',headers:{authorization:token,'x-aw-csrf':csrf,'content-type':'application/json'},body:JSON.stringify({proxyEnabled:true,originUrl:`http://127.0.0.1:${dp}/`})});
+ assert.equal(applied.status,200);
+ assert.equal(await (await get('/other')).text(),'CHANGED GET /other');
+ assert.equal(await (await get('/api/again')).text(),'API GET /api/again');
+
+});
+test('proxy never treats leading // request target as a new upstream host',async t=>{
+ let leaked=0;
+ const evil=http.createServer((req,res)=>{leaked++;res.end('LEAK');});const ev=await listen(evil);
+ const approved=http.createServer((req,res)=>res.end(`APPROVED ${req.url}`));const good=await listen(approved);
+ const config={originUrl:`http://127.0.0.1:${good}/`,blackholeEnabled:false,proxyBodyMaxBytes:100000,
+  proxyTimeoutMs:2000,trustProxy:false,publicScheme:'http',gatewayMaintenanceEnabled:false};
+ const edge=http.createServer(createReverseProxy(config));const port=await listen(edge);
+ t.after(()=>{for(const server of [evil,approved,edge]){server.closeAllConnections();server.close();}});
+ const result=await new Promise((resolve,reject)=>{
+  http.get({hostname:'127.0.0.1',port,path:`//127.0.0.1:${ev}/leak`},res=>{
+    let body='';res.on('data',c=>body+=c);res.on('end',()=>resolve({body,status:res.statusCode}));
+  }).on('error',reject);
+ });
+ assert.equal(result.status,200);assert.match(result.body,/^APPROVED /);assert.equal(leaked,0);
 });
 
 
@@ -4296,7 +4494,7 @@ test('real cPanel-style startup, authenticated wizard apply, proxied traffic, te
   let child=start({port,cwd:dir,origin:target,viaRequire:true});
   t.after(async()=>{await stop(child);});
   let live=await online(port,child);
-  assert.equal(live.version,'1.8.0');assert.equal(live.proxyEnabled,false);
+  assert.equal(live.version,'1.9.0');assert.equal(live.proxyEnabled,false);
   const pageResponse=await fetch(`http://127.0.0.1:${port}/setup.html`);
   assert.equal(pageResponse.status,200);assert.match(await pageResponse.text(),/AnchorWeight Setup/);
   const noAuth=await fetch(`http://127.0.0.1:${port}/anchor/api/setup`);
@@ -5271,7 +5469,7 @@ test('audit logger produces structured v1 records',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-audit-')); const file=path.join(dir,'audit.jsonl');
   createAuditLogger(file)({type:'operator_test',client:'abc'});
   const r=JSON.parse(fs.readFileSync(file,'utf8').trim());
-  assert.equal(r.version,'1.8.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
+  assert.equal(r.version,'1.9.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
   fs.rmSync(dir,{recursive:true,force:true});
 });
 
@@ -5358,6 +5556,57 @@ test('procedural child listing is deterministic and bounded', () => {
   assert.equal(a.length,7);
   assert.equal(a[0].decoy,false);
   assert.equal(a.slice(1).every(x=>x.decoy),true);
+});
+
+
+================================================================================
+FILE: test/unit/routing.test.js
+================================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {loadRoutes,validateRouteDocument,routeForPath,unsafeRoutePath,normalizeRouteOrigin} from '../../src/routing.js';
+const config={basePath:'/anchor',routesEnabled:true,setupPublicHost:'aw.example.com',
+  routeAllowedOrigins:['http://127.0.0.1:3001/','http://127.0.0.1:3002/']};
+const document={version:1,routes:[{path:'/api',origin:'http://127.0.0.1:3001/'},
+  {path:'/api/private',origin:'http://127.0.0.1:3002/'},{path:'/assets',origin:'http://127.0.0.1:3002/'}]};
+test('longest segment prefix, no partial matches and default route',()=>{
+  const routes=validateRouteDocument(document,config);
+  assert.equal(routeForPath(routes,'/api/private/a').origin,'http://127.0.0.1:3002/');
+  assert.equal(routeForPath(routes,'/api').origin,'http://127.0.0.1:3001/');
+  assert.equal(routeForPath(routes,'/api/hello').origin,'http://127.0.0.1:3001/');
+  assert.equal(routeForPath(routes,'/apiculture'),null);
+  assert.equal(routeForPath(routes,'/'),null);
+});
+test('rejects protected endpoints, self routing, unapproved origins, duplicates and malformed URLs',()=>{
+  for(const p of ['/','/anchor','/anchor/api','/ready','/dashboard.html','/setup.html','/live','/health'])
+    assert.throws(()=>validateRouteDocument({version:1,routes:[{path:p,origin:'http://127.0.0.1:3001/'}]},config));
+  for(const origin of ['http://aw.example.com/','http://evil.example/','http://127.0.0.1:3001@evil.example/','file:///etc/passwd','http://127.0.0.1:3001/x'])
+    assert.throws(()=>validateRouteDocument({version:1,routes:[{path:'/api',origin}]},config));
+  assert.throws(()=>validateRouteDocument({version:1,routes:[document.routes[0],document.routes[0]]},config));
+  assert.throws(()=>validateRouteDocument({version:1,routes:[{path:'/api//x',origin:'http://127.0.0.1:3001/'}]},config));
+  assert.throws(()=>validateRouteDocument({version:1,routes:[]},config));
+  assert.throws(()=>normalizeRouteOrigin('http://127.0.0.1:3001/?q=1'));
+});
+test('route file is ignored when disabled, rejects oversize, symlink and unapproved destination',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-routes-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'routes.json');
+  assert.deepEqual(loadRoutes({...config,routesEnabled:false,routesFile:file}),[]);
+  fs.writeFileSync(file,JSON.stringify(document));
+  assert.equal(loadRoutes({...config,routesFile:file}).length,3);
+  fs.writeFileSync(file,'x'.repeat(33000));
+  assert.throws(()=>loadRoutes({...config,routesFile:file}));
+  fs.writeFileSync(file,JSON.stringify(document));
+  const link=path.join(dir,'link.json');fs.symlinkSync(file,link);
+  assert.throws(()=>loadRoutes({...config,routesFile:link}));
+  assert.throws(()=>loadRoutes({...config,routesFile:file,routeAllowedOrigins:[]}));
+});
+test('ambiguous encoded slash/dot and backslash are rejected',()=>{
+  for(const p of ['//other/x','/api/%2Fsecret','/api/%2e%2e/private','/api/%5cadmin','/api/\\a'])
+    assert.equal(unsafeRoutePath(p),true);
+  assert.equal(unsafeRoutePath('/api/ordinary'),false);
 });
 
 

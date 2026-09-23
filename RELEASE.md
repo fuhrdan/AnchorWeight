@@ -1,3 +1,9 @@
+# AnchorWeight v1.9.0 — Multi-Origin Routing & Release Hardening
+
+Start with [MULTI-ORIGIN-ROUTING.md](MULTI-ORIGIN-ROUTING.md). The new route engine
+is disabled by default, so an existing v1.8 installation keeps its current proxy,
+state, and cPanel settings. The existing cPanel-compatible app.js entrypoint is retained.
+
 # AnchorWeight v1.7.0 — Operator Setup Wizard & Traffic Telemetry
 
 Use `OPERATOR-GATEWAY.md` for the first deployment. Web configuration is opt-in;
