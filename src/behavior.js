@@ -139,7 +139,8 @@ export function newProfile() {
     userAgents: [], methods: {}, acceptSignatures: {}, robotsRequests: 0,
     intervalCount: 0, intervalTotalMs: 0, minIntervalMs: null, rapidRequestCount: 0,
     goodBotClaimed: false, goodBotVerified: false, goodBotProvider: null, goodBotCheckReason: null, manualPolicy: null,
-    trapSessions: {}, recentTraversalDepths: [], traversalStyle: 'unknown', campaignIds: []
+    trapSessions: {}, recentTraversalDepths: [], traversalStyle: 'unknown', campaignIds: [],
+    offenseCount: 0, lastOffenseAt: null, evidence: []
   };
 }
 
@@ -163,6 +164,9 @@ export function publicProfile(ipKey, p) {
     manualPolicy: p.manualPolicy || null,
     traversalStyle: p.traversalStyle || inferTraversalStyle(p),
     campaignIds: (p.campaignIds || []).slice(0,8),
+    offenseCount: p.offenseCount || 0,
+    lastOffenseAt: p.lastOffenseAt || null,
+    evidence: (p.evidence || []).slice(-12),
     signals: p.signals.slice(-10)
   };
 }

@@ -81,6 +81,10 @@ export class MemoryStore {
   noteOffense(ipKey) {
     const count = (this.offenses.get(ipKey) || 0) + 1;
     this.offenses.set(ipKey, count);
+    const profile = this.getProfile(ipKey);
+    profile.offenseCount = count;
+    profile.lastOffenseAt = this.now();
+    this.touchProfile?.(ipKey);
     return count;
   }
 

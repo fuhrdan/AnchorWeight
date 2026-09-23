@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.0
+
+- Independent signed canary branches, branch-level lineage and bounded per-profile evidence.
+- Repeat-offender context and authenticated investigation response.
+- Require authenticated signed path before cross-client campaign attribution; de-duplicate repeated shared-canary evidence.
+- Preserve JSON/SQLite schema v5, cPanel startup fix and Shadow Mode defaults.
+
+
 ## 1.2.0 — Production reliability groundwork
 
 - Optional dependency-free Node.js SQLite storage on Node 22.13+; JSON remains the default on Node 20/22/24.

@@ -94,3 +94,7 @@ SQLite imports JSON automatically when first initialized. See
 `npm run benchmark -- http://127.0.0.1:8080/health 500 10` provides a
 repeatable localhost server baseline and reports p50/p95/p99 latency. It is
 not a substitute for authorized production-like proxy load tests.
+
+## v1.3 evidence operations
+
+The authenticated investigation response now includes a bounded `profile.evidence` history and profile offense context. Event files record branch lineage; treat them as operational security logs subject to existing retention and access controls. The signed URL tokens themselves are not stored in these new records. See [CANARY-EVIDENCE.md](CANARY-EVIDENCE.md).

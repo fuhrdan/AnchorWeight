@@ -1,4 +1,4 @@
-# AnchorWeight v1.2.0 Release Guide
+# AnchorWeight v1.3.0 Release Guide
 
 ## Pre-release gate
 
@@ -34,7 +34,7 @@ anchorweight migrate --profile production
 
 ## Release artifacts
 
-A v1.2.0 release should include the source ZIP and a SHA-256 checksum file. `SOURCE-MANIFEST.json` records SHA-256 hashes of reviewable source files.
+A v1.3.0 release should include the source ZIP and a SHA-256 checksum file. `SOURCE-MANIFEST.json` records SHA-256 hashes of reviewable source files.
 
 ## v1.2.0 SQLite release considerations
 
@@ -43,3 +43,11 @@ installs retain JSON without loading `node:sqlite`. Verify a migrated JSON
 profile and campaign, consistent SQLite backup, and successful restore while
 stopped. Benchmark representative requests in Shadow Mode before enabling
 enforcement on an existing site.
+
+## v1.3 additional release gates
+
+- Independent branch token and tamper/replay handling tests.
+- Signed-chain validation precedes cross-IP campaign correlation.
+- Profile evidence and offense context persist with JSON/SQLite.
+- On HawkHost shared hosting use `node --test --test-concurrency=1`.
+- Preserve the v1.2 cPanel `async main()` startup fix.

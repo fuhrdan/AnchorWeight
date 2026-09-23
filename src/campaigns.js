@@ -14,6 +14,9 @@ export class CampaignEngine {
     let existing = this.store.findCampaignByMember?.(a) || this.store.findCampaignByMember?.(b);
     const id = existing?.id || campaignId(this.config.secret, a, b);
     const c = this.store.getCampaign(id);
+    const duplicate = c.evidence.some(e => e.reason === reason && detail.sid && e.sid === detail.sid &&
+      [a, b].every(key => c.members.includes(key)));
+    if (duplicate) return c;
     for (const k of [a,b]) if (!c.members.includes(k)) c.members.push(k);
     c.firstSeen ||= this.now(); c.lastSeen = this.now();
     c.evidence.push({ at: this.now(), reason, ...detail });

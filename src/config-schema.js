@@ -20,6 +20,8 @@ export function validateConfig(config) {
   }
   intRange('port', config.port, 1, 65535);
   intRange('blockDepth', config.blockDepth, 2, 8);
+  intRange('branchCount', config.branchCount ?? 7, 2, 12);
+  if (config.canaryVariantsEnabled != null && typeof config.canaryVariantsEnabled !== 'boolean') errors.push('canaryVariantsEnabled must be boolean');
   intRange('blockMinutes', config.blockMinutes, 1, 10080);
   intRange('repeatBlockMinutes', config.repeatBlockMinutes, 1, 43200);
   intRange('proxyTimeoutMs', config.proxyTimeoutMs, 1000, 120000);

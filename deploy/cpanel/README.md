@@ -31,3 +31,9 @@ For Silent Quarantine to protect the entire site, public traffic must pass throu
 ## Shutdown
 
 cPanel restarts normally signal the Node.js process. v0.9.0 handles `SIGTERM`/`SIGINT`, flushes persistent state, stops accepting new connections, and exits after active requests finish or the configured grace deadline is reached.
+
+## v1.2.0 storage option
+
+JSON is still the default and supports existing Node 20+ app configurations.
+For SQLite select Node 22.13+ in cPanel, preserve the existing JSON state,
+and set `AW_STATE_BACKEND=sqlite`. Follow `SQLITE-MIGRATION.md` first.

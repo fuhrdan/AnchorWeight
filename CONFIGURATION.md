@@ -81,3 +81,18 @@ AW_BLACKHOLE_PATH                 /anchor/blackhole
 AW_BLACKHOLE_INJECT_LINK          true
 AW_BLACKHOLE_MAX_RESPONSE_BYTES   2097152
 AW_SCORE_BLACKHOLE                100
+
+## v1.2.0: persistence backend
+
+| Variable | Default | Description |
+|---|---|---|
+| `AW_STATE_BACKEND` | `json` | `json` (original) or `sqlite` (optional, Node 22.13+) |
+| `AW_STATE_FILE` | `./data/anchorweight-state.json` | JSON state; also legacy import source when SQLite is first enabled |
+| `AW_SQLITE_FILE` | `./data/anchorweight-state.sqlite` | SQLite state database (must differ from JSON path) |
+
+SQLite is single-process only. The original JSON remains a point-in-time rollback
+copy, not a continuously synchronized mirror. Read [SQLITE-MIGRATION.md](SQLITE-MIGRATION.md).
+
+## v1.3 canary controls
+
+`AW_CANARY_BRANCH_COUNT=7` (2–12) controls the number of independently signed branches displayed by each lure page. `AW_CANARY_VARIANTS_ENABLED=true` is the new default; `false` restores shared v1.2 link tokens with optional `?view=` labels. See [CANARY-EVIDENCE.md](CANARY-EVIDENCE.md).

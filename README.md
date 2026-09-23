@@ -1,4 +1,4 @@
-# AnchorWeight v1.2.0
+# AnchorWeight v1.3.0
 
 **Let bots identify themselves.**
 
@@ -111,6 +111,17 @@ If clients can bypass AnchorWeight and reach the origin directly, the reverse pr
 - Local benchmark script, expanded regression tests, and storage documentation.
 
 **Start with [SQLITE-MIGRATION.md](SQLITE-MIGRATION.md) before enabling SQLite on a live site.**
+
+## v1.3.0 highlights
+
+- **Independently signed canary branches:** each displayed lure link has its own authenticated token; branch zero remains backward compatible with v1.2 signed paths.
+- **Session lineage:** bounded event records capture branch, depth, elapsed time and opaque session IDs without logging signed URL tokens or raw IPs.
+- **Evidence ledger:** recent structured observations appear on the existing authenticated investigation API and persist with Bot DNA profiles in both JSON and SQLite.
+- **Repeat-offender context:** profile offense counts and last-offense timestamps survive restart through the existing state backends.
+- **Stronger campaign attribution:** cross-client campaign correlation requires a valid signed chain, and repeated use of the same session cannot repeatedly inflate campaign confidence.
+- **Configurable traps:** `AW_CANARY_BRANCH_COUNT` (2–12) and `AW_CANARY_VARIANTS_ENABLED` (default true). Shadow Mode and manual allow policies are unchanged.
+
+See [CANARY-EVIDENCE.md](CANARY-EVIDENCE.md) for rollout, privacy boundaries, limitations and rollback.
 
 ## Architecture
 

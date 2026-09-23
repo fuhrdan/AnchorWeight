@@ -1,7 +1,8 @@
 import { randomId, ipFingerprint, safeEqual } from './crypto.js';
 import { MemoryStore } from './store.js';
 import { createLogger, readEvents } from './logger.js';
-import { childEntries, validateChain } from './procedural.js';
+import { childEntries, inspectChain } from './procedural.js';
+import { noteEvidence } from './evidence.js';
 import { renderDecoy } from './decoy.js';
 import { BehaviorEngine } from './behavior.js';
 import { GoodBotVerifier } from './goodbot.js';
@@ -61,6 +62,12 @@ export function createAnchorWeight(config, deps = {}) {
   const admin = deps.admin || new AdminSecurity(config, deps.now);
   const audit = deps.audit || (config.auditEnabled === false ? (() => {}) : createAuditLogger(config.auditLogFile));
 
+  function recordOffense(key) {
+    const count = store.noteOffense(key);
+    if (count > 1) noteEvidence(store, key, { kind:'repeat_offense', offenseCount: count });
+    return count;
+  }
+
   function ipKey(req) {
     return ipFingerprint(config.secret, rawIp(req, config.trustProxy));
   }
@@ -99,7 +106,7 @@ export function createAnchorWeight(config, deps = {}) {
         store.touchProfile?.(key);
         store.stats.scoreConvictions++;
         store.stats.wouldBlock++;
-        const offenses = store.noteOffense(key);
+        const offenses = recordOffense(key);
         const minutes = offenses > 1 ? config.repeatBlockMinutes : config.blockMinutes;
         let until = null;
         if (!config.shadowMode) until = store.block(key, minutes, `behavior_score_${profile.score}`);
@@ -155,11 +162,11 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.2.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.3.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.2.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.3.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (url.pathname === `${config.basePath}/api/events`) {
@@ -170,7 +177,7 @@ export function createAnchorWeight(config, deps = {}) {
           campaignId: url.searchParams.get('campaign') || '',
           search: url.searchParams.get('q') || ''
         });
-        return json(res, 200, { version:'1.2.0', events });
+        return json(res, 200, { version:'1.3.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate`) {
@@ -232,8 +239,13 @@ export function createAnchorWeight(config, deps = {}) {
     const prefix = `${config.basePath}/t/`;
     if (!url.pathname.startsWith(prefix)) return text(res, 404, 'Not found');
 
-    const rest = url.pathname.slice(prefix.length).split('/').filter(Boolean).map(decodeURIComponent);
-    if (rest.length < 2) return text(res, 404, 'Not found');
+    // A malformed escape or enormous caller-supplied path must not become an HTTP 500
+    // or an unbounded cryptographic loop.
+    if (url.pathname.length > 512) return text(res, 404, 'Not found');
+    let rest;
+    try { rest = url.pathname.slice(prefix.length).split('/').filter(Boolean).map(decodeURIComponent); }
+    catch { return text(res, 404, 'Not found'); }
+    if (rest.length < 2 || rest.length > config.blockDepth + 3 || !/^[A-Za-z0-9_-]{8,64}$/.test(rest[0])) return text(res, 404, 'Not found');
     const [sid, ...tokens] = rest;
     return traverse(req, res, sid, tokens);
   }
@@ -249,9 +261,10 @@ export function createAnchorWeight(config, deps = {}) {
     }
 
     behavior.noteBlackhole(key);
+    noteEvidence(store, key, { kind:'blackhole', reason:'robots_blackhole_violation' });
     store.stats.blackholeConvictions = (store.stats.blackholeConvictions || 0) + 1;
     store.stats.wouldBlock++;
-    const offenses = store.noteOffense(key);
+    const offenses = recordOffense(key);
     const minutes = offenses > 1 ? config.repeatBlockMinutes : config.blockMinutes;
     let until = null;
 
@@ -278,11 +291,12 @@ export function createAnchorWeight(config, deps = {}) {
       return html(res, 200, '<!doctype html><html><head><meta name="robots" content="noindex,nofollow"><title>Archive</title></head><body><h1>Archive</h1><p>No indexed resources are available here.</p></body></html>');
     }
     const now = Date.now();
-    store.createSession(sid, { ipKey: key, lastDepth: 0, createdAt: now, expiresAt: now + config.sessionTtlMinutes * 60_000 });
+    store.createSession(sid, { ipKey: key, lastDepth: 0, createdAt: now, expiresAt: now + config.sessionTtlMinutes * 60_000, branches: [], lastHopAt: now });
     store.stats.lureVisits++;
     behavior.noteLure(key);
+    noteEvidence(store, key, { kind:'lure', sid });
     log({ type: 'lure', sid, ipKey: key });
-    const children = childEntries(config.secret, sid, [], config.branchCount);
+    const children = childEntries(config.secret, sid, [], config.branchCount, config.canaryVariantsEnabled !== false);
     return html(res, 200, renderIndex(config, sid, [], children[0], children));
   }
 
@@ -290,50 +304,64 @@ export function createAnchorWeight(config, deps = {}) {
     const depth = tokens.length;
     const key = ipKey(req);
     const s = store.getSession(sid);
+    // Authenticate the COMPLETE path before attributing it to another client.
+    // A guessed/observed SID without signed tokens is not campaign evidence.
+    const branches = s ? inspectChain(config.secret, sid, tokens, config.branchCount, config.canaryVariantsEnabled !== false) : null;
+    const branch = branches?.at(-1);
+    const elapsedMs = s ? Math.max(0, Date.now() - (s.lastHopAt || s.createdAt)) : null;
     let reason = '';
     if (!s) reason = 'unknown_or_expired_session';
-    else if (config.sessionBindIp && s.ipKey !== key) reason = 'session_ip_mismatch';
     else if (depth < 1 || depth > config.blockDepth + 2) reason = 'depth_out_of_range';
-    else if (!validateChain(config.secret, sid, tokens)) reason = 'bad_chain';
+    else if (!branches) reason = 'bad_chain';
+    else if (config.sessionBindIp && s.ipKey !== key) reason = 'session_ip_mismatch';
     else if (depth !== s.lastDepth + 1) reason = 'non_sequential';
 
     if (reason) {
       store.stats.invalidTraversals++;
       behavior.noteInvalidTraversal(key, reason);
-      if (reason === 'session_ip_mismatch' && s?.ipKey) {
-        const c = campaigns.correlate(s.ipKey, key, 'shared_signed_canary', { sid, depth });
+      noteEvidence(store, key, { kind:'invalid_traversal', sid, reason, depth, ...(branch === undefined ? {} : { branch }) });
+      if (reason === 'session_ip_mismatch' && s?.ipKey && branches) {
+        const c = campaigns.correlate(s.ipKey, key, 'shared_signed_canary', { sid, depth, branch });
         if (c) {
           for (const member of c.members) {
             const mp = store.getProfile(member);
+            mp.campaignIds ||= [];
             if (!mp.campaignIds.includes(c.id)) mp.campaignIds.push(c.id);
             store.touchProfile?.(member);
           }
           behavior.addSignalOnce(key, 'shared_signed_canary', config.scoreSharedCanary ?? 20, { campaignId:c.id });
         }
       }
-      log({ type: 'invalid_traversal', sid, ipKey: key, depth, reason });
+      log({ type: 'invalid_traversal', sid, ipKey: key, depth, reason, ...(branch === undefined ? {} : { branch }) });
       return text(res, 404, 'Not found');
     }
 
+    const now = Date.now();
     s.lastDepth = depth;
-    s.expiresAt = Date.now() + config.sessionTtlMinutes * 60_000;
+    s.expiresAt = now + config.sessionTtlMinutes * 60_000;
+    s.lastHopAt = now;
+    s.branches ||= [];
+    s.branches.push(branch);
     store.stats.validTraversals++;
     behavior.noteTraversal(key, depth, sid);
-    log({ type: 'traversal', sid, ipKey: key, depth });
+    noteEvidence(store, key, { kind:'traversal', sid, depth, branch, elapsedMs });
+    // Retain just the branch path, never URL query strings or signed token text.
+    log({ type: 'traversal', sid, ipKey: key, depth, branch, elapsedMs, branchPath: s.branches.slice() });
 
     if (depth >= config.blockDepth) {
       behavior.noteProof(key, depth);
-      const offenses = store.noteOffense(key);
+      noteEvidence(store, key, { kind:'proof_of_crawl', sid, depth, branch });
+      const offenses = recordOffense(key);
       const minutes = offenses > 1 ? config.repeatBlockMinutes : config.blockMinutes;
       store.stats.wouldBlock++;
       let until = null;
       if (!config.shadowMode) until = store.block(key, minutes, `proof_of_crawl_depth_${depth}`);
       store.deleteSession(sid);
-      log({ type: config.shadowMode ? 'would_block' : 'block', sid, ipKey: key, depth, offenses, minutes, until });
+      log({ type: config.shadowMode ? 'would_block' : 'block', sid, ipKey: key, depth, offenses, minutes, until, branchPath: s.branches.slice() });
       return html(res, 200, renderTerminal(depth, config.shadowMode, config.quarantineMode));
     }
 
-    const children = childEntries(config.secret, sid, tokens, config.branchCount);
+    const children = childEntries(config.secret, sid, tokens, config.branchCount, config.canaryVariantsEnabled !== false);
     return html(res, 200, renderIndex(config, sid, tokens, children[0], children));
   }
 
@@ -341,9 +369,12 @@ export function createAnchorWeight(config, deps = {}) {
 }
 
 function renderIndex(config, sid, tokens, child, entries) {
-  const nextTokens = [...tokens, child.token];
-  const nextPath = `${config.basePath}/t/${encodeURIComponent(sid)}/${nextTokens.map(encodeURIComponent).join('/')}`;
-  const rows = entries.map((e, i) => `<li><a href="${esc(i === 0 ? nextPath : `${nextPath}?view=${i}`)}">${esc(e.name)}/</a></li>`).join('\n');
+  const rows = entries.map((e, i) => {
+    const nextTokens = [...tokens, e.token];
+    const nextPath = `${config.basePath}/t/${encodeURIComponent(sid)}/${nextTokens.map(encodeURIComponent).join('/')}`;
+    const href = config.canaryVariantsEnabled === false && i ? `${nextPath}?view=${i}` : nextPath;
+    return `<li><a href="${esc(href)}">${esc(e.name)}/</a></li>`;
+  }).join('\n');
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><title>Index of /</title></head><body><h1>Index of /</h1><ul>${rows}</ul><hr><small>nginx</small></body></html>`;
 }
 

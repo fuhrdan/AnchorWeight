@@ -142,3 +142,7 @@ Before routing public traffic through an enforcement-mode instance, verify `/liv
 Set `AW_STATE_BACKEND=sqlite` only with Node 22.13+ and read
 [SQLITE-MIGRATION.md](SQLITE-MIGRATION.md) first. JSON remains the default
 on Node 20, 22 and 24. Do not run multiple workers against one SQLite file.
+
+## v1.3 cPanel upgrade note
+
+Retain the `async main()` entrypoint compatibility fix in `app.js` from v1.2; preserve the existing application root and environment. Upgrade the code with the existing storage backend first; SQLite migration is a separate optional operation. See [CANARY-EVIDENCE.md](CANARY-EVIDENCE.md).

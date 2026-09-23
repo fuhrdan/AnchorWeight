@@ -3,3 +3,11 @@ node_modules/
 data/
 *.log
 .DS_Store
+
+backups/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.backup
+*.bak
+main
