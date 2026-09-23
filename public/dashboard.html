@@ -6,7 +6,7 @@
 .tabs{display:flex;gap:.45rem;flex-wrap:wrap;margin:1rem 0}.tab{background:#172338}.tab.active{background:#31517d}.hidden{display:none!important}.timeline{border-left:2px solid #33445f;margin:.8rem 0;padding-left:1rem}.event{margin:.65rem 0;padding:.65rem .75rem;background:#0d1625;border-radius:8px}.event small{color:#8290a5}.actions{display:flex;gap:.4rem;flex-wrap:wrap}.actions button{padding:.4rem .6rem}.searchbar{display:flex;gap:.5rem;flex-wrap:wrap}.searchbar input{min-width:160px;flex:1}.detail{white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:.82rem;background:#080d16;padding:.8rem;border-radius:8px;overflow:auto}
 .campaign-map{display:flex;flex-direction:column;gap:.75rem}.campaign-line{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;padding:.65rem;background:#0d1625;border-radius:10px}.node{padding:.4rem .55rem;border:1px solid #3a4960;border-radius:999px;background:#172338;font-family:ui-monospace,monospace}.edge{color:#7f8ba0}
 </style></head><body>
-<header><div class="brand"><div><h1>⚓ AnchorWeight</h1><div class="subtitle">Crawler defense console · v2.1.0</div></div><div><a href="/setup.html" style="margin-right:.75rem">Setup wizard</a><span id="modePill" class="pill">Not connected</span></div></div></header>
+<header><div class="brand"><div><h1>⚓ AnchorWeight</h1><div class="subtitle">Crawler defense console · v2.2.0</div></div><div><a href="/setup.html" style="margin-right:.75rem">Setup wizard</a><span id="modePill" class="pill">Not connected</span></div></div></header>
 <main>
 <section class="panel"><div class="section-title"><div><strong>Connect to this instance</strong><div class="help">The dashboard token is only used to call the local stats API. It is remembered in this browser if you choose Save.</div></div></div>
 <div class="toolbar"><input id="token" type="password" autocomplete="current-password" placeholder="Dashboard token"><button id="load">Refresh dashboard</button><button id="save">Save token locally</button><button id="forget">Forget token</button></div><div id="message" class="muted">Enter the token configured as <code>AW_DASHBOARD_TOKEN</code>.</div></section>
@@ -20,6 +20,7 @@
 <p class="help">Upstream latency is time to first upstream response headers, not full streamed-body duration. Counters include AnchorWeight's own endpoints; proxied requests are displayed separately.</p></section>
 <section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Gateway protection &amp; upstream health</h2><div class="help">Opt-in edge controls apply to proxied requests only. IP rules and rate limits are separate from crawler evidence.</div></div></div>
 <div class="grid" id="gatewayGrid"></div><p id="gatewayNote" class="help">Load stats to view policy and upstream status.</p></section>
+<section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Application authentication</h2><div class="help">Per-route Basic Auth and API keys are separate from dashboard authentication. Credentials are never returned by the stats API.</div></div></div><div class="grid" id="authGrid"></div><p class="help">Create and rotate credentials locally with <code>node bin/app-auth.js</code>; restart to apply changes. No authentication is activated by installing v2.2 alone.</p></section>
 <section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Routing</h2><div class="help">Opt-in multi-origin configuration; route definitions require a server restart. Origin addresses are not exposed in the dashboard.</div></div></div><div id="routingInfo" class="help">Connect to see route status.</div></section>
 <section><h2>Traffic & protection</h2><div class="grid" id="grid"></div></section>
 
@@ -80,6 +81,7 @@ async function load(){await discoverApiBase();const msg=document.querySelector('
  document.querySelector('#grid').innerHTML=metrics.map(([k,l,h])=>'<div class="card"><div class="label">'+esc(l)+'</div><div class="value">'+esc(j[k])+'</div><div class="help">'+esc(h)+'</div></div>').join('');
  renderTraffic(j.telemetry,j.proxyEnabled);
  renderGateway(j.gateway,j.upstreamHealth,j.proxyEnabled);
+ renderApplicationAuth(j.applicationAuth,j.proxyEnabled);
  renderRouting(j.routing);
  const ps=j.topProfiles||[];document.querySelector('#profiles').innerHTML=ps.length?'<div class="table-wrap"><table><thead><tr><th>ID</th><th>Score</th><th>Classification</th><th>Good bot</th><th>Policy</th><th>Requests</th><th>Depth</th><th>Proofs</th><th>Offenses</th><th>Avg interval</th><th>Style</th><th>Campaigns</th><th>Recent signals</th></tr></thead><tbody>'+ps.map(p=>'<tr><td><button class="inspect" data-bot="'+esc(p.id)+'"><code>'+esc(p.id)+'</code></button></td><td class="risk">'+esc(p.score)+'</td><td>'+esc(p.classification)+'</td><td>'+esc(goodBotText(p))+'</td><td>'+esc(p.manualPolicy||'—')+'</td><td>'+esc(p.requestCount)+'</td><td>'+esc(p.maxDepth)+'</td><td>'+esc(p.proofOfCrawl)+'</td><td>'+esc(p.offenseCount||0)+'</td><td>'+esc(p.averageIntervalMs==null?'—':p.averageIntervalMs+' ms')+'</td><td>'+esc(p.traversalStyle||'—')+'</td><td>'+esc((p.campaignIds||[]).join(', ')||'—')+'</td><td>'+esc((p.signals||[]).map(s=>s.signal).slice(-4).join(', ')||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No Bot DNA profiles have been recorded yet.</div>';
  const cs=j.topCampaigns||[];
@@ -91,6 +93,12 @@ function renderRouting(r){
  if(!r){root.textContent='Routing data unavailable.';return;}
  const paths=(r.routes||[]).map(x=>esc(x.path)).join(', ');
  root.innerHTML='Routes: <b>'+esc(r.enabled?'enabled':'disabled')+'</b> · Configured paths: <b>'+esc(r.count||0)+'</b> · Default: AW_ORIGIN_URL · '+(paths||'No additional routes')+'<br>Health status in this dashboard covers the default origin only; /ready checks additional origins when proxy mode is enabled.';
+}
+function renderApplicationAuth(a,proxyEnabled){
+ const root=document.querySelector('#authGrid');
+ if(!a){root.textContent='Application authentication unavailable.';return;}
+ const cells=[['Enabled',a.enabled?'yes':'no'],['Protected paths',a.policyCount],['Basic Auth routes',a.basicPolicies],['API key routes',a.apiKeyPolicies],['Authenticated requests',a.authenticated],['401 challenges',a.challenged],['Busy responses',a.busy],['Proxy',proxyEnabled?'on':'off']];
+ root.innerHTML=cells.map(([label,value])=>'<div class="card"><div class="label">'+esc(label)+'</div><div class="value">'+esc(value)+'</div></div>').join('');
 }
 function renderGateway(g,h,proxyEnabled){
  const grid=document.querySelector('#gatewayGrid'), note=document.querySelector('#gatewayNote');

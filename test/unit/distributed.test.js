@@ -27,7 +27,10 @@ test('federation is default-off; invalid configuration and plaintext endpoints r
   delete process.env.AW_INTELLIGENCE_ENABLED;
   try { assert.equal(loadConfig().intelligenceEnabled,false); }
   finally { if(previous===undefined)delete process.env.AW_INTELLIGENCE_ENABLED; else process.env.AW_INTELLIGENCE_ENABLED=previous; }
-  const basic={...loadConfig(), intelligenceEnabled:true,intelligenceSiteId:'site_one',
+  // Validate federation independently of other features enabled on a live host.
+  const basic={...loadConfig({routesEnabled:false,setupConfigEnabled:false,
+    setupWritesEnabled:false,declarativeEnabled:false,declarativeWritesEnabled:false,
+    trustedJa4Enabled:false,appAuthEnabled:false}), intelligenceEnabled:true,intelligenceSiteId:'site_one',
     intelligenceSiteSecret:secret,intelligenceHubUrl:'http://example.org/v1/evidence'};
   assert.equal(validateConfig(basic).valid,false);
   assert.equal(validateConfig({...basic,intelligenceHubUrl:'https://hub.example/v1/evidence'}).valid,true);

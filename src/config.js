@@ -79,6 +79,9 @@ export function loadConfig(overrides = {}) {
     routesEnabled: boolEnv('AW_ROUTES_ENABLED', false),
     routesFile: process.env.AW_ROUTES_FILE || './data/anchorweight-routes.json',
     routeAllowedOrigins: listEnv('AW_ROUTE_ALLOWED_ORIGINS'),
+    // Opt-in protection for proxied applications. Credentials never belong in environment logs.
+    appAuthEnabled: boolEnv('AW_APP_AUTH_ENABLED', false),
+    appAuthFile: process.env.AW_APP_AUTH_FILE || './data/anchorweight-app-auth.json',
     proxyEnabled: boolEnv('AW_PROXY_ENABLED', false),
     originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),

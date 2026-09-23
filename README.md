@@ -1,4 +1,4 @@
-# AnchorWeight v2.1.0
+# AnchorWeight v2.2.0
 
 **Let bots identify themselves.**
 
@@ -19,6 +19,14 @@ AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file 
 - Authenticated Setup Wizard route editor, bounded upstream HEAD validation, CSRF-protected live apply and previous-file rollback; file writes remain disabled until explicitly enabled.
 - Legacy environment, v1.7 operator settings and v1.9 route files remain supported with declarative mode off; conflicting modes fail validation if accidentally enabled together.
 - **Secrets, crawler enforcement, gateway rate/IP rules and health policy are not editable through the declarative file.** See [DECLARATIVE-CONFIGURATION.md](DECLARATIVE-CONFIGURATION.md) for migration and rollback.
+
+## v2.2 Application Authentication & Security Policies
+
+- Opt-in per-path HTTP Basic Auth and API keys for proxied applications; independent of dashboard authentication and Bot DNA.
+- Offline credential CLI produces scrypt password verifiers or one-time 256-bit API keys; private on-disk credentials file is fail-closed when enabled.
+- Longest segment-prefix policy selection, bounded async hashing, HTTP 401 challenges, stripped credentials before forwarding, and authenticated policy-only dashboard counters.
+- Existing per-path gateway rate-limit controls continue to work independently. No new runtime dependencies or state migration.
+- See [APPLICATION-AUTH.md](APPLICATION-AUTH.md) for installation, rotation, trust boundaries and rollback.
 
 ## v2.0 Integrated Defensive Security Platform
 

@@ -1,9 +1,10 @@
-## [2.1.0] - 2026-09-23 — Unified Gateway Configuration & Setup Wizard
+## [2.2.0] - 2026-09-23 — Application Authentication & Security Policies
 
-- Added opt-in private JSON and restricted YAML gateway configuration with no runtime dependencies.
-- Added authenticated route editing, bounded origin checks, previous-version rollback and explicit legacy-conflict validation.
-- Carried forward v2.0 hardening tests and preserved existing state schema, cPanel startup and opt-in enforcement defaults.
-- See DECLARATIVE-CONFIGURATION.md for activation and rollback; installation alone does not change proxy behavior.
+- Added opt-in per-path HTTP Basic Auth and API-key verification for proxied application routes, separate from dashboard and crawler evidence.
+- Added local credential CLI, private validated JSON file, scrypt password verifiers, 256-bit API key generation, and credential stripping before upstream forwarding.
+- Added bounded password-verification concurrency, protected-path validation, dashboard-only aggregate auth metrics and end-to-end tests.
+- Existing path-specific rate limits remain available; Node/cPanel, state schema and declarative routing compatibility retained.
+- See APPLICATION-AUTH.md; application authentication is disabled until explicitly enabled in cPanel.
 
 ## 2.0.0 — Integrated Defensive Security Platform
 

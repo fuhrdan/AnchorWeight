@@ -144,7 +144,7 @@ export function readDeclarative(config, file = configurationFile(config)) {
 /** Browser editor: prepare first, back up previous file, then atomic replace and activate. */
 export function createDeclarativeController(config, { file = configurationFile(config), onActivate = () => () => {} } = {}) {
   function snapshot() {
-    return { version:'2.1.0', declarativeEnabled:true,
+    return { version:'2.2.0', declarativeEnabled:true,
       configEnabled:true, writesEnabled:!!config.declarativeWritesEnabled,
       previousAvailable:fs.existsSync(`${file}.previous`),
       source:config.setupSource || 'declarative-file', shadowMode:config.shadowMode,

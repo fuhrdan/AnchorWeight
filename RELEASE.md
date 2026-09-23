@@ -1,10 +1,13 @@
-# AnchorWeight v2.1.0 — Declarative Gateway Configuration & Route Wizard
+# AnchorWeight v2.2.0 — Application Authentication & Security Policies
 
-Upgrade from the currently deployed v2.0.x source with a backup-first overlay. Read
-[DECLARATIVE-CONFIGURATION.md](DECLARATIVE-CONFIGURATION.md). Installing v2.1.0
-alone does not enable the declarative configuration or any enforcement feature.
-Check `node --test --test-concurrency=1` and `npm run release:verify` before
-restarting; publish and tag only after live `/live` and dashboard checks pass.
+Upgrade from v2.1.0 with the existing backup-first overlay. See
+[APPLICATION-AUTH.md](APPLICATION-AUTH.md). Installation does NOT turn on
+application authentication, the reverse proxy, rate limiting or crawler
+enforcement. Preserve cPanel environment variables and the private `data/` folder.
+
+Run `node --test --test-concurrency=1` and `npm run release:verify` on Node 22
+before restarting. Verify `/live` (2.2.0), `/ready`, dashboard, wizard and evidence.
+Commit, push and tag only after production checks pass.
 
 ---
 

@@ -6,14 +6,14 @@ import { execFileSync } from 'node:child_process';
 
 const root=path.resolve(new URL('..',import.meta.url).pathname);
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
-const required=['README.md','SECURITY.md','ARCHITECTURE.md','THREAT-MODEL.md','CONFIGURATION.md','OPERATIONS.md','DEPLOYMENT.md','CLI.md','LICENSE','DISTRIBUTED-INTELLIGENCE.md','OPERATOR-GATEWAY.md','public/setup.html','src/setup.js','src/telemetry.js','src/gateway-policy.js','src/upstream-health.js','GATEWAY-PROTECTION.md','MULTI-ORIGIN-ROUTING.md','src/routing.js','test/unit/routing.test.js','test/multi-origin.integration.test.js','hub.js','src/declarative-config.js','test/unit/declarative-config.test.js','test/declarative-config.integration.test.js','DECLARATIVE-CONFIGURATION.md'];
+const required=['README.md','SECURITY.md','ARCHITECTURE.md','THREAT-MODEL.md','CONFIGURATION.md','OPERATIONS.md','DEPLOYMENT.md','CLI.md','LICENSE','DISTRIBUTED-INTELLIGENCE.md','OPERATOR-GATEWAY.md','public/setup.html','src/setup.js','src/telemetry.js','src/gateway-policy.js','src/upstream-health.js','GATEWAY-PROTECTION.md','MULTI-ORIGIN-ROUTING.md','src/routing.js','test/unit/routing.test.js','test/multi-origin.integration.test.js','hub.js','src/declarative-config.js','test/unit/declarative-config.test.js','test/declarative-config.integration.test.js','DECLARATIVE-CONFIGURATION.md','APPLICATION-AUTH.md','src/app-auth.js','bin/app-auth.js','test/unit/app-auth.test.js','test/app-auth.integration.test.js'];
 const failures=[];
-if(pkg.version!=='2.1.0') failures.push(`package version is ${pkg.version}`);
+if(pkg.version!=='2.2.0') failures.push(`package version is ${pkg.version}`);
 for(const file of required) if(!fs.existsSync(path.join(root,file))) failures.push(`missing ${file}`);
 for (const entry of ['app.js','hub.js']) { try { execFileSync(process.execPath,['--check',path.join(root,entry)],{stdio:'pipe'}); } catch { failures.push(`${entry} syntax check failed`); } }
 try { execFileSync(process.execPath,[path.join(root,'bin/anchorweight.js'),'version'],{stdio:'pipe'}); } catch { failures.push('CLI version command failed'); }
 const lock=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8'));
-if(lock.version!=='2.1.0' || lock.packages?.['']?.version!=='2.1.0') failures.push('package-lock version mismatch');
+if(lock.version!=='2.2.0' || lock.packages?.['']?.version!=='2.2.0') failures.push('package-lock version mismatch');
 
 const VERIFY=process.argv.includes('--verify');
 if (process.argv.some(arg=>arg.startsWith('--') && arg!=='--verify')) failures.push('unsupported release-check argument');
@@ -33,7 +33,7 @@ function walk(dir){
 }
 walk(root);
 const manifest=files.sort().map(fp=>({file:path.relative(root,fp).replaceAll('\\','/'),sha256:crypto.createHash('sha256').update(fs.readFileSync(fp)).digest('hex')}));
-const expected={version:'2.1.0',files:manifest};
+const expected={version:'2.2.0',files:manifest};
 const manifestFile=path.join(root,'SOURCE-MANIFEST.json');
 if (VERIFY) {
   try {
@@ -44,4 +44,4 @@ if (VERIFY) {
   fs.writeFileSync(manifestFile,JSON.stringify(expected,null,2)+'\n');
 }
 if(failures.length){for(const f of failures)console.error('FAIL:',f);process.exit(1)}
-console.log(`AnchorWeight v2.1.0 release ${VERIFY?'verification':'check'} PASS (${manifest.length} source files manifested)`);
+console.log(`AnchorWeight v2.2.0 release ${VERIFY?'verification':'check'} PASS (${manifest.length} source files manifested)`);

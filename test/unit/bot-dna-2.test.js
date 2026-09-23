@@ -80,7 +80,11 @@ test('malformed or multi-valued fingerprint header is ignored',()=>{
 });
 
 test('trusted fingerprint options require trusted reverse proxy and default off',()=>{
-  const base=loadConfig({secret:SECRET});
+  // Isolate the validator fixture from unrelated live cPanel feature flags.
+  // This test enables JA4/trustProxy explicitly in the two cases below.
+  const base=loadConfig({secret:SECRET,routesEnabled:false,setupConfigEnabled:false,
+    setupWritesEnabled:false,declarativeEnabled:false,declarativeWritesEnabled:false,
+    intelligenceEnabled:false,trustedJa4Enabled:false,appAuthEnabled:false});
   assert.equal(base.trustedJa4Enabled,false);
   const invalid=validateConfig({...base,trustedJa4Enabled:true,trustProxy:false});
   assert.equal(invalid.valid,false);

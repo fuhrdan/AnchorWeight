@@ -1,6 +1,6 @@
 {
   "name": "anchorweight",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
   "type": "module",
   "main": "app.js",
@@ -14,7 +14,8 @@
     "benchmark": "node scripts/benchmark.js",
     "test:unit": "node --test test/unit/*.test.js",
     "source:review": "node scripts/source-review.js",
-    "release:verify": "node scripts/release-check.js --verify"
+    "release:verify": "node scripts/release-check.js --verify",
+    "auth": "node bin/app-auth.js"
   },
   "engines": {
     "node": ">=20"

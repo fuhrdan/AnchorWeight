@@ -14,6 +14,7 @@ import { createGatewayPolicy } from './src/gateway-policy.js';
 import { createUpstreamHealth, maintenanceResponse } from './src/upstream-health.js';
 import { loadRoutes, routeForPath, unsafeRoutePath, routeSummary } from './src/routing.js';
 import { readDeclarative, createDeclarativeController } from './src/declarative-config.js';
+import { readAuthPolicies, createAppAuth } from './src/app-auth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep startup synchronous to the module loader; initialize the selected store inside main().
@@ -41,6 +42,8 @@ let routeStatus = routeSummary(routes,config.routesEnabled || config.declarative
 const store = await createStore(config);
 const telemetry = createTrafficTelemetry();
 const gateway = createGatewayPolicy(config);
+// Load credentials once, before opening the listener. A broken enabled policy must fail startup.
+const applicationAuth = createAppAuth(readAuthPolicies(config));
 const health = createUpstreamHealth(config);
 const contexts = new WeakMap();
 function makeProxy(settings) {
@@ -59,7 +62,7 @@ function prepareDefault(settings){
   const fallback=makeProxy(settings);
   return (req,res)=>{
     const pathname=new URL(req.url,'http://anchorweight.local').pathname;
-    if(candidateRoutes.length && (unsafeRoutePath(pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/'))){
+    if((candidateRoutes.length || config.appAuthEnabled) && (unsafeRoutePath(pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/'))){
       return send(res,400,'application/json; charset=utf-8',JSON.stringify({error:'ambiguous_route_path'}),{'Cache-Control':'no-store'});
     }
     const route=routeForPath(candidateRoutes,pathname);
@@ -82,7 +85,7 @@ const setup = setupFactory(config, { onActivate:settings => {
     health.probe().catch(err=>console.error('[AnchorWeight] health probe:',err.message));
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, health, routing:()=>routeStatus });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, routing:()=>routeStatus });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -129,7 +132,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '2.1.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
+        ok: true, service: 'AnchorWeight', version: '2.2.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -138,7 +141,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'2.1.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'2.2.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin, routing:routeStatus
@@ -170,7 +173,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (activeProxy) {
-      if(routes.length && (unsafeRoutePath(url.pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/')))
+      if((routes.length || config.appAuthEnabled) && (unsafeRoutePath(url.pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/')))
         return send(res,400,'application/json; charset=utf-8',JSON.stringify({error:'ambiguous_route_path'}),{'Cache-Control':'no-store'});
       const policy=gateway.check(req,url.pathname);
       if (policy.action!=='pass') {
@@ -178,12 +181,21 @@ const server = http.createServer(async (req, res) => {
         return send(res,policy.action==='deny'?403:429,'application/json; charset=utf-8',
           JSON.stringify({error:policy.reason}),{'Cache-Control':'no-store'});
       }
+      // Bot DNA, local operator APIs and gateway access checks run independently.
+      const auth=await applicationAuth.check(req,url.pathname);
+      if(auth.action==='busy') return send(res,429,'application/json; charset=utf-8',
+        JSON.stringify({error:'authentication_busy'}),{'Retry-After':'1','Cache-Control':'no-store'});
+      if(auth.action==='challenge') return send(res,401,'application/json; charset=utf-8',
+        JSON.stringify({error:'application_authentication_required'}),{
+          ...(auth.mode==='basic'?{'WWW-Authenticate':'Basic realm="AnchorWeight protected origin", charset="UTF-8"'}:{}),
+          'Cache-Control':'no-store'
+        });
       context.markProxied();
       return activeProxy(req,res);
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.1.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.2.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -195,7 +207,7 @@ const server = http.createServer(async (req, res) => {
 
 health.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v2.1.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v2.2.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);

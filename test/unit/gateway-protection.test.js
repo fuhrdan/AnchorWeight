@@ -60,7 +60,11 @@ test('strict path and config validation',()=>{
  assert.deepEqual(parseRatePaths('[{"path":"/api/login","perMinute":10}]'),[{path:'/api/login',perMinute:10}]);
  for(const input of ['not-json','[{"path":"/a","perMinute":0}]','[{"path":"/a","perMinute":1,"origin":"http://evil"}]'])
   assert.throws(()=>parseRatePaths(input));
- const base=loadConfig({gatewayRatePaths:[],gatewayDenyIps:['192.0.2.0/24']});
+ // A standalone gateway configuration must not inherit unrelated cPanel modes.
+ const base=loadConfig({gatewayRatePaths:[],gatewayDenyIps:['192.0.2.0/24'],
+  routesEnabled:false,setupConfigEnabled:false,setupWritesEnabled:false,
+  declarativeEnabled:false,declarativeWritesEnabled:false,intelligenceEnabled:false,
+  trustedJa4Enabled:false,appAuthEnabled:false});
  assert.equal(validateConfig(base).valid,true);
  assert.equal(validateConfig({...base,gatewayDenyIps:['127.0.0.1/99']}).valid,false);
  assert.equal(validateConfig({...base,gatewayRatePaths:[{path:'/api',perMinute:0}]}).valid,false);

@@ -70,6 +70,11 @@ export function validateConfig(config) {
   if ((config.routeAllowedOrigins||[]).length > 32) errors.push('routeAllowedOrigins must contain no more than 32 entries');
   if (config.routesEnabled) warnings.push('Multi-origin routes are restart-only, explicitly approved and apply to proxy traffic only.');
 
+  if (config.appAuthEnabled) {
+    if (config.publicScheme !== 'https') errors.push('application authentication requires AW_PUBLIC_SCHEME=https and TLS at the public edge');
+    if (!config.appAuthFile || typeof config.appAuthFile !== 'string') errors.push('appAuthFile is required when application authentication is enabled');
+    warnings.push('Application authentication protects proxied routes only. Disable direct access to protected origins.');
+  }
   if (config.proxyEnabled) {
     try {
       const u = new URL(config.originUrl);
