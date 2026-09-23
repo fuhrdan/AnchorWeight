@@ -36,7 +36,7 @@ test('v1.8 cPanel require startup: proxy-only access rules, operator endpoints r
   const admin=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`);
   assert.equal(admin.status,401);
   const stats=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`,{headers:{Authorization:'Bearer long-dashboard-token-for-gateway-18'}});
-  const body=await stats.json();assert.equal(body.version,'2.3.0');assert.equal(body.gateway.denied,1);
+  const body=await stats.json();assert.equal(body.version,'2.4.0');assert.equal(body.gateway.denied,1);
   assert.equal(body.upstreamHealth.status,'disabled');
   const setup=await fetch(`http://127.0.0.1:${inst.port}/setup.html`);assert.equal(setup.status,200);
   const live=await fetch(`http://127.0.0.1:${inst.port}/live`);assert.equal(live.status,200);

@@ -1,3 +1,16 @@
+# AnchorWeight v2.4.0 — Live Traffic Observatory
+
+Upgrade from a verified v2.3.0 with the backup-first overlay. Keep
+`AW_OBSERVATORY_LIVE_ENABLED=false` during the initial deployment; normal
+route-level aggregates work without WebSockets. Read LIVE-TRAFFIC-OBSERVATORY.md
+before enabling the optional live stream. On Node 22 run
+`node --test --test-concurrency=1` and `npm run release:verify` before restarting.
+Confirm `/live` reports `2.4.0`, dashboard, wizard, previous evidence and routing.
+Then commit the *tested* files and tag v2.4.0. No runtime dependencies or state
+migration are needed; restore source only if rolling back and preserve live data.
+
+---
+
 # AnchorWeight v2.3.0 — Circuit Breakers & Upstream Resilience
 
 Upgrade from a verified v2.2.0 with the existing backup-first overlay. See

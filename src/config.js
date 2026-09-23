@@ -85,6 +85,7 @@ export function loadConfig(overrides = {}) {
     proxyEnabled: boolEnv('AW_PROXY_ENABLED', false),
     originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),
+    observatoryLiveEnabled: boolEnv('AW_OBSERVATORY_LIVE_ENABLED', false),
     gatewayAccessEnabled: boolEnv('AW_GATEWAY_ACCESS_ENABLED', false),
     gatewayRateEnabled: boolEnv('AW_GATEWAY_RATE_ENABLED', false),
     gatewayShadowMode: boolEnv('AW_GATEWAY_SHADOW_MODE', true),

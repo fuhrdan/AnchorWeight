@@ -34,7 +34,7 @@ test('cPanel-style multi-origin routing, fallback, query, proxy hot-switch and r
  const server=http.createServer();const port=await listen(server);const closed=once(server,'close');server.close();await closed;env.PORT=String(port);
  const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});
  child.errors='';child.stderr.on('data',chunk=>child.errors+=chunk.toString());t.after(async()=>{await stop(child);for(const s of [a,b,c,d]){s.closeAllConnections();s.close();}});
- const live=await waitLive(port,child);assert.equal(live.version,'2.3.0');assert.equal(live.routeCount,2);
+ const live=await waitLive(port,child);assert.equal(live.version,'2.4.0');assert.equal(live.routeCount,2);
  async function get(p,init){return fetch(`http://127.0.0.1:${port}${p}`,init);}
  assert.equal(await (await get('/api?x=1')).text(),'API GET /api?x=1');
  assert.equal(await (await get('/api/hello?x=1')).text(),'API GET /api/hello?x=1');

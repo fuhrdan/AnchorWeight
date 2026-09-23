@@ -1,4 +1,4 @@
-# AnchorWeight v2.3.0
+# AnchorWeight v2.4.0
 
 **Let bots identify themselves.**
 
@@ -37,6 +37,14 @@ AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file 
 - Longest segment-prefix policy selection, bounded async hashing, HTTP 401 challenges, stripped credentials before forwarding, and authenticated policy-only dashboard counters.
 - Existing per-path gateway rate-limit controls continue to work independently. No new runtime dependencies or state migration.
 - See [APPLICATION-AUTH.md](APPLICATION-AUTH.md) for installation, rotation, trust boundaries and rollback.
+
+## v2.4 Live Traffic Observatory
+
+- In-memory, per-process, bounded per-route response metrics with approximate p50/p95/p99 latency and sanitized transport-error counts.
+- Redacted last 50 proxied-response events in authenticated stats; no raw paths, IPs, authorization data or upstream URLs.
+- Optional, read-only WebSocket event stream with one-use, 30-second tickets issued by the authenticated admin API.
+- Disabled by default. No new runtime dependencies, state-schema changes or required routing changes.
+- [Installation and operator guide](LIVE-TRAFFIC-OBSERVATORY.md).
 
 ## v2.0 Integrated Defensive Security Platform
 

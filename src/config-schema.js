@@ -107,6 +107,7 @@ export function validateConfig(config) {
     } catch {errors.push('intelligenceHubUrl is invalid');}
     warnings.push('Distributed intelligence is opt-in; only locally verified bounded evidence is forwarded.');
   }
+  if (config.observatoryLiveEnabled != null && typeof config.observatoryLiveEnabled !== 'boolean') errors.push('observatoryLiveEnabled must be boolean');
   if (config.setupWritesEnabled && !config.setupConfigEnabled) errors.push('setupWritesEnabled requires setupConfigEnabled');
   if (config.setupWritesEnabled && !config.dashboardToken) errors.push('setupWritesEnabled requires an authenticated dashboard token');
   if (config.setupConfigEnabled) warnings.push('Operator configuration file may override only proxyEnabled and originUrl; disable AW_SETUP_CONFIG_ENABLED to ignore it.');

@@ -141,7 +141,7 @@ export function createReverseProxy(config, deps = {}) {
     upstream.on('timeout', () => upstream.destroy(new Error('origin_timeout')));
     upstream.on('error', err => {
       deps.onUpstreamFailure?.(req);
-      deps.onProxyError?.(err);
+      deps.onProxyError?.(err,req);
       if (err.message === 'request_body_too_large') return; // Request limiter will send 413, never substitute maintenance.
       if (!res.headersSent && config.gatewayMaintenanceEnabled && ['GET','HEAD'].includes(req.method)) {
         deps.onMaintenance?.(req,res);

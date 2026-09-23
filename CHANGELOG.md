@@ -1,3 +1,11 @@
+## 2.4.0 — Live Traffic Observatory
+
+- Added bounded per-route response counts, status distribution, upstream failures and histogram-estimated p50/p95/p99 latency.
+- Added a redacted last-50 proxied-response feed to authenticated dashboard snapshots, with sanitized error categories only.
+- Added optional, read-only WebSocket streaming with same-origin checks and single-use, 30-second authenticated tickets; capped clients and backpressure.
+- Preserved cPanel-compatible startup, v2.3 routing and resilience, existing JSON/SQLite schema, and default-off live-stream behavior.
+- [Operator guide](LIVE-TRAFFIC-OBSERVATORY.md).
+
 ## 2.3.0 — Circuit Breakers & Upstream Resilience
 
 - Opt-in per-origin circuit breakers and bounded independent HEAD health probes.
