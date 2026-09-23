@@ -68,6 +68,16 @@ export class MemoryStore {
     return publicProfile(key, p);
   }
 
+  /** An analyst review is metadata, not an automatic allow/quarantine decision. */
+  setReviewById(botId, status, note = '') {
+    const key = this.findProfileKeyById(botId);
+    if (!key) return null;
+    const p = this.getProfile(key);
+    p.review = { status, note, at: new Date(this.now()).toISOString() };
+    this.touchProfile?.(key);
+    return publicProfile(key, p);
+  }
+
   getPublicProfileById(botId) {
     const key = this.findProfileKeyById(botId);
     return key ? publicProfile(key, this.getProfile(key)) : null;

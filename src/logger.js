@@ -46,6 +46,8 @@ export function readEvents(file, options = {}) {
   const botId = String(options.botId || '').trim().toUpperCase();
   const campaignId = String(options.campaignId || '').trim().toUpperCase();
   const search = String(options.search || '').trim().toLowerCase();
+  const from = options.from ? Date.parse(options.from) : null;
+  const to = options.to ? Date.parse(options.to) : null;
   let raw = '';
   try { raw = fs.readFileSync(file, 'utf8'); } catch (err) {
     if (err?.code === 'ENOENT') return [];
@@ -56,7 +58,9 @@ export function readEvents(file, options = {}) {
   for (let i = lines.length - 1; i >= 0 && out.length < limit; i--) {
     let e;
     try { e = JSON.parse(lines[i]); } catch { continue; }
-    const eventBotId = e.ipKey ? `AW-${String(e.ipKey).slice(0, 8).toUpperCase()}` : '';
+    const at = Date.parse(e.ts);
+    if ((from !== null || to !== null) && (!Number.isFinite(at) || (from !== null && at < from) || (to !== null && at > to))) continue;
+    const eventBotId = e.ipKey ? `AW-${String(e.ipKey).slice(0, 8).toUpperCase()}` : String(e.botId || '').toUpperCase();
     const text = JSON.stringify(e).toLowerCase();
     if (type && e.type !== type) continue;
     if (botId && eventBotId !== botId) continue;
@@ -68,18 +72,18 @@ export function readEvents(file, options = {}) {
 }
 
 function publicEvent(e) {
-  const safe = { ...e };
-  if (safe.ipKey) {
-    safe.botId = `AW-${String(safe.ipKey).slice(0, 8).toUpperCase()}`;
-    delete safe.ipKey;
+  const safe = {};
+  const fields = ['ts','type','sid','campaignId','path','depth','branch','branchPath',
+    'elapsedMs','reason','score','points','signal','offenses','minutes','until',
+    'provider','policy','botId','members','confidence'];
+  for (const field of fields) if (Object.hasOwn(e, field)) safe[field] = e[field];
+  if (typeof safe.path === 'string') {
+    // Keep the route category, not bearer-like signed canary path segments or queries.
+    safe.path = safe.path.split('?')[0].replace(/\/t\/[^/]+(?:\/[^/]*)*/, '/t/[signed-path-redacted]');
+    safe.path = safe.path.slice(0, 200);
   }
-  if (safe.ownerKey) {
-    safe.ownerBotId = `AW-${String(safe.ownerKey).slice(0, 8).toUpperCase()}`;
-    delete safe.ownerKey;
-  }
-  if (safe.otherKey) {
-    safe.otherBotId = `AW-${String(safe.otherKey).slice(0, 8).toUpperCase()}`;
-    delete safe.otherKey;
-  }
+  if (e.ipKey) safe.botId = `AW-${String(e.ipKey).slice(0, 8).toUpperCase()}`;
+  if (e.ownerKey) safe.ownerBotId = `AW-${String(e.ownerKey).slice(0, 8).toUpperCase()}`;
+  if (e.otherKey) safe.otherBotId = `AW-${String(e.otherKey).slice(0, 8).toUpperCase()}`;
   return safe;
 }

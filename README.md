@@ -1,4 +1,4 @@
-# AnchorWeight v1.4.0
+# AnchorWeight v1.5.0
 
 **Let bots identify themselves.**
 
@@ -12,6 +12,13 @@ AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification
 > **The maze is not the weapon. The maze is the test.**
 
 AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, or connection-exhaustion system.
+
+## v1.5 Investigation Console 2.0
+
+- Searchable, bounded Bot DNA and campaign investigation timelines and relationship evidence.
+- Authenticated JSON and plain-text case reports with signed-path redaction.
+- Explicit, CSRF-protected analyst reviews separate from enforcement policy.
+- [Investigation Console 2.0 guide](INVESTIGATION-CONSOLE-2.md).
 
 ## Security Engineering Evidence
 

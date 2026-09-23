@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.5.0] - 2026-09-23
+
+- Introduced Investigation Console 2.0 with bounded chronological case timelines, filters, campaign drilldown and explained relationships.
+- Added authenticated JSON and plain-text case reports with a conservative public event projection; signed canary paths are redacted.
+- Added CSRF-protected, persistent analyst review statuses and bounded notes. Reviews do not silently change enforcement policy.
+- Kept existing JSON/SQLite schema at v5, Node 22 cPanel startup compatibility and local protection behavior unchanged.
+
+
 ## 1.4.0
 - Bot DNA 2.0 assessment: separate automation indicators, signed-trap evidence, and verified search-bot identity without changing existing scoring or enforcement defaults.
 - Optional trusted-proxy JA4-compatible observation, saved as bounded keyed hashes only; missing values never incur risk points.
@@ -45,4 +53,3 @@
 - Multi-stage non-root container build and hardened deployment presets.
 - Architecture, threat model, configuration reference, release guide, and source manifest.
 - All v0.9 production-hardening, investigation, campaign-intelligence, Bot DNA, Proof-of-Crawl, and Silent Quarantine features retained.
-

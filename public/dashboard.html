@@ -2,11 +2,11 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AnchorWeight Dashboard</title>
 <style>
-:root{color-scheme:dark}*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b1220;color:#e5e7eb;margin:0}header{border-bottom:1px solid #263244;background:#101827}main,header>div{max-width:1180px;margin:auto;padding:1.2rem 1.5rem}.brand{display:flex;align-items:center;justify-content:space-between;gap:1rem}.brand h1{margin:0}.subtitle,.muted{color:#9ca3af}.toolbar,.summary{display:flex;gap:.65rem;flex-wrap:wrap;align-items:center}.toolbar{margin:1.25rem 0}.panel{background:#121c2d;border:1px solid #2a3850;border-radius:14px;padding:1rem;margin:1rem 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem}.card{background:#111a29;border:1px solid #29364b;border-radius:12px;padding:.9rem}.value{font-size:1.65rem;font-weight:750;margin-top:.25rem}.label{font-size:.86rem;color:#aeb8c7}.help{font-size:.78rem;color:#7f8ba0;margin-top:.25rem}.pill{display:inline-block;padding:.28rem .55rem;border-radius:999px;background:#263244;font-size:.82rem}.ok{background:#183b30}.warn{background:#4b3418}.danger{background:#4a2026}input,button{padding:.7rem .8rem;border-radius:8px;border:1px solid #3a4960;background:#0b1220;color:#fff}input{min-width:280px}button{cursor:pointer;background:#1e314d}button:hover{background:#294264}code{background:#070b13;padding:.15rem .35rem;border-radius:4px}table{width:100%;border-collapse:collapse;margin-top:.65rem;overflow:hidden}th,td{text-align:left;padding:.7rem;border-bottom:1px solid #2a3850;font-size:.88rem;vertical-align:top}th{color:#9ca3af;font-weight:600}.table-wrap{overflow:auto}.risk{font-weight:800}.empty{padding:1rem;color:#9ca3af}.section-title{display:flex;justify-content:space-between;align-items:center;gap:1rem}.error{color:#fecaca}.good{color:#bbf7d0}@media(max-width:650px){main,header>div{padding:1rem}input{min-width:0;width:100%}.toolbar button{width:100%}.brand{align-items:flex-start;flex-direction:column}}
+:root{color-scheme:dark}*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#0b1220;color:#e5e7eb;margin:0}header{border-bottom:1px solid #263244;background:#101827}main,header>div{max-width:1180px;margin:auto;padding:1.2rem 1.5rem}.brand{display:flex;align-items:center;justify-content:space-between;gap:1rem}.brand h1{margin:0}.subtitle,.muted{color:#9ca3af}.toolbar,.summary{display:flex;gap:.65rem;flex-wrap:wrap;align-items:center}.toolbar{margin:1.25rem 0}.panel{background:#121c2d;border:1px solid #2a3850;border-radius:14px;padding:1rem;margin:1rem 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:.8rem}.card{background:#111a29;border:1px solid #29364b;border-radius:12px;padding:.9rem}.value{font-size:1.65rem;font-weight:750;margin-top:.25rem}.label{font-size:.86rem;color:#aeb8c7}.help{font-size:.78rem;color:#7f8ba0;margin-top:.25rem}.pill{display:inline-block;padding:.28rem .55rem;border-radius:999px;background:#263244;font-size:.82rem}.ok{background:#183b30}.warn{background:#4b3418}.danger{background:#4a2026}input,button,select,textarea{padding:.7rem .8rem;border-radius:8px;border:1px solid #3a4960;background:#0b1220;color:#fff}input{min-width:280px}textarea{width:100%;min-height:72px;resize:vertical}select{max-width:100%}button{cursor:pointer;background:#1e314d}button:hover{background:#294264}code{background:#070b13;padding:.15rem .35rem;border-radius:4px}table{width:100%;border-collapse:collapse;margin-top:.65rem;overflow:hidden}th,td{text-align:left;padding:.7rem;border-bottom:1px solid #2a3850;font-size:.88rem;vertical-align:top}th{color:#9ca3af;font-weight:600}.table-wrap{overflow:auto}.risk{font-weight:800}.empty{padding:1rem;color:#9ca3af}.section-title{display:flex;justify-content:space-between;align-items:center;gap:1rem}.error{color:#fecaca}.good{color:#bbf7d0}@media(max-width:650px){main,header>div{padding:1rem}input{min-width:0;width:100%}.toolbar button{width:100%}.brand{align-items:flex-start;flex-direction:column}}
 .tabs{display:flex;gap:.45rem;flex-wrap:wrap;margin:1rem 0}.tab{background:#172338}.tab.active{background:#31517d}.hidden{display:none!important}.timeline{border-left:2px solid #33445f;margin:.8rem 0;padding-left:1rem}.event{margin:.65rem 0;padding:.65rem .75rem;background:#0d1625;border-radius:8px}.event small{color:#8290a5}.actions{display:flex;gap:.4rem;flex-wrap:wrap}.actions button{padding:.4rem .6rem}.searchbar{display:flex;gap:.5rem;flex-wrap:wrap}.searchbar input{min-width:160px;flex:1}.detail{white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:.82rem;background:#080d16;padding:.8rem;border-radius:8px;overflow:auto}
 .campaign-map{display:flex;flex-direction:column;gap:.75rem}.campaign-line{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;padding:.65rem;background:#0d1625;border-radius:10px}.node{padding:.4rem .55rem;border:1px solid #3a4960;border-radius:999px;background:#172338;font-family:ui-monospace,monospace}.edge{color:#7f8ba0}
 </style></head><body>
-<header><div class="brand"><div><h1>⚓ AnchorWeight</h1><div class="subtitle">Crawler defense console · v1.4.0</div></div><div id="modePill" class="pill">Not connected</div></div></header>
+<header><div class="brand"><div><h1>⚓ AnchorWeight</h1><div class="subtitle">Crawler defense console · v1.5.0</div></div><div id="modePill" class="pill">Not connected</div></div></header>
 <main>
 <section class="panel"><div class="section-title"><div><strong>Connect to this instance</strong><div class="help">The dashboard token is only used to call the local stats API. It is remembered in this browser if you choose Save.</div></div></div>
 <div class="toolbar"><input id="token" type="password" autocomplete="current-password" placeholder="Dashboard token"><button id="load">Refresh dashboard</button><button id="save">Save token locally</button><button id="forget">Forget token</button></div><div id="message" class="muted">Enter the token configured as <code>AW_DASHBOARD_TOKEN</code>.</div></section>
@@ -23,9 +23,12 @@
 
 <div class="tabs"><button class="tab active" data-view="overview">Overview</button><button class="tab" data-view="events">Events</button><button class="tab" data-view="investigate">Investigate</button></div>
 <section id="view-events" class="panel hidden"><div class="section-title"><div><h2 style="margin:.1rem 0">Event explorer</h2><div class="help">Search recent AnchorWeight evidence without opening the JSONL log manually.</div></div></div>
-<div class="searchbar"><input id="eventBot" placeholder="Bot ID, e.g. AW-1234ABCD"><input id="eventType" placeholder="Event type"><input id="eventSearch" placeholder="Search event text"><button id="eventLoad">Search events</button></div><div id="events" class="empty">Search to load recent events.</div></section>
+<div class="searchbar"><input id="eventBot" placeholder="Bot ID, e.g. AW-1234ABCD"><input id="eventType" placeholder="Event type"><input id="eventSearch" placeholder="Search event text"><input id="eventFrom" type="datetime-local" aria-label="Events from"><input id="eventTo" type="datetime-local" aria-label="Events to"><button id="eventLoad">Search events</button></div><div id="events" class="empty">Search to load recent events.</div></section>
 <section id="view-investigate" class="panel hidden"><div class="section-title"><div><h2 style="margin:.1rem 0">Investigation console</h2><div class="help">Enter a Bot DNA ID to review its profile, timeline, and operator policy.</div></div></div>
-<div class="searchbar"><input id="investigateBot" placeholder="AW-1234ABCD"><button id="investigateLoad">Investigate</button></div>
+<div class="searchbar"><input id="investigateBot" placeholder="AW-1234ABCD"><button id="investigateLoad">Investigate bot</button></div>
+<div class="searchbar"><input id="investigateCampaign" placeholder="AWC-1234ABCD"><button id="campaignLoad">Investigate campaign</button></div>
+<div class="searchbar"><input id="caseSearch" placeholder="Filter case timeline"><input id="caseType" placeholder="Filter event type"><input id="caseFrom" type="datetime-local" aria-label="Case events from"><input id="caseTo" type="datetime-local" aria-label="Case events to"></div>
+<div id="caseTools" class="actions hidden" style="margin:1rem 0"><button id="downloadJson">Export JSON</button><button id="downloadText">Export text report</button></div>
 <div id="investigation" class="empty">Select a Bot DNA profile or enter an ID.</div></section>
 <section class="panel"><strong>How to read this dashboard</strong><p class="muted">A <em>lure visit</em> means a client found the trap entrance. A <em>valid traversal</em> means it followed a cryptographically issued child. A <em>Proof-of-Crawl</em> is reached at the configured depth. In Shadow Mode, AnchorWeight records what it would quarantine without diverting traffic. In Enforce Mode, convicted clients receive inert HTTP 200 decoys instead of reaching the real origin.</p></section>
 </main>
@@ -70,7 +73,7 @@ async function load(){await discoverApiBase();const msg=document.querySelector('
  const ps=j.topProfiles||[];document.querySelector('#profiles').innerHTML=ps.length?'<div class="table-wrap"><table><thead><tr><th>ID</th><th>Score</th><th>Classification</th><th>Good bot</th><th>Policy</th><th>Requests</th><th>Depth</th><th>Proofs</th><th>Offenses</th><th>Avg interval</th><th>Style</th><th>Campaigns</th><th>Recent signals</th></tr></thead><tbody>'+ps.map(p=>'<tr><td><button class="inspect" data-bot="'+esc(p.id)+'"><code>'+esc(p.id)+'</code></button></td><td class="risk">'+esc(p.score)+'</td><td>'+esc(p.classification)+'</td><td>'+esc(goodBotText(p))+'</td><td>'+esc(p.manualPolicy||'—')+'</td><td>'+esc(p.requestCount)+'</td><td>'+esc(p.maxDepth)+'</td><td>'+esc(p.proofOfCrawl)+'</td><td>'+esc(p.offenseCount||0)+'</td><td>'+esc(p.averageIntervalMs==null?'—':p.averageIntervalMs+' ms')+'</td><td>'+esc(p.traversalStyle||'—')+'</td><td>'+esc((p.campaignIds||[]).join(', ')||'—')+'</td><td>'+esc((p.signals||[]).map(s=>s.signal).slice(-4).join(', ')||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No Bot DNA profiles have been recorded yet.</div>';
  const cs=j.topCampaigns||[];
  document.querySelector('#campaignMap').innerHTML=cs.length?'<div class="campaign-map">'+cs.map(c=>'<div class="campaign-line"><span class="node">'+esc(c.id)+'</span><span class="edge">→</span>'+(c.members||[]).map(m=>'<button class="inspect node" data-bot="'+esc(m)+'">'+esc(m)+'</button>').join('<span class="edge">↔</span>')+'<span class="pill">'+esc(c.confidence)+'%</span></div>').join('')+'</div>':'<div class="empty">No correlated campaigns yet.</div>';
- document.querySelector('#campaigns').innerHTML=cs.length?'<div class="table-wrap"><table><thead><tr><th>Campaign</th><th>Confidence</th><th>Classification</th><th>Members</th><th>Recent evidence</th></tr></thead><tbody>'+cs.map(c=>'<tr><td><code>'+esc(c.id)+'</code></td><td class="risk">'+esc(c.confidence)+'%</td><td>'+esc(c.classification)+'</td><td>'+esc((c.members||[]).join(', '))+'</td><td>'+esc((c.evidence||[]).map(e=>e.reason).slice(-4).join(', ')||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No distributed crawler campaigns correlated yet.</div>';
+ document.querySelector('#campaigns').innerHTML=cs.length?'<div class="table-wrap"><table><thead><tr><th>Campaign</th><th>Confidence</th><th>Classification</th><th>Members</th><th>Recent evidence</th></tr></thead><tbody>'+cs.map(c=>'<tr><td><button class="inspect-campaign" data-campaign="'+esc(c.id)+'"><code>'+esc(c.id)+'</code></button></td><td class="risk">'+esc(c.confidence)+'%</td><td>'+esc(c.classification)+'</td><td>'+esc((c.members||[]).join(', '))+'</td><td>'+esc((c.evidence||[]).map(e=>e.reason).slice(-4).join(', ')||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No distributed crawler campaigns correlated yet.</div>';
  msg.innerHTML='<span class="good">Connected.</span> Last refreshed '+new Date().toLocaleTimeString();}catch(e){msg.innerHTML='<span class="error">Unable to load dashboard: '+esc(e.message)+'</span>';}}
 document.querySelector('#load').onclick=load;document.querySelector('#save').onclick=()=>{localStorage.setItem('anchorweightDashboardToken',token.value);document.querySelector('#message').textContent='Token saved in this browser.'};document.querySelector('#forget').onclick=()=>{localStorage.removeItem('anchorweightDashboardToken');token.value='';csrfToken='';document.querySelector('#message').textContent='Saved token removed.'};token.addEventListener('keydown',e=>{if(e.key==='Enter')load()});
 if(token.value)load();
@@ -88,11 +91,98 @@ async function ensureCsrf(){await discoverApiBase();
 function switchView(name){document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.view===name));['events','investigate'].forEach(v=>document.querySelector('#view-'+v).classList.toggle('hidden',v!==name));}
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>switchView(b.dataset.view));
 function eventTable(es){return es.length?'<div class="table-wrap"><table><thead><tr><th>Time</th><th>Type</th><th>Bot</th><th>Path</th><th>Depth</th><th>Reason</th></tr></thead><tbody>'+es.map(e=>'<tr><td>'+esc(new Date(e.ts).toLocaleString())+'</td><td>'+esc(e.type)+'</td><td>'+esc(e.botId||'—')+'</td><td>'+esc(e.path||'—')+'</td><td>'+esc(e.depth??'—')+'</td><td>'+esc(e.reason||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No matching events.</div>'}
-async function loadEvents(){await discoverApiBase();try{const qs=new URLSearchParams({limit:'100',bot:document.querySelector('#eventBot').value,type:document.querySelector('#eventType').value,q:document.querySelector('#eventSearch').value});const r=await fetch(apiBase+'/api/events?'+qs,{headers:auth()});if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();document.querySelector('#events').innerHTML=eventTable(j.events||[])}catch(e){document.querySelector('#events').innerHTML='<span class="error">'+esc(e.message)+'</span>'}}
+async function loadEvents(){await discoverApiBase();try{const qs=new URLSearchParams({limit:'100',bot:document.querySelector('#eventBot').value,type:document.querySelector('#eventType').value,q:document.querySelector('#eventSearch').value,from:document.querySelector('#eventFrom').value?new Date(document.querySelector('#eventFrom').value).toISOString():'',to:document.querySelector('#eventTo').value?new Date(document.querySelector('#eventTo').value).toISOString():''});const r=await fetch(apiBase+'/api/events?'+qs,{headers:auth()});if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();document.querySelector('#events').innerHTML=eventTable(j.events||[])}catch(e){document.querySelector('#events').innerHTML='<span class="error">'+esc(e.message)+'</span>'}}
 document.querySelector('#eventLoad').onclick=loadEvents;
-async function investigate(bot){await discoverApiBase();bot=(bot||document.querySelector('#investigateBot').value).trim().toUpperCase();if(!bot)return;document.querySelector('#investigateBot').value=bot;switchView('investigate');const box=document.querySelector('#investigation');box.textContent='Loading investigation…';try{const r=await fetch(apiBase+'/api/investigate?bot='+encodeURIComponent(bot),{headers:auth()});if(!r.ok)throw new Error('HTTP '+r.status);const j=await r.json();const p=j.profile;if(!p){box.innerHTML='<span class="error">Profile not found.</span>';return}box.innerHTML='<div class="grid"><div class="card"><div class="label">Risk score</div><div class="value">'+esc(p.score)+'</div></div><div class="card"><div class="label">Classification</div><div class="value" style="font-size:1rem">'+esc(p.classification)+'</div></div><div class="card"><div class="label">Traversal</div><div class="value" style="font-size:1rem">'+esc(p.traversalStyle)+'</div></div><div class="card"><div class="label">Current policy</div><div class="value" style="font-size:1rem">'+esc(p.manualPolicy||'automatic')+'</div></div><div class="card"><div class="label">Recorded offenses</div><div class="value">'+esc(p.offenseCount||0)+'</div></div></div><div class="actions" style="margin:1rem 0"><button onclick="setPolicy(\''+esc(p.id)+'\',\'allow\')">Allow</button><button onclick="setPolicy(\''+esc(p.id)+'\',\'quarantine\')">Quarantine</button><button onclick="setPolicy(\''+esc(p.id)+'\',null)">Clear policy</button></div><h3>Bot DNA 2.0 assessment</h3><p class="help">Observations are not proof of malicious intent. Fingerprint availability does not affect the score.</p><div class="timeline"><div class="event"><b>Identity</b> '+esc(p.assessment?.identity||'unverified')+' · <b>Automation indicators</b> '+esc((p.assessment?.automationIndicators||[]).join(', ')||'none recorded')+' · <b>Trap evidence</b> '+esc((p.assessment?.trapEvidence||[]).join(', ')||'none recorded')+' · <b>Trusted TLS fingerprint</b> '+esc(p.assessment?.tlsFingerprint?.available?p.assessment.tlsFingerprint.variantsObserved+' hashed variant(s)':'unavailable')+'</div><div class="event">'+esc((p.assessment?.limitations||[]).join(' · '))+'</div></div><h3>Structured evidence</h3><p class="help">Signed branch lineage and detection reasons. Informational until reviewed.</p><div class="timeline">'+(p.evidence||[]).map(e=>'<div class="event"><b>'+esc(e.kind)+'</b> <small>'+esc(new Date(e.at).toLocaleString())+'</small><div>'+esc([e.reason,e.depth!=null?'depth '+e.depth:'',e.branch!=null?'branch '+e.branch:'',e.elapsedMs!=null?e.elapsedMs+' ms':'',e.offenseCount!=null?'offense '+e.offenseCount:''].filter(Boolean).join(' · '))+'</div></div>').join('')+'</div><h3>Recent timeline</h3><div class="timeline">'+(j.events||[]).map(e=>'<div class="event"><b>'+esc(e.type)+'</b> <small>'+esc(new Date(e.ts).toLocaleString())+'</small><div>'+esc([e.path,e.reason,e.depth!=null?'depth '+e.depth:'',e.branch!=null?'branch '+e.branch:''].filter(Boolean).join(' · '))+'</div></div>').join('')+'</div>'}catch(e){box.innerHTML='<span class="error">'+esc(e.message)+'</span>'}}
+let currentCase = null;
+function caseParams(param,id){
+  const qs=new URLSearchParams({[param]:id});
+  const search=document.querySelector('#caseSearch').value.trim();
+  const type=document.querySelector('#caseType').value.trim();
+  const from=document.querySelector('#caseFrom').value;
+  const to=document.querySelector('#caseTo').value;
+  if(search)qs.set('q',search);
+  if(type)qs.set('type',type);
+  if(from)qs.set('from',new Date(from).toISOString());
+  if(to)qs.set('to',new Date(to).toISOString());
+  return qs;
+}
+async function investigate(bot, kind='bot') {
+  await discoverApiBase();
+  const id = (bot || document.querySelector(kind==='bot'?'#investigateBot':'#investigateCampaign').value).trim().toUpperCase();
+  if (!id) return;
+  currentCase = null;
+  document.querySelector('#caseTools').classList.add('hidden');
+  switchView('investigate');
+  const box = document.querySelector('#investigation');
+  box.textContent='Loading investigation…';
+  const param = kind==='bot'?'bot':'campaign';
+  try {
+    const qs = caseParams(param,id);
+    const r=await fetch(apiBase+'/api/investigate?'+qs,{headers:auth()});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j=await r.json();
+    if (!j.profile && !j.campaign) {box.textContent='Case not found.';return;}
+    currentCase={id,kind};
+    document.querySelector('#caseTools').classList.remove('hidden');
+    if (kind==='campaign') document.querySelector('#investigateCampaign').value=id;
+    else document.querySelector('#investigateBot').value=id;
+    box.innerHTML=renderInvestigation(j);
+    if(j.profile?.review){document.querySelector('#reviewStatus').value=j.profile.review.status;document.querySelector('#reviewNote').value=j.profile.review.note||'';}
+  } catch(e) {box.innerHTML='<span class="error">'+esc(e.message)+'</span>';}
+}
+function renderInvestigation(j) {
+  const p=j.profile, c=j.campaign;
+  const header=p
+    ? '<div class="grid"><div class="card"><div class="label">Bot DNA</div><div class="value" style="font-size:1rem">'+esc(p.id)+'</div></div><div class="card"><div class="label">Classification</div>'+esc(p.classification)+'</div><div class="card"><div class="label">Policy</div>'+esc(p.manualPolicy||'automatic')+'</div><div class="card"><div class="label">Review</div>'+esc(p.review?.status||'not reviewed')+'</div></div>'
+    : '<h3>Campaign '+esc(c.id)+'</h3><p>Classification: '+esc(c.classification)+' · Confidence: '+esc(c.confidence)+' (heuristic, not identity proof)</p><p>Members: '+(c.members||[]).map(id=>'<button class="inspect" data-bot="'+esc(id)+'">'+esc(id)+'</button>').join(' ')+'</p>';
+  const botControls=p?'<div class="actions" style="margin:1rem 0"><button onclick="setPolicy(\''+esc(p.id)+'\',\'allow\')">Allow</button><button onclick="setPolicy(\''+esc(p.id)+'\',\'quarantine\')">Quarantine</button><button onclick="setPolicy(\''+esc(p.id)+'\',null)">Clear policy</button></div>'
+    +'<h3>Analyst review</h3><p class="help">A review records your assessment but does not alter enforcement. Use Allow or Clear policy separately if needed.</p>'
+    +'<select id="reviewStatus" aria-label="Review status"><option value="needs_review">Needs review</option><option value="false_positive">False positive</option><option value="confirmed_automation">Confirmed automation</option><option value="inconclusive">Inconclusive</option></select>'
+    +'<textarea id="reviewNote" maxlength="500" placeholder="Optional review note (500 characters max)"></textarea><button id="saveReview">Save review</button>'
+    +'<h3>Bot DNA 2.0</h3><div class="event">Identity: '+esc(p.assessment?.identity||'unverified')+' · Indicators: '+esc((p.assessment?.automationIndicators||[]).join(', ')||'none')+' · Signed-trap evidence: '+esc((p.assessment?.trapEvidence||[]).join(', ')||'none')+'</div>'
+    +'<h3>Structured evidence</h3><div class="timeline">'+(p.evidence||[]).map(e=>'<div class="event"><b>'+esc(e.kind)+'</b> <small>'+esc(new Date(e.at).toLocaleString())+'</small><div>'+esc([e.reason,e.depth!=null?'depth '+e.depth:'',e.branch!=null?'branch '+e.branch:''].filter(Boolean).join(' · '))+'</div></div>').join('')+'</div>' : '';
+  const relations=c?'<h3>Documented relationships</h3><div class="timeline">'+(c.evidence||[]).map(e=>'<div class="event"><b>'+esc(e.reason)+'</b> · '+esc(e.depth!=null?'depth '+e.depth:'')+' · '+esc(e.branch!=null?'branch '+e.branch:'')+'</div>').join('')+'</div>'
+    :'<h3>Related campaigns</h3><div>'+(j.relatedCampaigns||[]).map(c=>'<button class="inspect-campaign" data-campaign="'+esc(c.id)+'">'+esc(c.id)+'</button>').join(' ')+'</div>';
+  const timeline='<h3>Chronological timeline ('+esc(j.eventCount)+')</h3><div class="timeline">'+(j.timeline||[]).map(e=>'<div class="event"><b>'+esc(e.type)+'</b> <small>'+esc(new Date(e.ts).toLocaleString())+'</small><div>'+esc([e.botId,e.campaignId,e.path,e.reason,e.depth!=null?'depth '+e.depth:'',e.branch!=null?'branch '+e.branch:''].filter(Boolean).join(' · '))+'</div></div>').join('')+'</div>';
+  const limitations='<p class="help">'+esc((j.limitations||[]).join(' '))+'</p>';
+  // Defer wiring until HTML is inserted; the parent can delegate to reviewStatus/saveReview.
+  return header+botControls+relations+timeline+limitations;
+}
 document.querySelector('#investigateLoad').onclick=()=>investigate();
-document.addEventListener('click',e=>{const b=e.target.closest('.inspect');if(b)investigate(b.dataset.bot)});
+document.querySelector('#campaignLoad').onclick=()=>investigate(null,'campaign');
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.inspect');if(b){investigate(b.dataset.bot);return;}
+  const c=e.target.closest('.inspect-campaign');if(c){investigate(c.dataset.campaign,'campaign');return;}
+  if(e.target.id==='saveReview') saveReview();
+});
+async function downloadReport(format){
+  if(!currentCase)return;
+  await discoverApiBase();
+  const key=currentCase.kind==='bot'?'bot':'campaign';
+  try {
+    const qs=caseParams(key,currentCase.id);qs.set('format',format);
+    const r=await fetch(apiBase+'/api/report?'+qs,{headers:auth()});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const blob=await r.blob();const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='anchorweight-'+currentCase.id+'.'+format;
+    document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+  }catch(e){alert('Export failed: '+e.message);}
+}
+document.querySelector('#downloadJson').onclick=()=>downloadReport('json');
+document.querySelector('#downloadText').onclick=()=>downloadReport('txt');
+async function saveReview(){
+  if(!currentCase || currentCase.kind!=='bot')return;
+  const status=document.querySelector('#reviewStatus').value;
+  const note=document.querySelector('#reviewNote').value;
+  try{
+    let csrf=await ensureCsrf();
+    let r=await fetch(apiBase+'/api/review',{method:'POST',headers:auth({'X-AW-CSRF':csrf}),body:JSON.stringify({botId:currentCase.id,status,note})});
+    if(r.status===403){csrfToken='';csrf=await ensureCsrf();r=await fetch(apiBase+'/api/review',{method:'POST',headers:auth({'X-AW-CSRF':csrf}),body:JSON.stringify({botId:currentCase.id,status,note})});}
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    await investigate(currentCase.id);await load();
+  }catch(e){alert('Review failed: '+e.message);}
+}
+
 async function setPolicy(bot,policy){
   if(!confirm('Set '+bot+' policy to '+(policy||'automatic')+'?'))return;
   try{

@@ -3,6 +3,7 @@ import { MemoryStore } from './store.js';
 import { createLogger, readEvents } from './logger.js';
 import { childEntries, inspectChain } from './procedural.js';
 import { noteEvidence } from './evidence.js';
+import { parseCaseQuery, buildInvestigation, buildCaseReport, formatCaseReportText, validateReview } from './investigation.js';
 import { renderDecoy } from './decoy.js';
 import { BehaviorEngine } from './behavior.js';
 import { GoodBotVerifier } from './goodbot.js';
@@ -138,7 +139,8 @@ export function createAnchorWeight(config, deps = {}) {
   function handle(req, res, url) {
     const method = req.method || 'GET';
     const isPolicyPost = method === 'POST' && url.pathname === `${config.basePath}/api/policy`;
-    if (!['GET', 'HEAD'].includes(method) && !isPolicyPost) return text(res, 405, 'Method not allowed');
+    const isReviewPost = method === 'POST' && url.pathname === `${config.basePath}/api/review`;
+    if (!['GET', 'HEAD'].includes(method) && !isPolicyPost && !isReviewPost) return text(res, 405, 'Method not allowed');
 
     if (url.pathname.startsWith(`${config.basePath}/api/`)) {
       if (!config.dashboardEnabled) return text(res, 404, 'Not found');
@@ -162,11 +164,11 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.4.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.5.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.4.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.5.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (url.pathname === `${config.basePath}/api/events`) {
@@ -175,18 +177,64 @@ export function createAnchorWeight(config, deps = {}) {
           type: url.searchParams.get('type') || '',
           botId: url.searchParams.get('bot') || '',
           campaignId: url.searchParams.get('campaign') || '',
-          search: url.searchParams.get('q') || ''
+          search: url.searchParams.get('q') || '',
+          from: url.searchParams.get('from') || '',
+          to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'1.4.0', events });
+        return json(res, 200, { version:'1.5.0', events });
       }
 
-      if (url.pathname === `${config.basePath}/api/investigate`) {
-        const botId = url.searchParams.get('bot') || '';
-        const campaignId = url.searchParams.get('campaign') || '';
-        const profile = botId ? store.getPublicProfileById?.(botId) : null;
-        const campaign = campaignId ? store.getPublicCampaignById?.(campaignId) : null;
-        const events = readEvents(config.logFile, { limit: 200, botId, campaignId });
-        return json(res, 200, { profile, campaign, events });
+      if (url.pathname === `${config.basePath}/api/investigate` ||
+          url.pathname === `${config.basePath}/api/report`) {
+        let query;
+        const reportRequest = url.pathname.endsWith('/report');
+        try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
+        catch (err) { return json(res, 400, { error:err.message }); }
+        if (!query.botId && !query.campaignId) return json(res, 200, {
+          version:'1.5.0', profile:null, campaign:null, events:[], timeline:[]
+        });
+        const investigation = buildInvestigation(store, config.logFile, query);
+        if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });
+        if (!reportRequest) return json(res, 200, investigation);
+        const report = buildCaseReport(investigation);
+        const format = url.searchParams.get('format') || 'json';
+        if (!['json','txt'].includes(format)) return json(res, 400, { error:'invalid_report_format' });
+        res.setHeader('Content-Disposition', `attachment; filename="anchorweight-${report.caseId}.${format}"`);
+        if (format === 'txt') return text(res, 200, formatCaseReportText(report));
+        return json(res, 200, report);
+      }
+
+      if (url.pathname === `${config.basePath}/api/review`) {
+        if (req.method !== 'POST') return text(res, 405, 'Method not allowed');
+        if (!admin.validateCsrf(req)) {
+          audit({ type:'admin_csrf_failed', client:admin.clientKey(req), path:url.pathname });
+          return json(res, 403, { error:'csrf_required' });
+        }
+        let body = '';
+        let size = 0;
+        let tooLarge = false;
+        req.on('data', chunk => {
+          if (tooLarge) return;
+          size += chunk.length;
+          if (size > config.adminBodyMaxBytes) {
+            tooLarge = true;
+            return json(res, 413, { error:'request_body_too_large' });
+          }
+          body += chunk;
+        });
+        req.on('end', () => {
+          if (tooLarge) return;
+          let review;
+          try { review = validateReview(JSON.parse(body || '{}')); }
+          catch (err) { return json(res, 400, { error:err instanceof RangeError ? err.message : 'invalid_json' }); }
+          const profile = store.setReviewById?.(review.botId, review.status, review.note);
+          if (!profile) return json(res, 404, { error:'profile_not_found' });
+          // Never log the analyst's free-text note to a second log or use it to change policy.
+          log({ type:'operator_review', botId:review.botId, status:review.status });
+          audit({ type:'operator_review', botId:review.botId, status:review.status, client:admin.clientKey(req) });
+          return json(res, 200, { ok:true, profile });
+        });
+        return true;
       }
 
       if (url.pathname === `${config.basePath}/api/policy`) {

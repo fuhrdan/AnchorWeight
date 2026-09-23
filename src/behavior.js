@@ -181,6 +181,7 @@ export function publicProfile(ipKey, p) {
     traversalStyle: p.traversalStyle || inferTraversalStyle(p),
     campaignIds: (p.campaignIds || []).slice(0,8),
     offenseCount: p.offenseCount || 0,
+    review: p.review || null,
     lastOffenseAt: p.lastOffenseAt || null,
     evidence: (p.evidence || []).slice(-12),
     assessment: assessProfile(p),

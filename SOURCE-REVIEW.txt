@@ -1,5 +1,5 @@
-AnchorWeight v1.4.0 — Plain Text Source Review Bundle
-Generated: 2026-09-23T15:35:26.923Z
+AnchorWeight v1.5.0 — Plain Text Source Review Bundle
+Generated: 2026-09-23T16:25:18.543Z
 
 
 ================================================================================
@@ -175,7 +175,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '1.4.0',
+        ok: true, service: 'AnchorWeight', version: '1.5.0',
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -184,7 +184,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'1.4.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'1.5.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin
@@ -212,7 +212,7 @@ const server = http.createServer(async (req, res) => {
     if (proxy) return proxy(req, res);
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.4.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.5.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -223,7 +223,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v1.4.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v1.5.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
@@ -270,7 +270,7 @@ import { loadConfig } from '../src/config.js';
 import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, inspectConfiguredState, migrateStateFile } from '../src/ops.js';
 import { validateConfig } from '../src/config-schema.js';
 
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -424,7 +424,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.4.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.5.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -726,7 +726,7 @@ FILE: package.json
 ================================================================================
 {
   "name": "anchorweight",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
   "type": "module",
   "main": "app.js",
@@ -826,6 +826,7 @@ import { MemoryStore } from './store.js';
 import { createLogger, readEvents } from './logger.js';
 import { childEntries, inspectChain } from './procedural.js';
 import { noteEvidence } from './evidence.js';
+import { parseCaseQuery, buildInvestigation, buildCaseReport, formatCaseReportText, validateReview } from './investigation.js';
 import { renderDecoy } from './decoy.js';
 import { BehaviorEngine } from './behavior.js';
 import { GoodBotVerifier } from './goodbot.js';
@@ -961,7 +962,8 @@ export function createAnchorWeight(config, deps = {}) {
   function handle(req, res, url) {
     const method = req.method || 'GET';
     const isPolicyPost = method === 'POST' && url.pathname === `${config.basePath}/api/policy`;
-    if (!['GET', 'HEAD'].includes(method) && !isPolicyPost) return text(res, 405, 'Method not allowed');
+    const isReviewPost = method === 'POST' && url.pathname === `${config.basePath}/api/review`;
+    if (!['GET', 'HEAD'].includes(method) && !isPolicyPost && !isReviewPost) return text(res, 405, 'Method not allowed');
 
     if (url.pathname.startsWith(`${config.basePath}/api/`)) {
       if (!config.dashboardEnabled) return text(res, 404, 'Not found');
@@ -985,11 +987,11 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.4.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.5.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.4.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.5.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (url.pathname === `${config.basePath}/api/events`) {
@@ -998,18 +1000,64 @@ export function createAnchorWeight(config, deps = {}) {
           type: url.searchParams.get('type') || '',
           botId: url.searchParams.get('bot') || '',
           campaignId: url.searchParams.get('campaign') || '',
-          search: url.searchParams.get('q') || ''
+          search: url.searchParams.get('q') || '',
+          from: url.searchParams.get('from') || '',
+          to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'1.4.0', events });
+        return json(res, 200, { version:'1.5.0', events });
       }
 
-      if (url.pathname === `${config.basePath}/api/investigate`) {
-        const botId = url.searchParams.get('bot') || '';
-        const campaignId = url.searchParams.get('campaign') || '';
-        const profile = botId ? store.getPublicProfileById?.(botId) : null;
-        const campaign = campaignId ? store.getPublicCampaignById?.(campaignId) : null;
-        const events = readEvents(config.logFile, { limit: 200, botId, campaignId });
-        return json(res, 200, { profile, campaign, events });
+      if (url.pathname === `${config.basePath}/api/investigate` ||
+          url.pathname === `${config.basePath}/api/report`) {
+        let query;
+        const reportRequest = url.pathname.endsWith('/report');
+        try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
+        catch (err) { return json(res, 400, { error:err.message }); }
+        if (!query.botId && !query.campaignId) return json(res, 200, {
+          version:'1.5.0', profile:null, campaign:null, events:[], timeline:[]
+        });
+        const investigation = buildInvestigation(store, config.logFile, query);
+        if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });
+        if (!reportRequest) return json(res, 200, investigation);
+        const report = buildCaseReport(investigation);
+        const format = url.searchParams.get('format') || 'json';
+        if (!['json','txt'].includes(format)) return json(res, 400, { error:'invalid_report_format' });
+        res.setHeader('Content-Disposition', `attachment; filename="anchorweight-${report.caseId}.${format}"`);
+        if (format === 'txt') return text(res, 200, formatCaseReportText(report));
+        return json(res, 200, report);
+      }
+
+      if (url.pathname === `${config.basePath}/api/review`) {
+        if (req.method !== 'POST') return text(res, 405, 'Method not allowed');
+        if (!admin.validateCsrf(req)) {
+          audit({ type:'admin_csrf_failed', client:admin.clientKey(req), path:url.pathname });
+          return json(res, 403, { error:'csrf_required' });
+        }
+        let body = '';
+        let size = 0;
+        let tooLarge = false;
+        req.on('data', chunk => {
+          if (tooLarge) return;
+          size += chunk.length;
+          if (size > config.adminBodyMaxBytes) {
+            tooLarge = true;
+            return json(res, 413, { error:'request_body_too_large' });
+          }
+          body += chunk;
+        });
+        req.on('end', () => {
+          if (tooLarge) return;
+          let review;
+          try { review = validateReview(JSON.parse(body || '{}')); }
+          catch (err) { return json(res, 400, { error:err instanceof RangeError ? err.message : 'invalid_json' }); }
+          const profile = store.setReviewById?.(review.botId, review.status, review.note);
+          if (!profile) return json(res, 404, { error:'profile_not_found' });
+          // Never log the analyst's free-text note to a second log or use it to change policy.
+          log({ type:'operator_review', botId:review.botId, status:review.status });
+          audit({ type:'operator_review', botId:review.botId, status:review.status, client:admin.clientKey(req) });
+          return json(res, 200, { ok:true, profile });
+        });
+        return true;
       }
 
       if (url.pathname === `${config.basePath}/api/policy`) {
@@ -1261,7 +1309,7 @@ export function createAuditLogger(file) {
   return function audit(event) {
     const record = {
       ts: new Date().toISOString(),
-      version: '1.4.0',
+      version: '1.5.0',
       ...event
     };
     try {
@@ -1460,6 +1508,7 @@ export function publicProfile(ipKey, p) {
     traversalStyle: p.traversalStyle || inferTraversalStyle(p),
     campaignIds: (p.campaignIds || []).slice(0,8),
     offenseCount: p.offenseCount || 0,
+    review: p.review || null,
     lastOffenseAt: p.lastOffenseAt || null,
     evidence: (p.evidence || []).slice(-12),
     assessment: assessProfile(p),
@@ -2026,6 +2075,148 @@ export function normalizeClientIp(ip) { return normalizeIp(ip); }
 
 
 ================================================================================
+FILE: src/investigation.js
+================================================================================
+/**
+ * Investigation Console 2.0.
+ *
+ * Cases are bounded, read-only views of existing Bot DNA and campaign evidence.
+ * They are NOT a second enforcement engine. An analyst's review is a separate,
+ * explicitly recorded action, and never silently changes the site policy.
+ *
+ * Only public profile/campaign projections and redacted events cross the API.
+ */
+import { readEvents } from './logger.js';
+
+const BOT_ID = /^AW-[A-Z0-9_-]{8}$/;
+const CAMPAIGN_ID = /^AWC-[A-F0-9]{8}$/;
+const MAX_TIMELINE = 200;
+const REVIEW_STATUSES = new Set(['needs_review', 'false_positive', 'confirmed_automation', 'inconclusive']);
+
+export function parseCaseQuery(params, { allowEmpty = false } = {}) {
+  const botId = String(params.get('bot') || '').trim().toUpperCase();
+  const campaignId = String(params.get('campaign') || '').trim().toUpperCase();
+  if ((!botId && !campaignId && !allowEmpty) || (botId && campaignId)) {
+    throw new RangeError('select_exactly_one_case');
+  }
+  if (botId && !BOT_ID.test(botId)) throw new RangeError('invalid_bot_id');
+  if (campaignId && !CAMPAIGN_ID.test(campaignId)) throw new RangeError('invalid_campaign_id');
+  const from = parseBoundary(params.get('from'), 'invalid_from');
+  const to = parseBoundary(params.get('to'), 'invalid_to');
+  if (from && to && from > to) throw new RangeError('invalid_time_window');
+  const limitValue = params.get('limit');
+  const limit = limitValue === null ? MAX_TIMELINE : Number(limitValue);
+  if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_TIMELINE) throw new RangeError('invalid_limit');
+  const type = String(params.get('type') || '').trim();
+  const search = String(params.get('q') || '').trim();
+  if (type.length > 64 || search.length > 120) throw new RangeError('filter_too_long');
+  return { botId, campaignId, from, to, limit, type, search };
+}
+
+function parseBoundary(value, error) {
+  if (!value) return null;
+  if (value.length > 35) throw new RangeError(error);
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) throw new RangeError(error);
+  return new Date(parsed).toISOString();
+}
+
+function filterEvents(events, options) {
+  return events.filter(e => {
+    const at = Date.parse(e.ts);
+    if (!Number.isFinite(at)) return false;
+    if (options.from && at < Date.parse(options.from)) return false;
+    if (options.to && at > Date.parse(options.to)) return false;
+    if (options.type && e.type !== options.type) return false;
+    if (options.search && !JSON.stringify(e).toLowerCase().includes(options.search.toLowerCase())) return false;
+    return true;
+  });
+}
+
+/** Returns chronological events from an upper-bounded recent sample. */
+export function buildInvestigation(store, logFile, options) {
+  const { botId, campaignId, limit } = options;
+  const profile = botId ? store.getPublicProfileById?.(botId) || null : null;
+  const campaign = campaignId ? store.getPublicCampaignById?.(campaignId) || null : null;
+  // Do not derive a relationship from a score or a shared IP prefix.
+  const relatedCampaigns = profile ? (profile.campaignIds || []).map(id => store.getPublicCampaignById?.(id)).filter(Boolean) : [];
+  const memberProfiles = campaign ? (campaign.members || []).map(id => store.getPublicProfileById?.(id)).filter(Boolean) : [];
+  const candidates = campaign
+    ? [readEvents(logFile, { limit:500, campaignId }),
+      ...(campaign.members || []).map(id => readEvents(logFile, { limit:500, botId:id }))].flat()
+    : readEvents(logFile, { limit:500, botId });
+  const seen = new Set();
+  const allMatching = filterEvents(candidates, options).filter(event => {
+    const id = JSON.stringify(event);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  }).sort((a,b) => Date.parse(a.ts) - Date.parse(b.ts));
+  const truncated = allMatching.length > limit;
+  const events = allMatching.slice(-limit);
+  return {
+    version:'1.5.0', kind:campaignId ? 'campaign' : 'bot',
+    caseId:campaignId || botId, profile, campaign, relatedCampaigns, memberProfiles,
+    // events stays newest-first for v1.4 API compatibility; timeline is chronological.
+    events:[...events].reverse(), timeline:events,
+    eventCount:events.length, truncated,
+    limitations:[
+      'Events are limited to the current retained log and may omit rotated or expired records.',
+      'Campaign relationships are based on documented signed-canary correlations, not proof of common ownership.',
+      'Automation observations do not by themselves establish malicious intent.'
+    ]
+  };
+}
+
+export function buildCaseReport(investigation) {
+  return {
+    format:'anchorweight-investigation-v1', generatedAt:new Date().toISOString(),
+    version:'1.5.0', caseId:investigation.caseId, kind:investigation.kind,
+    profile:investigation.profile, campaign:investigation.campaign,
+    relatedCampaigns:investigation.relatedCampaigns,
+    memberProfiles:investigation.memberProfiles,
+    timeline:investigation.timeline, eventCount:investigation.eventCount,
+    truncated:investigation.truncated, limitations:investigation.limitations,
+    // No private key, raw IP, bearer token or signed canary child token is included.
+  };
+}
+
+export function formatCaseReportText(report) {
+  const lines = [
+    'ANCHORWEIGHT INVESTIGATION REPORT',
+    `Generated: ${report.generatedAt}`,
+    `Case: ${report.caseId} (${report.kind})`,
+    `Events in this report: ${report.eventCount}${report.truncated?' (bounded sample)':''}`,
+    '', 'ASSESSMENT',
+    `Classification: ${report.profile?.classification || report.campaign?.classification || 'unknown'}`,
+    `Review: ${report.profile?.review?.status || 'not reviewed'}`,
+    `Review note: ${report.profile?.review?.note || 'none'}`,
+    `Policy: ${report.profile?.manualPolicy || 'automatic'}`,
+    `Trap evidence: ${(report.profile?.assessment?.trapEvidence || []).join(', ') || 'none recorded'}`,
+    `Campaign evidence: ${(report.campaign?.evidence || []).map(e => e.reason).join(', ') || 'none recorded'}`,
+    '', 'TIMELINE'
+  ];
+  for (const event of report.timeline) {
+    lines.push(`${event.ts} | ${event.type || 'event'} | ${event.botId || event.campaignId || '—'} | ${event.reason || ''}`);
+  }
+  lines.push('', 'LIMITATIONS', ...report.limitations.map(s => `- ${s}`));
+  return lines.join('\n') + '\n';
+}
+
+export function validateReview(body) {
+  const botId = String(body?.botId || '').trim().toUpperCase();
+  const status = String(body?.status || '').trim();
+  const note = body?.note == null ? '' : body.note;
+  if (!BOT_ID.test(botId)) throw new RangeError('invalid_bot_id');
+  if (!REVIEW_STATUSES.has(status)) throw new RangeError('invalid_review_status');
+  if (typeof note !== 'string' || note.length > 500 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(note)) {
+    throw new RangeError('invalid_review_note');
+  }
+  return { botId, status, note:note.trim() };
+}
+
+
+================================================================================
 FILE: src/logger.js
 ================================================================================
 import fs from 'node:fs';
@@ -2076,6 +2267,8 @@ export function readEvents(file, options = {}) {
   const botId = String(options.botId || '').trim().toUpperCase();
   const campaignId = String(options.campaignId || '').trim().toUpperCase();
   const search = String(options.search || '').trim().toLowerCase();
+  const from = options.from ? Date.parse(options.from) : null;
+  const to = options.to ? Date.parse(options.to) : null;
   let raw = '';
   try { raw = fs.readFileSync(file, 'utf8'); } catch (err) {
     if (err?.code === 'ENOENT') return [];
@@ -2086,7 +2279,9 @@ export function readEvents(file, options = {}) {
   for (let i = lines.length - 1; i >= 0 && out.length < limit; i--) {
     let e;
     try { e = JSON.parse(lines[i]); } catch { continue; }
-    const eventBotId = e.ipKey ? `AW-${String(e.ipKey).slice(0, 8).toUpperCase()}` : '';
+    const at = Date.parse(e.ts);
+    if ((from !== null || to !== null) && (!Number.isFinite(at) || (from !== null && at < from) || (to !== null && at > to))) continue;
+    const eventBotId = e.ipKey ? `AW-${String(e.ipKey).slice(0, 8).toUpperCase()}` : String(e.botId || '').toUpperCase();
     const text = JSON.stringify(e).toLowerCase();
     if (type && e.type !== type) continue;
     if (botId && eventBotId !== botId) continue;
@@ -2098,19 +2293,19 @@ export function readEvents(file, options = {}) {
 }
 
 function publicEvent(e) {
-  const safe = { ...e };
-  if (safe.ipKey) {
-    safe.botId = `AW-${String(safe.ipKey).slice(0, 8).toUpperCase()}`;
-    delete safe.ipKey;
+  const safe = {};
+  const fields = ['ts','type','sid','campaignId','path','depth','branch','branchPath',
+    'elapsedMs','reason','score','points','signal','offenses','minutes','until',
+    'provider','policy','botId','members','confidence'];
+  for (const field of fields) if (Object.hasOwn(e, field)) safe[field] = e[field];
+  if (typeof safe.path === 'string') {
+    // Keep the route category, not bearer-like signed canary path segments or queries.
+    safe.path = safe.path.split('?')[0].replace(/\/t\/[^/]+(?:\/[^/]*)*/, '/t/[signed-path-redacted]');
+    safe.path = safe.path.slice(0, 200);
   }
-  if (safe.ownerKey) {
-    safe.ownerBotId = `AW-${String(safe.ownerKey).slice(0, 8).toUpperCase()}`;
-    delete safe.ownerKey;
-  }
-  if (safe.otherKey) {
-    safe.otherBotId = `AW-${String(safe.otherKey).slice(0, 8).toUpperCase()}`;
-    delete safe.otherKey;
-  }
+  if (e.ipKey) safe.botId = `AW-${String(e.ipKey).slice(0, 8).toUpperCase()}`;
+  if (e.ownerKey) safe.ownerBotId = `AW-${String(e.ownerKey).slice(0, 8).toUpperCase()}`;
+  if (e.otherKey) safe.otherBotId = `AW-${String(e.otherKey).slice(0, 8).toUpperCase()}`;
   return safe;
 }
 
@@ -2210,7 +2405,7 @@ export async function backupFiles(config, destination) {
     const dest=path.join(dir,path.basename(file));
     fs.copyFileSync(file,dest);copied.push({label,file:dest});
   }
-  const manifest={version:'1.4.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
+  const manifest={version:'1.5.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
   fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2));
   return {dir,manifest};
 }
@@ -2241,7 +2436,7 @@ export async function exportEvidence(config, destination) {
     ? await readSqliteState(config.sqliteFile) : config.stateBackend==='sqlite' ? {} : readJson(config.stateFile,{});
   const events=readJsonLines(config.logFile);
   const report={
-    version:'1.4.0',
+    version:'1.5.0',
     generatedAt:new Date().toISOString(),
     profile:config.profileName||null,
     stateBackend:config.stateBackend||'json',
@@ -2309,7 +2504,7 @@ export function migrateStateFile(file, options={}) {
   const temp=`${resolved}.${process.pid}.tmp`;
   fs.writeFileSync(temp,JSON.stringify({
     ...migrated.state,
-    meta:{...(migrated.state.meta||{}),appVersion:'1.4.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
+    meta:{...(migrated.state.meta||{}),appVersion:'1.5.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
   }));
   fs.renameSync(temp,resolved);
   return {file:resolved,backup,dryRun:false,...migrated};
@@ -2360,7 +2555,7 @@ export class PersistentStore extends MemoryStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
       const temp = `${this.file}.${process.pid}.tmp`;
-      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.4.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
+      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.5.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
       fs.renameSync(temp, this.file);
     } catch (err) {
       console.error('[AnchorWeight] Unable to persist state:', err.message);
@@ -2679,7 +2874,7 @@ export class SqliteStore extends MemoryStore {
         this.migrationsApplied = [...migrated.applied, 'JSON->SQLite'];
       }
       this.db.prepare("INSERT INTO metadata (key,value) VALUES ('state_version',?)").run(String(CURRENT_STATE_VERSION));
-      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','1.4.0')").run();
+      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','1.5.0')").run();
       this.db.exec('COMMIT');
     } catch (err) {
       this.db.exec('ROLLBACK');
@@ -2791,6 +2986,16 @@ export class MemoryStore {
     if (!key) return null;
     const p = this.getProfile(key);
     p.manualPolicy = policy || null;
+    this.touchProfile?.(key);
+    return publicProfile(key, p);
+  }
+
+  /** An analyst review is metadata, not an automatic allow/quarantine decision. */
+  setReviewById(botId, status, note = '') {
+    const key = this.findProfileKeyById(botId);
+    if (!key) return null;
+    const p = this.getProfile(key);
+    p.review = { status, note, at: new Date(this.now()).toISOString() };
     this.touchProfile?.(key);
     return publicProfile(key, p);
   }
@@ -3735,6 +3940,164 @@ test('decoy returns empty JSON result surface for API requests',()=>{
 
 
 ================================================================================
+FILE: test/unit/investigation.test.js
+================================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { EventEmitter } from 'node:events';
+import { MemoryStore } from '../../src/store.js';
+import { PersistentStore } from '../../src/persistent-store.js';
+import { createStore } from '../../src/create-store.js';
+import { createAnchorWeight } from '../../src/anchorweight.js';
+import { readEvents } from '../../src/logger.js';
+import { ipFingerprint } from '../../src/crypto.js';
+import { parseCaseQuery, buildInvestigation, buildCaseReport, formatCaseReportText, validateReview } from '../../src/investigation.js';
+
+const KEY='abcdef1234567890';
+const OTHER='12345678abcdef12';
+const BOT='AW-ABCDEF12';
+const CAMPAIGN='AWC-1234ABCD';
+function fixture(t) {
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-investigation-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'events.jsonl');
+  fs.writeFileSync(file,[
+    {ts:'2026-09-20T10:00:00.000Z',type:'lure',ipKey:KEY,sid:'1234567890123456',privateSecret:'do-not-export'},
+    {ts:'2026-09-20T10:00:01.000Z',type:'traversal',ipKey:KEY,depth:1,branch:3,path:'/anchor/t/1234567890/secret-token?view=2'},
+    {ts:'2026-09-20T10:00:02.000Z',type:'campaign_correlation',campaignId:CAMPAIGN,reason:'shared_signed_canary',members:2},
+    {ts:'2026-09-20T10:00:03.000Z',type:'block',ipKey:OTHER,reason:'other'}
+  ].map(JSON.stringify).join('\n')+'\n');
+  const store=new MemoryStore(()=>Date.parse('2026-09-20T10:00:05Z'));
+  const p=store.getProfile(KEY);p.validTraversals=1;p.evidence=[{kind:'traversal',at:Date.parse('2026-09-20T10:00:01Z'),depth:1,branch:3}];p.campaignIds=[CAMPAIGN];
+  store.getProfile(OTHER);
+  const c=store.getCampaign(CAMPAIGN);c.members=[KEY,OTHER];c.confidence=45;c.evidence=[{reason:'shared_signed_canary',depth:1,branch:3}];
+  return {dir,file,store};
+}
+test('case query accepts one case, bounded filters, and rejects ambiguous or invalid selections',()=>{
+  assert.equal(parseCaseQuery(new URLSearchParams('bot=aw-abcdef12&limit=20')).limit,20);
+  assert.equal(parseCaseQuery(new URLSearchParams('bot=AW-MUEHTQNX')).botId,'AW-MUEHTQNX');
+  assert.equal(parseCaseQuery(new URLSearchParams('bot=AW-AB_CD-12')).botId,'AW-AB_CD-12');
+  const liveId = `AW-${ipFingerprint('example-secret','127.0.0.1').slice(0,8).toUpperCase()}`;
+  assert.equal(parseCaseQuery(new URLSearchParams(`bot=${liveId}`)).botId,liveId);
+  for(const query of ['', 'bot=AW-ABCDEF12&campaign=AWC-1234ABCD','bot=AW-INVALID!!',
+    'campaign=AWC-1234ABCD&limit=10000','bot=AW-ABCDEF12&from=bad',
+    'bot=AW-ABCDEF12&from=2026-09-21&to=2026-09-20']) {
+    assert.throws(()=>parseCaseQuery(new URLSearchParams(query)),RangeError,query);
+  }
+});
+test('case timeline is chronological, filtered, bounded, and exported without raw keys or signed tokens',t=>{
+  const {file,store}=fixture(t);
+  const opts=parseCaseQuery(new URLSearchParams(`bot=${BOT}`));
+  const caseData=buildInvestigation(store,file,opts);
+  assert.equal(caseData.kind,'bot');assert.equal(caseData.eventCount,2);
+  assert.equal(caseData.timeline[0].type,'lure');
+  assert.equal(caseData.events[0].type,'traversal');
+  assert.equal(caseData.relatedCampaigns[0].id,CAMPAIGN);
+  const report=buildCaseReport(caseData);
+  const serialized=JSON.stringify(report);
+  assert.equal(serialized.includes(KEY),false);
+  assert.equal(serialized.includes('secret-token'),false);
+  assert.equal(serialized.includes('do-not-export'),false);
+  assert.match(formatCaseReportText(report),/LIMITATIONS/);
+  const one=buildInvestigation(store,file,parseCaseQuery(new URLSearchParams(`bot=${BOT}&from=2026-09-20T10:00:01Z`)));
+  assert.equal(one.eventCount,1);
+});
+test('campaign case includes member timelines and records correlation reason without asserting identity',t=>{
+  const {file,store}=fixture(t);
+  const result=buildInvestigation(store,file,parseCaseQuery(new URLSearchParams(`campaign=${CAMPAIGN}`)));
+  assert.equal(result.eventCount,4);
+  assert.equal(result.memberProfiles.length,2);
+  assert.equal(result.campaign.evidence[0].reason,'shared_signed_canary');
+  assert.match(result.limitations.join(' '),/not proof of common ownership/);
+});
+test('event reader redacts unknown fields, signed path tokens, and supports time filters',t=>{
+  const {file}=fixture(t);
+  const events=readEvents(file,{botId:BOT,from:'2026-09-20T10:00:01Z'});
+  assert.equal(events.length,1);
+  assert.equal(events[0].path,'/anchor/t/[signed-path-redacted]');
+  assert.equal('privateSecret' in events[0],false);
+});
+test('analyst review validation rejects freeform invalid inputs',()=>{
+  assert.deepEqual(validateReview({botId:BOT,status:'false_positive',note:'Tested manually'}),
+    {botId:BOT,status:'false_positive',note:'Tested manually'});
+  assert.throws(()=>validateReview({botId:BOT,status:'definitely_evil'}),RangeError);
+  assert.throws(()=>validateReview({botId:BOT,status:'false_positive',note:'x'.repeat(501)}),RangeError);
+  assert.throws(()=>validateReview({botId:BOT,status:'false_positive',note:'bad\0control'}),RangeError);
+});
+test('review survives JSON restart without changing enforcement or state version',t=>{
+  const {dir}=fixture(t);const file=path.join(dir,'state.json');
+  const store=new PersistentStore(file);store.getProfile(KEY);store.touchProfile(KEY);
+  const changed=store.setReviewById(BOT,'false_positive','Monitor exception');
+  assert.equal(changed.review.status,'false_positive');
+  assert.equal(changed.manualPolicy,null);
+  const reopened=new PersistentStore(file);
+  assert.equal(reopened.getPublicProfileById(BOT).review.note,'Monitor exception');
+  assert.equal(reopened.getPublicProfileById(BOT).manualPolicy,null);
+  assert.equal(JSON.parse(fs.readFileSync(file)).version,5);
+});
+test('review survives SQLite restart with schema v5', {skip:Number(process.versions.node.split('.')[0])<22},async t=>{
+  const {dir}=fixture(t);const c={stateBackend:'sqlite',sqliteFile:path.join(dir,'state.sqlite'),stateFile:path.join(dir,'prior.json')};
+  const store=await createStore(c);store.getProfile(KEY);store.touchProfile(KEY);
+  store.setReviewById(BOT,'needs_review','Investigate');store.close();
+  const again=await createStore(c);
+  assert.equal(again.getPublicProfileById(BOT).review.status,'needs_review');
+  assert.equal(again.loadedStateVersion,5);again.close();
+});
+
+function request(method, url, headers={}) {
+  const req=new EventEmitter();req.method=method;req.headers=headers;req.socket={remoteAddress:'127.0.0.1'};
+  const res={headers:{},statusCode:0,body:'',setHeader(k,v){this.headers[k.toLowerCase()]=v;},
+    end(value=''){this.body=String(value);this.resolve?.();}};
+  const done=new Promise(resolve=>res.resolve=resolve);
+  return {req,res,done,url:new URL(url)};
+}
+function fixtureApi(t){
+  const x=fixture(t);const c={secret:'testing-secret',basePath:'/anchor',dashboardEnabled:true,
+    dashboardToken:'tester-token',auditEnabled:false,logFile:x.file,adminBodyMaxBytes:8192,
+    adminRateLimitPerMinute:100,csrfTtlMinutes:15};
+  const aw=createAnchorWeight(c,{store:x.store,log:()=>{}});
+  return {...x,aw};
+}
+test('investigation and report APIs require authentication; malformed cases are rejected',async t=>{
+  const {aw}=fixtureApi(t);
+  const unauthorized=request('GET',`http://localhost/anchor/api/report?bot=${BOT}`);
+  aw.handle(unauthorized.req,unauthorized.res,unauthorized.url);await unauthorized.done;
+  assert.equal(unauthorized.res.statusCode,401);
+  const invalid=request('GET','http://localhost/anchor/api/report?bot=BAD',{authorization:'Bearer tester-token'});
+  aw.handle(invalid.req,invalid.res,invalid.url);await invalid.done;
+  assert.equal(invalid.res.statusCode,400);
+  const authorized=request('GET',`http://localhost/anchor/api/report?bot=${BOT}&format=txt`,{authorization:'Bearer tester-token'});
+  aw.handle(authorized.req,authorized.res,authorized.url);await authorized.done;
+  assert.equal(authorized.res.statusCode,200);assert.match(authorized.res.body,/INVESTIGATION REPORT/);
+  assert.equal(authorized.res.body.includes(KEY),false);
+});
+test('review API enforces bearer plus client-bound CSRF, persists review, does not change policy',async t=>{
+  const {aw,store}=fixtureApi(t);const headers={authorization:'Bearer tester-token'};
+  const denied=request('POST','http://localhost/anchor/api/review',headers);
+  aw.handle(denied.req,denied.res,denied.url);await denied.done;
+  assert.equal(denied.res.statusCode,403);
+  const session=request('GET','http://localhost/anchor/api/session',headers);
+  aw.handle(session.req,session.res,session.url);await session.done;
+  const csrf=JSON.parse(session.res.body).csrfToken;
+  const review=request('POST','http://localhost/anchor/api/review',{...headers,'x-aw-csrf':csrf});
+  aw.handle(review.req,review.res,review.url);
+  review.req.emit('data',Buffer.from(JSON.stringify({botId:BOT,status:'false_positive',note:'Reviewed'})));
+  review.req.emit('end');await review.done;
+  assert.equal(review.res.statusCode,200);
+  assert.equal(store.getPublicProfileById(BOT).review.note,'Reviewed');
+  assert.equal(store.getPublicProfileById(BOT).manualPolicy,null);
+});
+test('browser dashboard script parses as valid JavaScript',()=>{
+  const source=fs.readFileSync(new URL('../../public/dashboard.html',import.meta.url),'utf8');
+  const script=source.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+  assert.ok(script);assert.doesNotThrow(()=>new Function(script));
+});
+
+
+================================================================================
 FILE: test/unit/logging.test.js
 ================================================================================
 import test from 'node:test';
@@ -3749,7 +4112,7 @@ test('audit logger produces structured v1 records',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-audit-')); const file=path.join(dir,'audit.jsonl');
   createAuditLogger(file)({type:'operator_test',client:'abc'});
   const r=JSON.parse(fs.readFileSync(file,'utf8').trim());
-  assert.equal(r.version,'1.4.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
+  assert.equal(r.version,'1.5.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
   fs.rmSync(dir,{recursive:true,force:true});
 });
 

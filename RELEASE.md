@@ -1,4 +1,4 @@
-# AnchorWeight v1.4.0 Release Guide
+# AnchorWeight v1.5.0 Release Guide
 
 ## Pre-release gate
 
@@ -34,7 +34,7 @@ anchorweight migrate --profile production
 
 ## Release artifacts
 
-A v1.4.0 release should include the source ZIP and a SHA-256 checksum file. `SOURCE-MANIFEST.json` records SHA-256 hashes of reviewable source files.
+A v1.5.0 release should include the source ZIP and a SHA-256 checksum file. `SOURCE-MANIFEST.json` records SHA-256 hashes of reviewable source files.
 
 ## v1.2.0 SQLite release considerations
 
@@ -51,3 +51,11 @@ enforcement on an existing site.
 - Profile evidence and offense context persist with JSON/SQLite.
 - On HawkHost shared hosting use `node --test --test-concurrency=1`.
 - Preserve the v1.2 cPanel `async main()` startup fix.
+
+## v1.5 investigation release gates
+
+- Verify dashboard JavaScript syntax, authenticated investigation/report API, and CSRF review.
+- Check public reports contain no raw IP-key or signed canary URL token.
+- Verify JSON and SQLite review persistence with state schema v5.
+- Run on HawkHost with `node --test --test-concurrency=1`.
+- Review `INVESTIGATION-CONSOLE-2.md` before deployment.
