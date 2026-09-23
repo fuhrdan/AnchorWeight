@@ -10,6 +10,7 @@ import { createReverseProxy } from './src/proxy.js';
 import { validateConfig } from './src/config-schema.js';
 import { createTrafficTelemetry } from './src/telemetry.js';
 import { createLiveObservatory } from './src/live-observatory.js';
+import { createAlerts } from './src/alerts.js';
 import { createSetupController, readOperatorSettings } from './src/setup.js';
 import { createGatewayPolicy } from './src/gateway-policy.js';
 import { createUpstreamHealth, maintenanceResponse } from './src/upstream-health.js';
@@ -44,7 +45,12 @@ config.activeRoutes=routes;
 let routeStatus = routeSummary(routes,config.routesEnabled || config.declarativeEnabled);
 const store = await createStore(config);
 const observatory = createLiveObservatory({enabled:config.observatoryLiveEnabled,publicScheme:config.publicScheme});
-const telemetry = createTrafficTelemetry({onEvent:event=>observatory.publish(event)});
+// Load/validate private alert rules before opening a public listener.
+const alerts = createAlerts(config);
+const telemetry = createTrafficTelemetry({onEvent:event=>{
+  observatory.publish(event);
+  alerts.response(event); // Never await outbound webhooks in a request.
+}});
 const gateway = createGatewayPolicy(config);
 // Load credentials once, before opening the listener. A broken enabled policy must fail startup.
 const applicationAuth = createAppAuth(readAuthPolicies(config));
@@ -56,7 +62,13 @@ const configuredOrigins = [config.originUrl,...routes.map(r=>r.origin)];
 // legacy proxy URL rules for installations that leave resilience disabled.
 if (config.resilienceEnabled) configuredOrigins.forEach(canonicalOrigin);
 const fallbacks = loadFallbacks(config, configuredOrigins);
-const resilience = createResilience(config,{fallbacks});
+const resilience = createResilience(config,{fallbacks,onTransition:event=>{
+  const origin=event.origin;
+  const route=config.activeRoutes.find(r=>new URL(r.origin).href===origin)?.path;
+  // Fallback origins are not primary routes; don't attribute their state to '/' by mistake.
+  if(route || new URL(config.originUrl).href===origin)
+    alerts.circuit({kind:event.kind,route:route || '(default)'});
+}});
 const contexts = new WeakMap();
 function makeProxy(settings, {stripCredentials=false} = {}) {
   const origin = settings.originUrl;
@@ -119,7 +131,7 @@ const setup = setupFactory(config, { onActivate:settings => {
     // Changed live routing cannot continue using stale origin health state.
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, resilience, observatory, routing:()=>routeStatus });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, resilience, observatory, alerts, routing:()=>routeStatus });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -166,7 +178,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '2.4.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
+        ok: true, service: 'AnchorWeight', version: '2.5.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -175,7 +187,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'2.4.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'2.5.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin, routing:routeStatus
@@ -229,7 +241,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.4.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.5.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -244,7 +256,7 @@ server.on('upgrade',(req,socket,head)=>observatory.accept(req,socket,head,{baseP
 health.start();
 resilience.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v2.4.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v2.5.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
@@ -259,6 +271,7 @@ function shutdown(signal) {
   health.stop();
   resilience.stop();
   observatory.stop();
+  alerts.stop();
   try { store.flush?.(); } catch (err) { console.error('[AnchorWeight] state flush:', err.message); }
   const timer = setTimeout(() => {
     console.error('[AnchorWeight] graceful shutdown timed out');

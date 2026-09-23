@@ -6,7 +6,7 @@
 .tabs{display:flex;gap:.45rem;flex-wrap:wrap;margin:1rem 0}.tab{background:#172338}.tab.active{background:#31517d}.hidden{display:none!important}.timeline{border-left:2px solid #33445f;margin:.8rem 0;padding-left:1rem}.event{margin:.65rem 0;padding:.65rem .75rem;background:#0d1625;border-radius:8px}.event small{color:#8290a5}.actions{display:flex;gap:.4rem;flex-wrap:wrap}.actions button{padding:.4rem .6rem}.searchbar{display:flex;gap:.5rem;flex-wrap:wrap}.searchbar input{min-width:160px;flex:1}.detail{white-space:pre-wrap;font-family:ui-monospace,monospace;font-size:.82rem;background:#080d16;padding:.8rem;border-radius:8px;overflow:auto}
 .campaign-map{display:flex;flex-direction:column;gap:.75rem}.campaign-line{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;padding:.65rem;background:#0d1625;border-radius:10px}.node{padding:.4rem .55rem;border:1px solid #3a4960;border-radius:999px;background:#172338;font-family:ui-monospace,monospace}.edge{color:#7f8ba0}
 </style></head><body>
-<header><div class="brand"><div><h1>⚓ AnchorWeight</h1><div class="subtitle">Crawler defense console · v2.4.0</div></div><div><a href="/setup.html" style="margin-right:.75rem">Setup wizard</a><span id="modePill" class="pill">Not connected</span></div></div></header>
+<header><div class="brand"><div><h1>⚓ AnchorWeight</h1><div class="subtitle">Crawler defense console · v2.5.0</div></div><div><a href="/setup.html" style="margin-right:.75rem">Setup wizard</a><span id="modePill" class="pill">Not connected</span></div></div></header>
 <main>
 <section class="panel"><div class="section-title"><div><strong>Connect to this instance</strong><div class="help">The dashboard token is only used to call the local stats API. It is remembered in this browser if you choose Save.</div></div></div>
 <div class="toolbar"><input id="token" type="password" autocomplete="current-password" placeholder="Dashboard token"><button id="load">Refresh dashboard</button><button id="save">Save token locally</button><button id="forget">Forget token</button></div><div id="message" class="muted">Enter the token configured as <code>AW_DASHBOARD_TOKEN</code>.</div></section>
@@ -19,6 +19,7 @@
 <h3>Requests in the last hour</h3><div id="trafficTrend" style="display:flex;align-items:end;gap:.45rem;height:115px" role="img" aria-label="Requests per five-minute bucket"></div>
 <p class="help">Upstream latency is time to first upstream response headers, not full streamed-body duration. Counters include AnchorWeight's own endpoints; proxied requests are displayed separately.</p></section>
 <section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Live Traffic Observatory</h2><div class="help">Per-process, bounded metrics. Percentiles are histogram upper-bound estimates. Only validated route prefixes are displayed, never full paths, IPs or credentials.</div></div><div class="actions"><button id="liveStart">Connect live</button><button id="liveStop">Disconnect</button></div></div>
+<section class="panel"><h2>Alerts &amp; Webhooks</h2><p class="help">Opt-in redacted, outbound alerts. Rules and destinations remain private in data/; signing keys stay in cPanel.</p><div id="alertGrid" class="grid">Alert telemetry unavailable.</div><p id="alertRecent" class="help"></p></section>
 <p id="liveState" class="help">Refresh dashboard to view observability settings.</p>
 <div class="grid" id="latencyGrid"></div>
 <h3>Routes and latency</h3><div id="routeMetrics" class="table-wrap help">No proxied requests recorded.</div>
@@ -89,6 +90,7 @@ async function load(){await discoverApiBase();const msg=document.querySelector('
  document.querySelector('#grid').innerHTML=metrics.map(([k,l,h])=>'<div class="card"><div class="label">'+esc(l)+'</div><div class="value">'+esc(j[k])+'</div><div class="help">'+esc(h)+'</div></div>').join('');
  renderTraffic(j.telemetry,j.proxyEnabled);
  renderObservatory(j.telemetry,j.observatory);
+ renderAlerts(j.alerts);
  renderGateway(j.gateway,j.upstreamHealth,j.proxyEnabled);
  renderApplicationAuth(j.applicationAuth,j.proxyEnabled);
  renderResilience(j.resilience);
@@ -143,6 +145,14 @@ const recentLive=[];
 function showLiveEvents(){
  const root=document.querySelector('#liveEvents');
  root.textContent=recentLive.length?recentLive.map(e=>`${e.at}  ${e.route}  HTTP ${e.status}  ${e.durationMs} ms${e.upstreamError?'  '+e.upstreamError:''}`).join('\n'):'No proxied responses recorded yet.';
+}
+function renderAlerts(a){
+ const grid=document.querySelector('#alertGrid'),recent=document.querySelector('#alertRecent');
+ if(!a){grid.textContent='Alert status unavailable.';recent.textContent='';return;}
+ const values=[['Enabled',a.enabled?'yes':'no'],['Rules',a.ruleCount],['Destinations',a.webhookCount],
+ ['Generated',a.generated],['Delivered',a.sent],['Failed',a.failed],['Queued',a.pending],['Dropped',a.dropped]];
+ grid.innerHTML=values.map(([label,value])=>'<div class="card"><div class="label">'+esc(label)+'</div><div class="value">'+esc(value)+'</div></div>').join('');
+ recent.textContent=(a.recent||[]).slice(-5).map(x=>x.at+' · '+x.kind+' · '+x.route+' · '+x.observed).join('\n')||'No alerts generated in this process.';
 }
 function renderObservatory(t,o){
  const live=document.querySelector('#liveState');

@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "webhooks": [
+    {
+      "id": "incident_channel",
+      "url": "https://alerts.example.com/anchorweight"
+    }
+  ],
+  "rules": [
+    {
+      "id": "api_5xx",
+      "kind": "high_5xx",
+      "route": "/api",
+      "threshold": 5,
+      "cooldownSeconds": 300,
+      "webhook": "incident_channel"
+    },
+    {
+      "id": "origin_down",
+      "kind": "circuit_open",
+      "route": "/",
+      "threshold": 1,
+      "cooldownSeconds": 300,
+      "webhook": "incident_channel"
+    },
+    {
+      "id": "origin_up",
+      "kind": "circuit_recovered",
+      "route": "/",
+      "threshold": 1,
+      "cooldownSeconds": 300,
+      "webhook": "incident_channel"
+    },
+    {
+      "id": "origin_error",
+      "kind": "upstream_error",
+      "route": "/",
+      "threshold": 1,
+      "cooldownSeconds": 300,
+      "webhook": "incident_channel"
+    }
+  ]
+}

@@ -38,7 +38,7 @@ test('application Basic Auth and API keys protect only configured proxy paths; o
     try{if((await fetch(base+'/live')).ok)break;}catch{}
     await new Promise(resolve=>setTimeout(resolve,60));
   }
-  assert.equal((await (await fetch(base+'/live')).json()).version,'2.4.0');
+  assert.equal((await (await fetch(base+'/live')).json()).version,'2.5.0');
   const blocked=await fetch(base+'/private/file');
   assert.equal(blocked.status,401);assert.match(blocked.headers.get('www-authenticate'),/^Basic /);
   assert.equal((await fetch(base+'/private/file',{headers:{authorization:'Basic '+Buffer.from('alice:wrong-password').toString('base64')}})).status,401);

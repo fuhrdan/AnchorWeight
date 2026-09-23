@@ -86,6 +86,11 @@ export function loadConfig(overrides = {}) {
     originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),
     observatoryLiveEnabled: boolEnv('AW_OBSERVATORY_LIVE_ENABLED', false),
+    // Opt-in outbound alerts; keep signing secrets in cPanel, NOT source or alert files.
+    alertsEnabled: boolEnv('AW_ALERTS_ENABLED', false),
+    alertsFile: process.env.AW_ALERTS_FILE || './data/anchorweight-alerts.json',
+    alertAllowedHosts: listEnv('AW_ALERT_ALLOWED_HOSTS'),
+    alertSigningKey: process.env.AW_ALERT_SIGNING_KEY || '',
     gatewayAccessEnabled: boolEnv('AW_GATEWAY_ACCESS_ENABLED', false),
     gatewayRateEnabled: boolEnv('AW_GATEWAY_RATE_ENABLED', false),
     gatewayShadowMode: boolEnv('AW_GATEWAY_SHADOW_MODE', true),

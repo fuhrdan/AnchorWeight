@@ -97,3 +97,12 @@ test('legacy proxy paths remain valid when resilience is disabled',()=>{
  const m=createResilience(c);
  assert.equal(m.choose(c.originUrl,req()),'http://127.0.0.1:8101/subdir');
 });
+
+test('breaker emits exactly one open/recovered transition for typed alerts',()=>{
+ const transitions=[];
+ const breaker=createResilience(baseline(),{onTransition:event=>transitions.push(event)});
+ breaker.failure(primary);breaker.failure(primary);breaker.failure(primary);
+ assert.deepEqual(transitions,[{kind:'circuit_open',origin:primary}]);
+ breaker.response(primary,200);breaker.response(primary,200);
+ assert.deepEqual(transitions,[{kind:'circuit_open',origin:primary},{kind:'circuit_recovered',origin:primary}]);
+});

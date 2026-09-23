@@ -1,5 +1,5 @@
-AnchorWeight v2.4.0 — Plain Text Source Review Bundle
-Generated: 2026-09-23T20:45:03.635Z
+AnchorWeight v2.5.0 — Plain Text Source Review Bundle
+Generated: 2026-09-23T21:14:11.289Z
 
 
 ================================================================================
@@ -128,6 +128,7 @@ import { createReverseProxy } from './src/proxy.js';
 import { validateConfig } from './src/config-schema.js';
 import { createTrafficTelemetry } from './src/telemetry.js';
 import { createLiveObservatory } from './src/live-observatory.js';
+import { createAlerts } from './src/alerts.js';
 import { createSetupController, readOperatorSettings } from './src/setup.js';
 import { createGatewayPolicy } from './src/gateway-policy.js';
 import { createUpstreamHealth, maintenanceResponse } from './src/upstream-health.js';
@@ -162,7 +163,12 @@ config.activeRoutes=routes;
 let routeStatus = routeSummary(routes,config.routesEnabled || config.declarativeEnabled);
 const store = await createStore(config);
 const observatory = createLiveObservatory({enabled:config.observatoryLiveEnabled,publicScheme:config.publicScheme});
-const telemetry = createTrafficTelemetry({onEvent:event=>observatory.publish(event)});
+// Load/validate private alert rules before opening a public listener.
+const alerts = createAlerts(config);
+const telemetry = createTrafficTelemetry({onEvent:event=>{
+  observatory.publish(event);
+  alerts.response(event); // Never await outbound webhooks in a request.
+}});
 const gateway = createGatewayPolicy(config);
 // Load credentials once, before opening the listener. A broken enabled policy must fail startup.
 const applicationAuth = createAppAuth(readAuthPolicies(config));
@@ -174,7 +180,13 @@ const configuredOrigins = [config.originUrl,...routes.map(r=>r.origin)];
 // legacy proxy URL rules for installations that leave resilience disabled.
 if (config.resilienceEnabled) configuredOrigins.forEach(canonicalOrigin);
 const fallbacks = loadFallbacks(config, configuredOrigins);
-const resilience = createResilience(config,{fallbacks});
+const resilience = createResilience(config,{fallbacks,onTransition:event=>{
+  const origin=event.origin;
+  const route=config.activeRoutes.find(r=>new URL(r.origin).href===origin)?.path;
+  // Fallback origins are not primary routes; don't attribute their state to '/' by mistake.
+  if(route || new URL(config.originUrl).href===origin)
+    alerts.circuit({kind:event.kind,route:route || '(default)'});
+}});
 const contexts = new WeakMap();
 function makeProxy(settings, {stripCredentials=false} = {}) {
   const origin = settings.originUrl;
@@ -237,7 +249,7 @@ const setup = setupFactory(config, { onActivate:settings => {
     // Changed live routing cannot continue using stale origin health state.
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, resilience, observatory, routing:()=>routeStatus });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, resilience, observatory, alerts, routing:()=>routeStatus });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -284,7 +296,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '2.4.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
+        ok: true, service: 'AnchorWeight', version: '2.5.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -293,7 +305,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'2.4.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'2.5.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin, routing:routeStatus
@@ -347,7 +359,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.4.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.5.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -362,7 +374,7 @@ server.on('upgrade',(req,socket,head)=>observatory.accept(req,socket,head,{baseP
 health.start();
 resilience.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v2.4.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v2.5.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
@@ -377,6 +389,7 @@ function shutdown(signal) {
   health.stop();
   resilience.stop();
   observatory.stop();
+  alerts.stop();
   try { store.flush?.(); } catch (err) { console.error('[AnchorWeight] state flush:', err.message); }
   const timer = setTimeout(() => {
     console.error('[AnchorWeight] graceful shutdown timed out');
@@ -404,6 +417,43 @@ main().catch(err => {
 
 
 ================================================================================
+FILE: bin/alerts.js
+================================================================================
+#!/usr/bin/env node
+/** Local-only alert configuration helper. Never prints keys or contacts destinations. */
+import fs from 'node:fs';
+import path from 'node:path';
+import {loadConfig} from '../src/config.js';
+import {validateConfig} from '../src/config-schema.js';
+import {loadAlertDocument} from '../src/alerts.js';
+
+const command=process.argv[2];
+if(!['init','validate'].includes(command)){
+ console.error('Usage: node bin/alerts.js init|validate');process.exitCode=2;
+}else{
+ try{
+  const config=loadConfig();
+  const file=path.resolve(config.alertsFile);
+  const dir=path.resolve('./data');
+  if(!file.startsWith(dir+path.sep)||!file.endsWith('.json'))throw Error('alerts_file_must_be_json_in_data');
+  if(command==='init'){
+    fs.mkdirSync(path.dirname(file),{recursive:true,mode:0o700});
+    const example=fs.readFileSync(new URL('../config/examples/alerts-basic.json',import.meta.url),'utf8');
+    fs.writeFileSync(file,example,{mode:0o600,flag:'wx'}); // Never overwrite operator changes.
+    console.log('Created private example:',file);
+    console.log('Edit the placeholder destination, approve its host in cPanel, then run: node bin/alerts.js validate');
+  }else{
+    const enabled={...config,alertsEnabled:true};
+    const validation=validateConfig(enabled);
+    if(!validation.valid)throw Error(validation.errors.join('; '));
+    const doc=loadAlertDocument(enabled);
+    console.log(`Alert configuration VALID (${doc.rules.length} rules, ${doc.webhooks.size} ${doc.webhooks.size === 1 ? 'destination' : 'destinations'}). No network requests made.`);
+  }
+ }catch(err){console.error('Alert configuration ERROR:',err.message);process.exitCode=1;}
+}
+
+
+================================================================================
 FILE: bin/anchorweight.js
 ================================================================================
 #!/usr/bin/env node
@@ -415,7 +465,7 @@ import { validateConfig } from '../src/config-schema.js';
 import { loadRoutes } from '../src/routing.js';
 import { readDeclarative } from '../src/declarative-config.js';
 
-const VERSION = '2.4.0';
+const VERSION = '2.5.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -574,7 +624,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/2.4.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/2.5.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -929,8 +979,56 @@ try {
   const sites = JSON.parse(fs.readFileSync(siteFile,'utf8'));
   const {server} = createIntelligenceHub({sites,file:process.env.AW_HUB_STATE_FILE || './data/intelligence-events.jsonl',
     adminToken:process.env.AW_HUB_ADMIN_TOKEN});
-  server.listen(port,()=>console.log(`AnchorWeight intelligence hub v2.4.0 listening on :${port}`));
+  server.listen(port,()=>console.log(`AnchorWeight intelligence hub v2.5.0 listening on :${port}`));
 } catch (err) { console.error('[AnchorWeight hub] startup failed:',err.message); process.exitCode=1; }
+
+
+================================================================================
+FILE: config/examples/alerts-basic.json
+================================================================================
+{
+  "version": 1,
+  "webhooks": [
+    {
+      "id": "incident_channel",
+      "url": "https://alerts.example.com/anchorweight"
+    }
+  ],
+  "rules": [
+    {
+      "id": "api_5xx",
+      "kind": "high_5xx",
+      "route": "/api",
+      "threshold": 5,
+      "cooldownSeconds": 300,
+      "webhook": "incident_channel"
+    },
+    {
+      "id": "origin_down",
+      "kind": "circuit_open",
+      "route": "/",
+      "threshold": 1,
+      "cooldownSeconds": 300,
+      "webhook": "incident_channel"
+    },
+    {
+      "id": "origin_up",
+      "kind": "circuit_recovered",
+      "route": "/",
+      "threshold": 1,
+      "cooldownSeconds": 300,
+      "webhook": "incident_channel"
+    },
+    {
+      "id": "origin_error",
+      "kind": "upstream_error",
+      "route": "/",
+      "threshold": 1,
+      "cooldownSeconds": 300,
+      "webhook": "incident_channel"
+    }
+  ]
+}
 
 
 ================================================================================
@@ -1055,7 +1153,7 @@ FILE: package.json
 ================================================================================
 {
   "name": "anchorweight",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
   "type": "module",
   "main": "app.js",
@@ -1070,7 +1168,8 @@ FILE: package.json
     "test:unit": "node --test test/unit/*.test.js",
     "source:review": "node scripts/source-review.js",
     "release:verify": "node scripts/release-check.js --verify",
-    "auth": "node bin/app-auth.js"
+    "auth": "node bin/app-auth.js",
+    "alerts": "node bin/alerts.js"
   },
   "engines": {
     "node": ">=20"
@@ -1150,6 +1249,209 @@ export class AdminSecurity {
 
 
 ================================================================================
+FILE: src/alerts.js
+================================================================================
+/**
+ * v2.5 opt-in alerting and outbound webhooks.
+ *
+ * Trust boundary: only fixed, redacted event fields enter this module; neither
+ * incoming HTTP headers nor client URLs can choose a webhook destination.
+ * Configuration lives in a private 0600 JSON file and destinations must be in
+ * the cPanel allowlist. Delivery uses a bounded, process-local queue. It is
+ * best effort, NOT a durable audit log or guaranteed notification service.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import net from 'node:net';
+import crypto from 'node:crypto';
+import https from 'node:https';
+import dns from 'node:dns/promises';
+
+const MAX_FILE_BYTES=16*1024, MAX_WEBHOOKS=8, MAX_RULES=16;
+const KINDS=new Set(['upstream_error','high_5xx','circuit_open','circuit_recovered']);
+const ID=/^[a-z][a-z0-9_-]{0,31}$/;
+const ROUTE=/^(?:\(default\)|\/|\/[A-Za-z0-9/_-]{1,127})$/;
+const QUEUE_LIMIT=64;
+
+function fields(value, expected) {
+  return value && typeof value==='object' && !Array.isArray(value) &&
+    Object.keys(value).sort().join(',')===expected.slice().sort().join(',');
+}
+function validWebhookUrl(value, hosts) {
+  if(typeof value!=='string'||value.length>2048||value.trim()!==value)throw Error('invalid_webhook_url');
+  let url;
+  try{url=new URL(value);}catch{throw Error('invalid_webhook_url');}
+  // Disallow IP literals, localhost and non-443 ports. DNS is checked and pinned on every delivery.
+  const host=url.hostname.toLowerCase();
+  if(url.protocol!=='https:'||url.username||url.password||url.hash||url.port||
+      !/^(?=.{1,253}$)[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(host)||
+      host.endsWith('.localhost')||host.endsWith('.local')||host.endsWith('.internal')||
+      net.isIP(host)||!hosts.includes(host)||url.pathname.length>512||url.search.length>512)
+    throw Error('webhook_destination_not_approved');
+  return url.href;
+}
+
+/** Reject private, reserved and non-global IPv4 addresses before a pinned HTTPS connection. */
+export function publicIPv4(value) {
+  if(net.isIP(value)!==4)return false;
+  const [a,b,c]=value.split('.').map(Number);
+  return !(a===0||a===10||a===127||a>=224||a===169&&b===254||
+    a===172&&b>=16&&b<=31||a===192&&(b===168||b===0&&c===0||b===0&&c===2||b===88&&c===99)||
+    a===100&&b>=64&&b<=127||a===198&&(b===18||b===19||b===51&&c===100)||
+    a===203&&b===0&&c===113||a===192&&b===0&&c===0);
+}
+
+/** Fail closed on an enabled but invalid private alert configuration. */
+export function validateAlertDocument(doc, config) {
+  if(!fields(doc,['version','webhooks','rules'])||doc.version!==1||
+      !Array.isArray(doc.webhooks)||doc.webhooks.length<1||doc.webhooks.length>MAX_WEBHOOKS||
+      !Array.isArray(doc.rules)||doc.rules.length<1||doc.rules.length>MAX_RULES)
+    throw Error('invalid_alert_document');
+  const hosts=(config.alertAllowedHosts||[]).map(x=>x.toLowerCase());
+  const hooks=new Map();
+  for(const item of doc.webhooks) {
+    if(!fields(item,['id','url'])||!ID.test(item.id)||hooks.has(item.id))throw Error('invalid_webhook_entry');
+    hooks.set(item.id,validWebhookUrl(item.url,hosts));
+  }
+  const ids=new Set();
+  const rules=doc.rules.map(item=>{
+    if(!fields(item,['id','kind','route','threshold','cooldownSeconds','webhook'])||
+        !ID.test(item.id)||ids.has(item.id)||!KINDS.has(item.kind)||
+        !ROUTE.test(item.route)||!hooks.has(item.webhook)||
+        !Number.isInteger(item.threshold)||item.threshold<1||item.threshold>10000||
+        !Number.isInteger(item.cooldownSeconds)||item.cooldownSeconds<60||item.cooldownSeconds>86400||
+        ((item.kind==='circuit_open'||item.kind==='circuit_recovered')&&item.threshold!==1))
+      throw Error('invalid_alert_rule');
+    ids.add(item.id);
+    return Object.freeze({...item});
+  });
+  return {webhooks:hooks,rules:Object.freeze(rules)};
+}
+export function loadAlertDocument(config) {
+  if(!config.alertsEnabled)return null;
+  const file=path.resolve(config.alertsFile||'./data/anchorweight-alerts.json');
+  const privateDir=path.resolve('./data');
+  if(!file.startsWith(privateDir+path.sep)||!file.endsWith('.json'))throw Error('alerts_file_must_be_json_in_data');
+  const fd=fs.openSync(file,fs.constants.O_RDONLY|(fs.constants.O_NOFOLLOW||0));
+  try {
+    const stat=fs.fstatSync(fd);
+    if(!stat.isFile()||stat.size<1||stat.size>MAX_FILE_BYTES)throw Error('invalid_alert_file');
+    if(process.platform!=='win32'&&(stat.mode&0o077)!==0)throw Error('alerts_file_permissions_require_0600');
+    const buf=Buffer.alloc(stat.size+1),read=fs.readSync(fd,buf,0,buf.length,0);
+    if(read!==stat.size)throw Error('alert_file_changed_during_read');
+    return validateAlertDocument(JSON.parse(buf.subarray(0,read).toString('utf8')),config);
+  }finally{fs.closeSync(fd);}
+}
+
+/**
+ * Resolve each attempt afresh, and pin the resolved public IP to this TLS request.
+ * No redirects, proxy environment variables, internal IPs or insecure HTTP.
+ */
+export async function deliverWebhook(url,body,config,{lookup=dns.lookup,request=https.request}={}) {
+  const target=new URL(url);
+  // DNS is allowed at most three seconds. A slow resolver must not occupy a delivery slot forever.
+  const answers=await new Promise((resolve,reject)=>{
+    const deadline=setTimeout(()=>reject(Error('webhook_dns_timeout')),3000);
+    Promise.resolve().then(()=>lookup(target.hostname,{all:true,verbatim:true}))
+      .then(value=>{clearTimeout(deadline);resolve(value);},error=>{clearTimeout(deadline);reject(error);});
+  });
+  if(!Array.isArray(answers)||answers.length===0||
+      answers.some(a=>a.family===4&&!publicIPv4(a.address)))throw Error('webhook_dns_not_public');
+  const selected=answers.find(a=>a.family===4&&publicIPv4(a.address));
+  if(!selected)throw Error('webhook_ipv4_required'); // Deliberate IPv4-only delivery for this first version.
+  const signature=crypto.createHmac('sha256',config.alertSigningKey).update(body).digest('hex');
+  return new Promise(resolve=>{
+    let settled=false;
+    const done=success=>{if(!settled){settled=true;resolve(success);}};
+    let req;
+    try {
+      req=request(target,{method:'POST',timeout:3000,
+        lookup:(_host,_opts,callback)=>callback(null,selected.address,4),
+        headers:{'Content-Type':'application/json','Content-Length':Buffer.byteLength(body),
+          'User-Agent':'AnchorWeight-Alerts/2.5','X-AnchorWeight-Signature':`sha256=${signature}`,
+          'Cache-Control':'no-store'}},res=>{res.resume();done(res.statusCode>=200&&res.statusCode<300);});
+      req.on('timeout',()=>req.destroy(Error('webhook_timeout')));
+      req.on('error',()=>done(false));req.end(body);
+    }catch{req?.destroy();done(false);}
+  });
+}
+
+/**
+ * Rules are evaluated in-process on sanitized response and breaker transitions.
+ * Callbacks are safe, typed extension hooks, NOT user-supplied JavaScript.
+ */
+export function createAlerts(config,{document=null,now=()=>Date.now(),send=deliverWebhook,onAlert=()=>{}}={}){
+  const enabled=!!config.alertsEnabled;
+  const source=enabled?(document||loadAlertDocument(config)):null;
+  const rules=source?.rules||[],webhooks=source?.webhooks||new Map();
+  const cooldown=new Map(),countBuckets=new Map(),pending=[],history=[];
+  let active=0,stopped=false;
+  const counters={generated:0,sent:0,failed:0,dropped:0,retried:0};
+  // Wizard-managed routes can change without restart; never accept a client-supplied route label.
+  const safeRoute=label=>label==='(default)'||(config.activeRoutes||[]).some(r=>r.path===label)
+    ? label : '(default)';
+  const maxConcurrent=2;
+  function snapshot(){return {enabled,scope:'in_memory_per_process',webhookCount:webhooks.size,
+    ruleCount:rules.length,pending:pending.length,active,...counters,
+    recent:history.slice(-20).map(x=>({...x}))};}
+  function record(rule,route,observed) {
+    const time=now(),last=cooldown.get(rule.id);
+    if(last!==undefined&&time-last<rule.cooldownSeconds*1000)return;
+    cooldown.set(rule.id,time);
+    const event=Object.freeze({schema:1,kind:rule.kind,rule:rule.id,route,
+      observed,at:new Date(time).toISOString()});
+    counters.generated++;
+    history.push(event);if(history.length>20)history.shift();
+    try{onAlert(event);}catch{} // A failing extension must never fail a proxied request.
+    if(pending.length+active>=QUEUE_LIMIT){counters.dropped++;return;}
+    pending.push({url:webhooks.get(rule.webhook),body:JSON.stringify(event),attempts:0});
+    drain();
+  }
+  function drain(){
+    while(!stopped&&active<maxConcurrent&&pending.length){
+      const item=pending.shift();active++;
+      // A failure is retried once, bounded and without holding up a request.
+      Promise.resolve().then(()=>send(item.url,item.body,config)).then(ok=>{
+        if(ok)counters.sent++;
+        else if(item.attempts===0&&!stopped&&pending.length+active<QUEUE_LIMIT){
+          item.attempts++;counters.retried++;pending.push(item);
+        }else counters.failed++;
+      }).catch(()=>{
+        if(item.attempts===0&&!stopped&&pending.length+active<QUEUE_LIMIT){
+          item.attempts++;counters.retried++;pending.push(item);
+        }else counters.failed++;
+      }).finally(()=>{active--;drain();});
+    }
+  }
+  function response(event){
+    if(!enabled||stopped||event?.kind!=='response')return;
+    const route=safeRoute(event.route);
+    for(const rule of rules){
+      if(rule.route!=='/'&&rule.route!==route)continue; // '/' matches any configured route.
+      if(rule.kind==='upstream_error'&&event.upstreamError)record(rule,route,1);
+      if(rule.kind!=='high_5xx')continue;
+      const minute=Math.floor(now()/60000),key=rule.id+'\0'+route;
+      let buckets=countBuckets.get(key);
+      if(!buckets){if(countBuckets.size>=MAX_RULES*17)countBuckets.delete(countBuckets.keys().next().value);
+        buckets=new Map();countBuckets.set(key,buckets);}
+      for(const m of buckets.keys())if(minute-m>=5)buckets.delete(m);
+      if(event.status>=500)buckets.set(minute,(buckets.get(minute)||0)+1);
+      const count=[...buckets.values()].reduce((a,b)=>a+b,0);
+      if(count>=rule.threshold)record(rule,route,count);
+    }
+  }
+  function circuit(event){
+    if(!enabled||stopped||!['circuit_open','circuit_recovered'].includes(event?.kind))return;
+    // Only use operator-defined route labels. Origin URLs never leave this process.
+    const route=safeRoute(event.route);
+    for(const rule of rules)if(rule.kind===event.kind&&(rule.route==='/'||rule.route===route))record(rule,route,1);
+  }
+  function stop(){stopped=true;counters.dropped+=pending.length;pending.length=0;}
+  return {response,circuit,snapshot,stop};
+}
+
+
+================================================================================
 FILE: src/anchorweight.js
 ================================================================================
 import { randomId, ipFingerprint, safeEqual } from './crypto.js';
@@ -1215,6 +1517,7 @@ export function createAnchorWeight(config, deps = {}) {
   const publisher = deps.publisher || createEvidencePublisher(config);
   const telemetry = deps.telemetry || null;
   const observatory = deps.observatory || null;
+  const alerts = deps.alerts || null;
   const setup = deps.setup || null;
   const routingStatus = () => typeof deps.routing === 'function' ? deps.routing() : deps.routing || null;
   const gateway = deps.gateway || null;
@@ -1331,7 +1634,7 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'2.4.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'2.5.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/observatory/ticket` && method === 'GET') {
@@ -1343,7 +1646,7 @@ export function createAnchorWeight(config, deps = {}) {
         return json(res,200,ticket);
       }
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '2.4.0', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '2.5.0', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
@@ -1405,7 +1708,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'2.4.0', events });
+        return json(res, 200, { version:'2.5.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -1415,7 +1718,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'2.4.0', profile:null, campaign:null, events:[], timeline:[]
+          version:'2.5.0', profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });
@@ -1898,7 +2201,7 @@ export function createAuditLogger(file) {
   return function audit(event) {
     const record = {
       ts: new Date().toISOString(),
-      version: '2.4.0',
+      version: '2.5.0',
       ...event
     };
     try {
@@ -2417,6 +2720,12 @@ export function validateConfig(config) {
     } catch {errors.push('intelligenceHubUrl is invalid');}
     warnings.push('Distributed intelligence is opt-in; only locally verified bounded evidence is forwarded.');
   }
+  if (config.alertsEnabled) {
+    if (!config.alertsFile || typeof config.alertsFile !== 'string') errors.push('AW_ALERTS_FILE is required');
+    if (!Array.isArray(config.alertAllowedHosts) || config.alertAllowedHosts.length < 1 || config.alertAllowedHosts.length > 8) errors.push('AW_ALERT_ALLOWED_HOSTS requires 1-8 hosts');
+    if (typeof config.alertSigningKey !== 'string' || config.alertSigningKey.length < 32) errors.push('AW_ALERT_SIGNING_KEY requires 32+ characters');
+    warnings.push('Alerts are best-effort, process-local and restricted to approved HTTPS destinations.');
+  }
   if (config.observatoryLiveEnabled != null && typeof config.observatoryLiveEnabled !== 'boolean') errors.push('observatoryLiveEnabled must be boolean');
   if (config.setupWritesEnabled && !config.setupConfigEnabled) errors.push('setupWritesEnabled requires setupConfigEnabled');
   if (config.setupWritesEnabled && !config.dashboardToken) errors.push('setupWritesEnabled requires an authenticated dashboard token');
@@ -2523,6 +2832,11 @@ export function loadConfig(overrides = {}) {
     originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),
     observatoryLiveEnabled: boolEnv('AW_OBSERVATORY_LIVE_ENABLED', false),
+    // Opt-in outbound alerts; keep signing secrets in cPanel, NOT source or alert files.
+    alertsEnabled: boolEnv('AW_ALERTS_ENABLED', false),
+    alertsFile: process.env.AW_ALERTS_FILE || './data/anchorweight-alerts.json',
+    alertAllowedHosts: listEnv('AW_ALERT_ALLOWED_HOSTS'),
+    alertSigningKey: process.env.AW_ALERT_SIGNING_KEY || '',
     gatewayAccessEnabled: boolEnv('AW_GATEWAY_ACCESS_ENABLED', false),
     gatewayRateEnabled: boolEnv('AW_GATEWAY_RATE_ENABLED', false),
     gatewayShadowMode: boolEnv('AW_GATEWAY_SHADOW_MODE', true),
@@ -2777,7 +3091,7 @@ export function readDeclarative(config, file = configurationFile(config)) {
 /** Browser editor: prepare first, back up previous file, then atomic replace and activate. */
 export function createDeclarativeController(config, { file = configurationFile(config), onActivate = () => () => {} } = {}) {
   function snapshot() {
-    return { version:'2.4.0', declarativeEnabled:true,
+    return { version:'2.5.0', declarativeEnabled:true,
       configEnabled:true, writesEnabled:!!config.declarativeWritesEnabled,
       previousAvailable:fs.existsSync(`${file}.previous`),
       source:config.setupSource || 'declarative-file', shadowMode:config.shadowMode,
@@ -3278,11 +3592,11 @@ export function createIntelligenceHub({sites, file, adminToken, now = () => Date
   }
   const server = http.createServer((req,res) => {
     const pathname = new URL(req.url,'http://localhost').pathname;
-    if (pathname === '/live' && req.method === 'GET') return response(res,200,{ok:true,service:'AnchorWeight Intelligence Hub',version:'2.4.0'});
+    if (pathname === '/live' && req.method === 'GET') return response(res,200,{ok:true,service:'AnchorWeight Intelligence Hub',version:'2.5.0'});
     if (pathname === '/v1/events' && req.method === 'GET') {
       if (!authenticate(req)) return response(res,401,{error:'unauthorized'});
       const limit = Math.min(100,Math.max(1,Number(new URL(req.url,'http://localhost').searchParams.get('limit')) || 50));
-      return response(res,200,{version:'2.4.0',siteCount:new Set(events.map(e=>e.siteId)).size,
+      return response(res,200,{version:'2.5.0',siteCount:new Set(events.map(e=>e.siteId)).size,
         total:events.length,events:events.slice(-limit).reverse(),limitations:[
           'Bot IDs are site-scoped; a matching ID from different sites is not an identity correlation.',
           'A site attests to local evidence; the hub does not independently verify signed canary paths.',
@@ -3416,7 +3730,7 @@ export function buildInvestigation(store, logFile, options) {
   const truncated = allMatching.length > limit;
   const events = allMatching.slice(-limit);
   return {
-    version:'2.4.0', kind:campaignId ? 'campaign' : 'bot',
+    version:'2.5.0', kind:campaignId ? 'campaign' : 'bot',
     caseId:campaignId || botId, profile, campaign, relatedCampaigns, memberProfiles,
     // events stays newest-first for v1.4 API compatibility; timeline is chronological.
     events:[...events].reverse(), timeline:events,
@@ -3432,7 +3746,7 @@ export function buildInvestigation(store, logFile, options) {
 export function buildCaseReport(investigation) {
   return {
     format:'anchorweight-investigation-v1', generatedAt:new Date().toISOString(),
-    version:'2.4.0', caseId:investigation.caseId, kind:investigation.kind,
+    version:'2.5.0', caseId:investigation.caseId, kind:investigation.kind,
     profile:investigation.profile, campaign:investigation.campaign,
     relatedCampaigns:investigation.relatedCampaigns,
     memberProfiles:investigation.memberProfiles,
@@ -3716,7 +4030,7 @@ export async function backupFiles(config, destination) {
     const dest=path.join(dir,path.basename(file));
     fs.copyFileSync(file,dest);copied.push({label,file:dest});
   }
-  const manifest={version:'2.4.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
+  const manifest={version:'2.5.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
   fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2));
   return {dir,manifest};
 }
@@ -3747,7 +4061,7 @@ export async function exportEvidence(config, destination) {
     ? await readSqliteState(config.sqliteFile) : config.stateBackend==='sqlite' ? {} : readJson(config.stateFile,{});
   const events=readJsonLines(config.logFile);
   const report={
-    version:'2.4.0',
+    version:'2.5.0',
     generatedAt:new Date().toISOString(),
     profile:config.profileName||null,
     stateBackend:config.stateBackend||'json',
@@ -3815,7 +4129,7 @@ export function migrateStateFile(file, options={}) {
   const temp=`${resolved}.${process.pid}.tmp`;
   fs.writeFileSync(temp,JSON.stringify({
     ...migrated.state,
-    meta:{...(migrated.state.meta||{}),appVersion:'2.4.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
+    meta:{...(migrated.state.meta||{}),appVersion:'2.5.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
   }));
   fs.renameSync(temp,resolved);
   return {file:resolved,backup,dryRun:false,...migrated};
@@ -3866,7 +4180,7 @@ export class PersistentStore extends MemoryStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
       const temp = `${this.file}.${process.pid}.tmp`;
-      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'2.4.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
+      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'2.5.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
       fs.renameSync(temp, this.file);
     } catch (err) {
       console.error('[AnchorWeight] Unable to persist state:', err.message);
@@ -4210,7 +4524,7 @@ const initialState = () => ({ state:'closed', failures:0, openedAt:null, halfOpe
 /** The transport is injectable so unit tests never need external network access. */
 export function createResilience(config, {
   fallbacks = new Map(), now = () => Date.now(),
-  requestHttp = http.request, requestHttps = https.request
+  requestHttp = http.request, requestHttps = https.request, onTransition = () => {}
 } = {}) {
   const enabled = !!config.resilienceEnabled;
   const states = new Map();
@@ -4232,6 +4546,7 @@ export function createResilience(config, {
   function success(origin, status, checked = false, latencyMs = null) {
     if (!enabled) return;
     const s = stateFor(origin);
+    const wasUnavailable = s.state === 'open' || s.state === 'half_open';
     s.failures = 0;
     s.state = 'closed';
     s.halfOpenBusy = false;
@@ -4239,6 +4554,7 @@ export function createResilience(config, {
     s.lastStatus = status;
     if (checked) { s.lastCheckedAt = new Date(now()).toISOString(); s.latencyMs = latencyMs; }
     s.successes++;
+    if (wasUnavailable) { try { onTransition({kind:'circuit_recovered',origin:canonicalOrigin(origin)}); } catch {} }
   }
   function failure(origin, status = null, checked = false, latencyMs = null) {
     if (!enabled) return;
@@ -4248,8 +4564,10 @@ export function createResilience(config, {
     s.lastStatus = status;
     if (checked) { s.lastCheckedAt = new Date(now()).toISOString(); s.latencyMs = latencyMs; counters.probeFailures++; }
     if (s.failures >= config.resilienceFailureThreshold) {
+      const newlyOpen = s.state !== 'open';
       s.state = 'open';
       s.openedAt = now();
+      if (newlyOpen) { try { onTransition({kind:'circuit_open',origin:canonicalOrigin(origin)}); } catch {} }
     }
   }
   function response(origin, status) {
@@ -4493,7 +4811,7 @@ export function readOperatorSettings(config,file=OPERATOR_CONFIG_FILE) {
 }
 export function createSetupController(config,{file=OPERATOR_CONFIG_FILE,onActivate=()=>{}}={}) {
   function snapshot() {return {
-    version:'2.4.0',configEnabled:!!config.setupConfigEnabled,
+    version:'2.5.0',configEnabled:!!config.setupConfigEnabled,
     writesEnabled:!!config.setupConfigEnabled&&!!config.setupWritesEnabled,
     settings:{proxyEnabled:config.proxyEnabled,originUrl:config.originUrl},
     allowedOrigins:allowedOrigins(config),shadowMode:config.shadowMode,
@@ -4611,7 +4929,7 @@ export class SqliteStore extends MemoryStore {
         this.migrationsApplied = [...migrated.applied, 'JSON->SQLite'];
       }
       this.db.prepare("INSERT INTO metadata (key,value) VALUES ('state_version',?)").run(String(CURRENT_STATE_VERSION));
-      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','2.4.0')").run();
+      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','2.5.0')").run();
       this.db.exec('COMMIT');
     } catch (err) {
       this.db.exec('ROLLBACK');
@@ -4900,6 +5218,69 @@ export function createUpstreamHealth(config,{getOrigin=()=>config.originUrl,getP
     return {...state,status:!config.gatewayHealthEnabled||!current?'disabled':current!==activeOrigin?'unknown':state.status,enabled:!!config.gatewayHealthEnabled,probeMethod:'HEAD',scope:config.routesEnabled?'default_origin_only':'local_process'};}
   return {start,stop,probe,snapshot};
 }
+
+
+================================================================================
+FILE: test/alerts.integration.test.js
+================================================================================
+/** Genuine cPanel/Passenger-style startup with private alerts and public routing. */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import http from 'node:http';
+import net from 'node:net';
+import {once} from 'node:events';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+const app=fileURLToPath(new URL('../app.js',import.meta.url));
+async function listen(server){server.listen(0,'127.0.0.1');await once(server,'listening');return server.address().port;}
+async function freePort(){const server=net.createServer();const port=await listen(server);server.close();await once(server,'close');return port;}
+async function stop(child){if(child.exitCode!==null||child.signalCode!==null)return;const done=once(child,'exit');child.kill('SIGTERM');const timer=setTimeout(()=>child.kill('SIGKILL'),2000);try{await done;}finally{clearTimeout(timer);}}
+const policy={version:1,webhooks:[{id:'ops',url:'https://alerts.example.com/hooks/aw'}],rules:[
+  {id:'only_transition',kind:'circuit_open',route:'/',threshold:1,cooldownSeconds:60,webhook:'ops'}]};
+test('real Node startup: alerts stay private, authenticated snapshots work, normal requests unaffected',async t=>{
+ const origin=http.createServer((_req,res)=>res.end('ORIGIN OK'));const upstream=await listen(origin);
+ t.after(()=>{origin.closeAllConnections();origin.close();});
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw25-alerts-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ fs.mkdirSync(path.join(dir,'data'));fs.writeFileSync(path.join(dir,'data','alerts.json'),JSON.stringify(policy),{mode:0o600});
+ const port=await freePort(),base=`http://127.0.0.1:${port}`;
+ const env={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('AW_'))),
+  PORT:String(port),AW_SECRET:'integration-sufficiently-long-secret',AW_DASHBOARD_TOKEN:'integration-sufficiently-long-dashboard-token',
+  AW_PROXY_ENABLED:'true',AW_ORIGIN_URL:`http://127.0.0.1:${upstream}/`,AW_BLACKHOLE_ENABLED:'false',AW_AUDIT_ENABLED:'false',
+  AW_ALERTS_ENABLED:'true',AW_ALERTS_FILE:'./data/alerts.json',AW_ALERT_ALLOWED_HOSTS:'alerts.example.com',
+  AW_ALERT_SIGNING_KEY:'v2.5-alerts-dedicated-integration-signing-secret'};
+ const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});
+ t.after(()=>stop(child));child.stdout.resume();let errors='';child.stderr.on('data',x=>errors+=x);
+ for(let i=0;i<90;i++){if(child.exitCode!==null)throw Error('startup failed '+errors);
+   try{if((await fetch(base+'/live')).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
+ assert.equal((await (await fetch(base+'/live')).json()).version,'2.5.0');
+ assert.equal(await (await fetch(base+'/hello')).text(),'ORIGIN OK');
+ assert.equal((await fetch(base+'/anchor/api/stats')).status,401);
+ const authorized=await fetch(base+'/anchor/api/stats',{headers:{authorization:'Bearer integration-sufficiently-long-dashboard-token'}});
+ assert.equal(authorized.status,200);const json=await authorized.json();
+ assert.equal(json.alerts.enabled,true);assert.equal(json.alerts.ruleCount,1);assert.equal(json.alerts.webhookCount,1);
+ assert.doesNotMatch(JSON.stringify(json.alerts),/alerts\.example\.com|signing-secret|http:\/\/127\.0\.0\.1/);
+});
+test('enabled invalid alerts file prevents startup; disabled mode ignores missing file',async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw25-invalid-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+ fs.mkdirSync(path.join(dir,'data'));
+ const baseEnv={...Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('AW_'))),
+   PORT:String(await freePort()),AW_SECRET:'integration-sufficiently-long-secret',
+   AW_ALERTS_FILE:'./data/missing.json',AW_ALERT_ALLOWED_HOSTS:'alerts.example.com',
+   AW_ALERT_SIGNING_KEY:'v2.5-alerts-dedicated-integration-signing-secret'};
+ const bad=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,
+   env:{...baseEnv,AW_ALERTS_ENABLED:'true'},stdio:['ignore','pipe','pipe']});
+ let errors='';bad.stderr.on('data',x=>errors+=x);bad.stdout.resume();t.after(()=>stop(bad));
+ await once(bad,'exit');assert.match(errors,/ENOENT|no such file/);
+ const port=await freePort(),good=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,
+   env:{...baseEnv,PORT:String(port),AW_ALERTS_ENABLED:'false'},stdio:['ignore','pipe','pipe']});
+ t.after(()=>stop(good));good.stdout.resume();let goodErr='';good.stderr.on('data',x=>goodErr+=x);
+ for(let i=0;i<90;i++){if(good.exitCode!==null)throw Error('disabled startup failed '+goodErr);
+  try{if((await fetch(`http://127.0.0.1:${port}/live`)).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
+ assert.equal((await(await fetch(`http://127.0.0.1:${port}/live`)).json()).version,'2.5.0');
+});
 
 
 ================================================================================
@@ -5276,7 +5657,7 @@ test('application Basic Auth and API keys protect only configured proxy paths; o
     try{if((await fetch(base+'/live')).ok)break;}catch{}
     await new Promise(resolve=>setTimeout(resolve,60));
   }
-  assert.equal((await (await fetch(base+'/live')).json()).version,'2.4.0');
+  assert.equal((await (await fetch(base+'/live')).json()).version,'2.5.0');
   const blocked=await fetch(base+'/private/file');
   assert.equal(blocked.status,401);assert.match(blocked.headers.get('www-authenticate'),/^Basic /);
   assert.equal((await fetch(base+'/private/file',{headers:{authorization:'Basic '+Buffer.from('alice:wrong-password').toString('base64')}})).status,401);
@@ -5375,7 +5756,7 @@ test('YAML configuration: live route edits, approved-only API, persistence and r
     AW_ROUTE_ALLOWED_ORIGINS:`${apiOrigin},${assetsOrigin}`,AW_SETUP_PUBLIC_HOST:'aw.example.com'};
   const port=await freePort();let child=launch(dir,port,env);t.after(async()=>stop(child));
   let live=await waitLive(port,child);
-  assert.equal(live.version,'2.4.0');assert.equal(live.proxyEnabled,true);assert.equal(live.routeCount,1);
+  assert.equal(live.version,'2.5.0');assert.equal(live.proxyEnabled,true);assert.equal(live.routeCount,1);
   const get=p=>fetch(`http://127.0.0.1:${port}${p}`);
   assert.equal(await (await get('/api/hello?x=1')).text(),'API GET /api/hello?x=1');
   assert.equal(await (await get('/apiary')).text(),'DEFAULT GET /apiary');
@@ -5461,7 +5842,7 @@ test('v1.8 cPanel require startup: proxy-only access rules, operator endpoints r
   const admin=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`);
   assert.equal(admin.status,401);
   const stats=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`,{headers:{Authorization:'Bearer long-dashboard-token-for-gateway-18'}});
-  const body=await stats.json();assert.equal(body.version,'2.4.0');assert.equal(body.gateway.denied,1);
+  const body=await stats.json();assert.equal(body.version,'2.5.0');assert.equal(body.gateway.denied,1);
   assert.equal(body.upstreamHealth.status,'disabled');
   const setup=await fetch(`http://127.0.0.1:${inst.port}/setup.html`);assert.equal(setup.status,200);
   const live=await fetch(`http://127.0.0.1:${inst.port}/live`);assert.equal(live.status,200);
@@ -5521,7 +5902,7 @@ test('live observatory: authenticated one-use ticket, redacted route metrics and
   PORT:String(port),AW_SECRET:'observatory-integration-secret-test',AW_DASHBOARD_TOKEN:'observatory-integration-dashboard-token',AW_PROXY_ENABLED:'true',AW_ORIGIN_URL:`http://127.0.0.1:${upstream}/`,AW_OBSERVATORY_LIVE_ENABLED:'true',AW_PUBLIC_SCHEME:'http',AW_BLACKHOLE_ENABLED:'false',AW_AUDIT_ENABLED:'false'};
  const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});t.after(async()=>stop(child));child.stdout.resume();let errors='';child.stderr.on('data',x=>errors+=x);
  for(let i=0;i<100;i++){if(child.exitCode!==null)throw Error('startup_failed '+errors);try{if((await fetch(base+'/live')).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
- assert.equal((await(await fetch(base+'/live')).json()).version,'2.4.0');
+ assert.equal((await(await fetch(base+'/live')).json()).version,'2.5.0');
  const url=base+'/anchor/api/observatory/ticket',headers={authorization:'Bearer observatory-integration-dashboard-token'};
  assert.equal((await fetch(url)).status,401);
  const ticketResponse=await fetch(url,{headers});assert.equal(ticketResponse.status,200);const {ticket}=await ticketResponse.json();
@@ -5582,7 +5963,7 @@ test('cPanel-style multi-origin routing, fallback, query, proxy hot-switch and r
  const server=http.createServer();const port=await listen(server);const closed=once(server,'close');server.close();await closed;env.PORT=String(port);
  const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});
  child.errors='';child.stderr.on('data',chunk=>child.errors+=chunk.toString());t.after(async()=>{await stop(child);for(const s of [a,b,c,d]){s.closeAllConnections();s.close();}});
- const live=await waitLive(port,child);assert.equal(live.version,'2.4.0');assert.equal(live.routeCount,2);
+ const live=await waitLive(port,child);assert.equal(live.version,'2.5.0');assert.equal(live.routeCount,2);
  async function get(p,init){return fetch(`http://127.0.0.1:${port}${p}`,init);}
  assert.equal(await (await get('/api?x=1')).text(),'API GET /api?x=1');
  assert.equal(await (await get('/api/hello?x=1')).text(),'API GET /api/hello?x=1');
@@ -5689,7 +6070,7 @@ test('real cPanel-style startup, authenticated wizard apply, proxied traffic, te
   let child=start({port,cwd:dir,origin:target,viaRequire:true});
   t.after(async()=>{await stop(child);});
   let live=await online(port,child);
-  assert.equal(live.version,'2.4.0');assert.equal(live.proxyEnabled,false);
+  assert.equal(live.version,'2.5.0');assert.equal(live.proxyEnabled,false);
   const pageResponse=await fetch(`http://127.0.0.1:${port}/setup.html`);
   assert.equal(pageResponse.status,200);assert.match(await pageResponse.text(),/AnchorWeight Setup/);
   const noAuth=await fetch(`http://127.0.0.1:${port}/anchor/api/setup`);
@@ -5884,7 +6265,7 @@ test('cPanel-style startup: independent circuit, approved fallback, no POST rero
   try{if((await fetch(base+'/live')).ok)break;}catch{}
   await new Promise(resolve=>setTimeout(resolve,60));
  }
- assert.equal((await (await fetch(base+'/live')).json()).version,'2.4.0');
+ assert.equal((await (await fetch(base+'/live')).json()).version,'2.5.0');
  for(let i=0;i<2;i++){
   const r=await fetch(base+'/api/item?x=1');
   assert.equal(r.status,503,'upstream 5xx is passed through, never replayed');
@@ -5929,6 +6310,106 @@ test('CSRF expires and is client-bound',()=>{
   assert.equal(a.validateCsrf({...req,headers:{'x-aw-csrf':token}}),true);
   assert.equal(a.validateCsrf({headers:{'x-aw-csrf':token},socket:{remoteAddress:'203.0.113.2'}}),false);
   now=61001; assert.equal(a.validateCsrf({...req,headers:{'x-aw-csrf':token}}),false);
+});
+
+
+================================================================================
+FILE: test/unit/alerts.test.js
+================================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {loadConfig} from '../../src/config.js';
+import {validateConfig} from '../../src/config-schema.js';
+import {validateAlertDocument,loadAlertDocument,publicIPv4,createAlerts,deliverWebhook} from '../../src/alerts.js';
+
+const doc={version:1,webhooks:[{id:'ops',url:'https://alerts.example.com/hooks/aw'}],rules:[
+ {id:'errors',kind:'upstream_error',route:'/',threshold:1,cooldownSeconds:60,webhook:'ops'},
+ {id:'fives',kind:'high_5xx',route:'/api',threshold:3,cooldownSeconds:60,webhook:'ops'},
+ {id:'down',kind:'circuit_open',route:'/',threshold:1,cooldownSeconds:60,webhook:'ops'},
+ {id:'up',kind:'circuit_recovered',route:'/',threshold:1,cooldownSeconds:60,webhook:'ops'}]};
+const conf=()=>({...loadConfig({alertsEnabled:false,alertAllowedHosts:['alerts.example.com'],
+  alertSigningKey:'a'.repeat(40),activeRoutes:[{path:'/api',origin:'http://127.0.0.1:8081/'}],routesEnabled:false,
+  setupConfigEnabled:false,declarativeEnabled:false,appAuthEnabled:false,observatoryLiveEnabled:false,
+  resilienceEnabled:false,intelligenceEnabled:false,trustedJa4Enabled:false,trustProxy:false}),alertsEnabled:true});
+const tick=()=>new Promise(r=>setImmediate(r));
+test('webhook destinations and rule schema reject SSRF, internal hosts, unknown or duplicate rules',()=>{
+ assert.equal(validateAlertDocument(doc,conf()).rules.length,4);
+ const bad=(url)=>({...doc,webhooks:[{id:'ops',url}]});
+ for(const url of ['http://alerts.example.com/h','https://localhost/h','https://127.0.0.1/h',
+  'https://user:pass@alerts.example.com/h','https://alerts.example.com:8443/h',
+  'https://unapproved.example.com/h','https://alerts.example.com/h#fragment'])
+  assert.throws(()=>validateAlertDocument(bad(url),conf()));
+ assert.throws(()=>validateAlertDocument({...doc,rules:[doc.rules[0],doc.rules[0]]},conf()));
+ assert.throws(()=>validateAlertDocument({...doc,rules:[{...doc.rules[0],webhook:'missing'}]},conf()));
+});
+test('reserved/private IPv4 cannot receive alerts; DNS resolution pinned to public IP',async()=>{
+ for(const ip of ['127.0.0.1','10.5.1.1','172.16.0.1','192.168.0.1','169.254.169.254','100.64.1.2','192.0.2.1','203.0.113.1'])assert.equal(publicIPv4(ip),false);
+ assert.equal(publicIPv4('8.8.8.8'),true);
+ let requests=0,received;
+ const request=(url,opts,callback)=>{
+  requests++;received={url:url.href,opts};
+  const mock={on(_event){return mock;},end(_body){callback({statusCode:204,resume(){}});return mock;},destroy(){}};
+  return mock;
+ };
+ const key=conf();
+ await assert.rejects(deliverWebhook(doc.webhooks[0].url,'{"schema":1}',key,{lookup:async()=>[{address:'169.254.169.254',family:4}],request}),/webhook_dns_not_public/);
+ assert.equal(requests,0);
+});
+test('DNS pinning and HMAC cover exact redacted body; redirects are not followed',async()=>{
+ let got;
+ const request=(url,opts,callback)=>{got={url,opts};const req={on(){return req;},end(){callback({statusCode:302,resume(){}})},destroy(){}};return req;};
+ const ok=await deliverWebhook('https://alerts.example.com/hooks/aw','{"kind":"test"}',conf(),{lookup:async()=>[{address:'8.8.8.8',family:4}],request});
+ assert.equal(ok,false);
+ assert.equal(got.opts.headers['X-AnchorWeight-Signature'].startsWith('sha256='),true);
+ await new Promise(resolve=>got.opts.lookup('alerts.example.com',{},(err,ip,family)=>{assert.equal(ip,'8.8.8.8');assert.equal(family,4);resolve();}));
+});
+test('enabled configuration loads only private bounded files; disabled ignores missing file',()=>{
+ fs.mkdirSync(path.resolve(process.cwd(),'data'),{recursive:true});
+ const tmp=fs.mkdtempSync(path.resolve(process.cwd(),'data','alerts-unit-'));
+ const file=path.join(tmp,'alerts.json');try{
+  fs.writeFileSync(file,JSON.stringify(doc),{mode:0o600});
+  assert.equal(loadAlertDocument({...conf(),alertsFile:file}).rules.length,4);
+  assert.equal(loadAlertDocument({...conf(),alertsEnabled:false,alertsFile:'/nonexistent.json'}),null);
+  fs.chmodSync(file,0o644);if(process.platform!=='win32')assert.throws(()=>loadAlertDocument({...conf(),alertsFile:file}));
+  fs.chmodSync(file,0o600);fs.writeFileSync(file,' '.repeat(17000));assert.throws(()=>loadAlertDocument({...conf(),alertsFile:file}));
+  assert.throws(()=>loadAlertDocument({...conf(),alertsFile:'./otherdir/policy.json'}));
+ }finally{fs.rmSync(tmp,{recursive:true,force:true});}
+});
+test('disabled-by-default and enabled configuration validation',()=>{
+ const c=conf();assert.equal(validateConfig(c).valid,true);
+ assert.equal(validateConfig({...c,alertSigningKey:'short'}).valid,false);
+ assert.equal(validateConfig({...c,alertsEnabled:false,alertSigningKey:''}).valid,true);
+});
+test('redacted response alerts, five-minute threshold, per-rule cooldown and transition hooks',async()=>{
+ let time=1000000;const sent=[],seen=[];
+ const alerts=createAlerts(conf(),{document:validateAlertDocument(doc,conf()),now:()=>time,
+  send:async(url,body)=>{sent.push({url,payload:JSON.parse(body)});return true;},onAlert:e=>seen.push(e)});
+ alerts.response({kind:'response',route:'/api',status:500,upstreamError:'timeout',
+  ip:'TOP_SECRET',headers:{authorization:'TOP_SECRET'},path:'/api/token=TOP_SECRET'});
+ alerts.response({kind:'response',route:'/api',status:500});
+ alerts.response({kind:'response',route:'/api',status:500});
+ alerts.circuit({kind:'circuit_open',route:'/api',origin:'http://TOP_SECRET/'});
+ alerts.circuit({kind:'circuit_open',route:'/api'});
+ await tick();await tick();
+ assert.equal(alerts.snapshot().generated,3);
+ assert.equal(alerts.snapshot().sent,3);
+ assert.equal(sent.some(item=>JSON.stringify(item).includes('TOP_SECRET')),false);
+ assert.equal(alerts.snapshot().recent.length,3);
+ time+=61000;alerts.circuit({kind:'circuit_recovered',route:'/api'});await tick();await tick();
+ assert.equal(alerts.snapshot().generated,4);
+ alerts.stop();
+});
+test('failed delivery retries once and does not block a request',async()=>{
+ let calls=0;
+ const rules=validateAlertDocument({...doc,rules:[doc.rules[0]]},conf());
+ const alert=createAlerts(conf(),{document:rules,send:async()=>{calls++;return false;}});
+ alert.response({kind:'response',route:'(default)',status:502,upstreamError:'timeout'});
+ await tick();await tick();await tick();
+ assert.equal(calls,2);assert.equal(alert.snapshot().retried,1);assert.equal(alert.snapshot().failed,1);
+ alert.stop();
 });
 
 
@@ -6989,7 +7470,7 @@ test('audit logger produces structured v1 records',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-audit-')); const file=path.join(dir,'audit.jsonl');
   createAuditLogger(file)({type:'operator_test',client:'abc'});
   const r=JSON.parse(fs.readFileSync(file,'utf8').trim());
-  assert.equal(r.version,'2.4.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
+  assert.equal(r.version,'2.5.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
   fs.rmSync(dir,{recursive:true,force:true});
 });
 
@@ -7180,6 +7661,15 @@ test('legacy proxy paths remain valid when resilience is disabled',()=>{
  const c=baseline({resilienceEnabled:false,originUrl:'http://127.0.0.1:8101/subdir'});
  const m=createResilience(c);
  assert.equal(m.choose(c.originUrl,req()),'http://127.0.0.1:8101/subdir');
+});
+
+test('breaker emits exactly one open/recovered transition for typed alerts',()=>{
+ const transitions=[];
+ const breaker=createResilience(baseline(),{onTransition:event=>transitions.push(event)});
+ breaker.failure(primary);breaker.failure(primary);breaker.failure(primary);
+ assert.deepEqual(transitions,[{kind:'circuit_open',origin:primary}]);
+ breaker.response(primary,200);breaker.response(primary,200);
+ assert.deepEqual(transitions,[{kind:'circuit_open',origin:primary},{kind:'circuit_recovered',origin:primary}]);
 });
 
 
@@ -7605,7 +8095,7 @@ for(const backend of ['json','sqlite']){
   const p=await port();let child=await start(dir,p,backend);t.after(async()=>stop(child));
   const base=`http://127.0.0.1:${p}`;
   const ready=await (await fetch(`${base}/ready`)).json();
-  assert.equal(ready.version,'2.4.0');assert.equal(ready.stateBackend,backend);assert.equal(ready.stateVersion,5);
+  assert.equal(ready.version,'2.5.0');assert.equal(ready.stateBackend,backend);assert.equal(ready.stateVersion,5);
   const lure=await fetch(`${base}/anchor/`);assert.equal(lure.status,200);
   const token='Bearer v2-dashboard-token-123456789000';
   const stats=await (await fetch(`${base}/anchor/api/stats`,{headers:{authorization:token}})).json();

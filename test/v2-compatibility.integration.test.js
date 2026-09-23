@@ -34,7 +34,7 @@ for(const backend of ['json','sqlite']){
   const p=await port();let child=await start(dir,p,backend);t.after(async()=>stop(child));
   const base=`http://127.0.0.1:${p}`;
   const ready=await (await fetch(`${base}/ready`)).json();
-  assert.equal(ready.version,'2.4.0');assert.equal(ready.stateBackend,backend);assert.equal(ready.stateVersion,5);
+  assert.equal(ready.version,'2.5.0');assert.equal(ready.stateBackend,backend);assert.equal(ready.stateVersion,5);
   const lure=await fetch(`${base}/anchor/`);assert.equal(lure.status,200);
   const token='Bearer v2-dashboard-token-123456789000';
   const stats=await (await fetch(`${base}/anchor/api/stats`,{headers:{authorization:token}})).json();

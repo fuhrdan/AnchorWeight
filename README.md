@@ -1,4 +1,6 @@
-# AnchorWeight v2.4.0
+# AnchorWeight v2.5.0
+
+**v2.5 alerting:** Explicitly approved, redacted HTTPS webhooks for circuit transitions and proxied error thresholds. Default-off, bounded, no new runtime packages. [Operator guide](ALERTS-AND-WEBHOOKS.md).
 
 **Let bots identify themselves.**
 

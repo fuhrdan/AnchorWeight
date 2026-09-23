@@ -74,7 +74,7 @@ const initialState = () => ({ state:'closed', failures:0, openedAt:null, halfOpe
 /** The transport is injectable so unit tests never need external network access. */
 export function createResilience(config, {
   fallbacks = new Map(), now = () => Date.now(),
-  requestHttp = http.request, requestHttps = https.request
+  requestHttp = http.request, requestHttps = https.request, onTransition = () => {}
 } = {}) {
   const enabled = !!config.resilienceEnabled;
   const states = new Map();
@@ -96,6 +96,7 @@ export function createResilience(config, {
   function success(origin, status, checked = false, latencyMs = null) {
     if (!enabled) return;
     const s = stateFor(origin);
+    const wasUnavailable = s.state === 'open' || s.state === 'half_open';
     s.failures = 0;
     s.state = 'closed';
     s.halfOpenBusy = false;
@@ -103,6 +104,7 @@ export function createResilience(config, {
     s.lastStatus = status;
     if (checked) { s.lastCheckedAt = new Date(now()).toISOString(); s.latencyMs = latencyMs; }
     s.successes++;
+    if (wasUnavailable) { try { onTransition({kind:'circuit_recovered',origin:canonicalOrigin(origin)}); } catch {} }
   }
   function failure(origin, status = null, checked = false, latencyMs = null) {
     if (!enabled) return;
@@ -112,8 +114,10 @@ export function createResilience(config, {
     s.lastStatus = status;
     if (checked) { s.lastCheckedAt = new Date(now()).toISOString(); s.latencyMs = latencyMs; counters.probeFailures++; }
     if (s.failures >= config.resilienceFailureThreshold) {
+      const newlyOpen = s.state !== 'open';
       s.state = 'open';
       s.openedAt = now();
+      if (newlyOpen) { try { onTransition({kind:'circuit_open',origin:canonicalOrigin(origin)}); } catch {} }
     }
   }
   function response(origin, status) {

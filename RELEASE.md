@@ -1,13 +1,15 @@
-# AnchorWeight v2.4.0 — Live Traffic Observatory
+# AnchorWeight v2.5.0 — Webhook Alerts & Typed Extension Hooks
 
-Upgrade from a verified v2.3.0 with the backup-first overlay. Keep
-`AW_OBSERVATORY_LIVE_ENABLED=false` during the initial deployment; normal
-route-level aggregates work without WebSockets. Read LIVE-TRAFFIC-OBSERVATORY.md
-before enabling the optional live stream. On Node 22 run
-`node --test --test-concurrency=1` and `npm run release:verify` before restarting.
-Confirm `/live` reports `2.4.0`, dashboard, wizard, previous evidence and routing.
-Then commit the *tested* files and tag v2.4.0. No runtime dependencies or state
-migration are needed; restore source only if rolling back and preserve live data.
+Upgrade from a verified v2.4.0, preserving the app directory, Git checkout,
+private `data/`, and cPanel environment. Keep `AW_ALERTS_ENABLED=false` for the
+first restart. Run `node --test --test-concurrency=1` and
+`npm run release:verify`; confirm `/live` reports 2.5.0 and the authenticated
+Alerts & Webhooks dashboard reports disabled. Then publish the tested source.
+
+To opt in, use `node bin/alerts.js init`, edit the private file, configure
+an approved HTTPS hostname and a 32+ character signing key in cPanel, run
+`node bin/alerts.js validate`, enable `AW_ALERTS_ENABLED=true`, and restart.
+See [ALERTS-AND-WEBHOOKS.md](ALERTS-AND-WEBHOOKS.md). Alerts are best effort.
 
 ---
 

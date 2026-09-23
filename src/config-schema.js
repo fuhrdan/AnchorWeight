@@ -107,6 +107,12 @@ export function validateConfig(config) {
     } catch {errors.push('intelligenceHubUrl is invalid');}
     warnings.push('Distributed intelligence is opt-in; only locally verified bounded evidence is forwarded.');
   }
+  if (config.alertsEnabled) {
+    if (!config.alertsFile || typeof config.alertsFile !== 'string') errors.push('AW_ALERTS_FILE is required');
+    if (!Array.isArray(config.alertAllowedHosts) || config.alertAllowedHosts.length < 1 || config.alertAllowedHosts.length > 8) errors.push('AW_ALERT_ALLOWED_HOSTS requires 1-8 hosts');
+    if (typeof config.alertSigningKey !== 'string' || config.alertSigningKey.length < 32) errors.push('AW_ALERT_SIGNING_KEY requires 32+ characters');
+    warnings.push('Alerts are best-effort, process-local and restricted to approved HTTPS destinations.');
+  }
   if (config.observatoryLiveEnabled != null && typeof config.observatoryLiveEnabled !== 'boolean') errors.push('observatoryLiveEnabled must be boolean');
   if (config.setupWritesEnabled && !config.setupConfigEnabled) errors.push('setupWritesEnabled requires setupConfigEnabled');
   if (config.setupWritesEnabled && !config.dashboardToken) errors.push('setupWritesEnabled requires an authenticated dashboard token');

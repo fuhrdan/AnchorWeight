@@ -10,7 +10,7 @@ test('audit logger produces structured v1 records',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-audit-')); const file=path.join(dir,'audit.jsonl');
   createAuditLogger(file)({type:'operator_test',client:'abc'});
   const r=JSON.parse(fs.readFileSync(file,'utf8').trim());
-  assert.equal(r.version,'2.4.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
+  assert.equal(r.version,'2.5.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
   fs.rmSync(dir,{recursive:true,force:true});
 });
 

@@ -1,3 +1,11 @@
+## 2.5.0 — Webhook Alerts & Typed Extension Hooks
+
+- Added optional private JSON alert rules for redacted proxy upstream errors, five-minute 5xx thresholds, and circuit open/recovery transitions.
+- Added exact allowlisted HTTPS webhook destinations, DNS-resolved/pinned public IPv4 delivery, HMAC signed bodies, no redirects, bounded delivery and one retry.
+- Added authenticated aggregate dashboard alert status without webhook URLs, identities or secrets.
+- Kept opt-in behavior, existing traffic/routing/auth policies, Node 22 cPanel startup and state schema unchanged.
+- See [ALERTS-AND-WEBHOOKS.md](ALERTS-AND-WEBHOOKS.md) for configuration, constraints, rollback and testing.
+
 ## 2.4.0 — Live Traffic Observatory
 
 - Added bounded per-route response counts, status distribution, upstream failures and histogram-estimated p50/p95/p99 latency.
