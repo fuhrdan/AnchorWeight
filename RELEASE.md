@@ -1,3 +1,7 @@
+# AnchorWeight v2.0.0 — Integration & Production Hardening
+
+See [V2-OPERATIONS.md](V2-OPERATIONS.md) for exact deployment, rollback, security boundaries, and limitations. Run `npm run release:verify` for a non-mutating source-integrity check after `npm run release:check`. The v1.9 single-origin and default-disabled routing behavior remains unchanged.
+
 # AnchorWeight v1.9.0 — Multi-Origin Routing & Release Hardening
 
 Start with [MULTI-ORIGIN-ROUTING.md](MULTI-ORIGIN-ROUTING.md). The new route engine

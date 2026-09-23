@@ -61,7 +61,7 @@ test('real cPanel-style startup, authenticated wizard apply, proxied traffic, te
   let child=start({port,cwd:dir,origin:target,viaRequire:true});
   t.after(async()=>{await stop(child);});
   let live=await online(port,child);
-  assert.equal(live.version,'1.9.0');assert.equal(live.proxyEnabled,false);
+  assert.equal(live.version,'2.0.0');assert.equal(live.proxyEnabled,false);
   const pageResponse=await fetch(`http://127.0.0.1:${port}/setup.html`);
   assert.equal(pageResponse.status,200);assert.match(await pageResponse.text(),/AnchorWeight Setup/);
   const noAuth=await fetch(`http://127.0.0.1:${port}/anchor/api/setup`);

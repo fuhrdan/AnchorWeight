@@ -76,7 +76,7 @@ export function buildInvestigation(store, logFile, options) {
   const truncated = allMatching.length > limit;
   const events = allMatching.slice(-limit);
   return {
-    version:'1.9.0', kind:campaignId ? 'campaign' : 'bot',
+    version:'2.0.0', kind:campaignId ? 'campaign' : 'bot',
     caseId:campaignId || botId, profile, campaign, relatedCampaigns, memberProfiles,
     // events stays newest-first for v1.4 API compatibility; timeline is chronological.
     events:[...events].reverse(), timeline:events,
@@ -92,7 +92,7 @@ export function buildInvestigation(store, logFile, options) {
 export function buildCaseReport(investigation) {
   return {
     format:'anchorweight-investigation-v1', generatedAt:new Date().toISOString(),
-    version:'1.9.0', caseId:investigation.caseId, kind:investigation.kind,
+    version:'2.0.0', caseId:investigation.caseId, kind:investigation.kind,
     profile:investigation.profile, campaign:investigation.campaign,
     relatedCampaigns:investigation.relatedCampaigns,
     memberProfiles:investigation.memberProfiles,

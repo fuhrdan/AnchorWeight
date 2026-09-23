@@ -6,7 +6,7 @@ import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, i
 import { validateConfig } from '../src/config-schema.js';
 import { loadRoutes } from '../src/routing.js';
 
-const VERSION = '1.9.0';
+const VERSION = '2.0.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -162,7 +162,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.9.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/2.0.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;

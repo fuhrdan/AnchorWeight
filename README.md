@@ -1,4 +1,4 @@
-# AnchorWeight v1.9.0
+# AnchorWeight v2.0.0
 
 **Let bots identify themselves.**
 
@@ -12,6 +12,16 @@ AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification
 > **The maze is not the weapon. The maze is the test.**
 
 AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, or connection-exhaustion system.
+
+## v2.0 Integrated Defensive Security Platform
+
+The v2.0 milestone consolidates local crawler evidence, opt-in multi-origin gateway controls, operator setup, telemetry, and optional authenticated intelligence reporting. **The hub is an evidence collector, not global crawler identity or a remote enforcement system.** Legacy JSON is still the default; SQLite requires Node 22.13+.
+
+- Source integrity: `npm run release:check` writes the manifest; `npm run release:verify` **checks without changing files** and is used by CI.
+- Operator configuration: bounded (16 KiB) descriptor-backed local settings reads, refusing symlinks where the platform supports `O_NOFOLLOW`.
+- v1.9's previously uncommitted `test/multi-origin.integration.test.js` is included in the v2.0 release.
+- No automatic proxy enabling, new runtime dependencies, or state schema changes.
+- See [V2-OPERATIONS.md](V2-OPERATIONS.md) for the upgrade and rollback process and limitations.
 
 ## v1.7 Operator Setup Wizard & Traffic Telemetry
 

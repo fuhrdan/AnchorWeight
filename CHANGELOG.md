@@ -1,3 +1,12 @@
+## 2.0.0 — Integrated Defensive Security Platform
+
+- Preserved the complete v1.9 gateway, crawler-evidence and optional distributed-intelligence feature set.
+- Hardened operator configuration reads against symlink swaps and oversized files.
+- Added non-mutating source-manifest verification to the release gate and CI.
+- Added v2 startup/restart integration checks for the JSON and opt-in SQLite backends.
+- Included the v1.9 multi-origin integration test omitted from that Git tag.
+- Kept state schema v5, cPanel startup compatibility, default-off proxy/routing, and bounded enforcement.
+
 ## 1.9.0 — Multi-Origin Routing & Release Hardening
 
 - Added optional restart-only path-based routing to up to 16 explicitly approved HTTP(S) root origins.

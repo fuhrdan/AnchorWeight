@@ -32,10 +32,29 @@ export function validateOperatorSettings(config,input) {
 export function readOperatorSettings(config,file=OPERATOR_CONFIG_FILE) {
   if (!config.setupConfigEnabled) return null;
   try {
-    if (fs.lstatSync(file).isSymbolicLink()) throw new Error('symlink_rejected');
-    const doc=JSON.parse(fs.readFileSync(file,'utf8'));
-    if (doc.version!==1) throw new Error('unsupported_version');
-    return validateOperatorSettings(config,doc.settings);
+    // Read from a single file descriptor. Do not lstat() then follow a swapped symlink.
+    // Keep the operator configuration small even when the file changes during a read.
+    const MAX_SETTINGS_BYTES = 16 * 1024;
+    const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+    let encoded;
+    try {
+      const stat = fs.fstatSync(fd);
+      if (!stat.isFile() || stat.size > MAX_SETTINGS_BYTES) throw new Error('operator_file_invalid');
+      const chunks = [];
+      let total = 0;
+      while (true) {
+        const chunk = Buffer.alloc(Math.min(4096, MAX_SETTINGS_BYTES + 1 - total));
+        const n = fs.readSync(fd, chunk, 0, chunk.length, null);
+        if (!n) break;
+        total += n;
+        if (total > MAX_SETTINGS_BYTES) throw new Error('operator_file_too_large');
+        chunks.push(chunk.subarray(0,n));
+      }
+      encoded = Buffer.concat(chunks).toString('utf8');
+    } finally { fs.closeSync(fd); }
+    const doc = JSON.parse(encoded);
+    if (doc.version !== 1) throw new Error('unsupported_version');
+    return validateOperatorSettings(config, doc.settings);
   } catch(err) {
     if (err.code!=='ENOENT') console.warn('[AnchorWeight] Operator settings ignored:',err.message);
     return null; // Invalid local settings must not take down the dashboard.
@@ -43,7 +62,7 @@ export function readOperatorSettings(config,file=OPERATOR_CONFIG_FILE) {
 }
 export function createSetupController(config,{file=OPERATOR_CONFIG_FILE,onActivate=()=>{}}={}) {
   function snapshot() {return {
-    version:'1.9.0',configEnabled:!!config.setupConfigEnabled,
+    version:'2.0.0',configEnabled:!!config.setupConfigEnabled,
     writesEnabled:!!config.setupConfigEnabled&&!!config.setupWritesEnabled,
     settings:{proxyEnabled:config.proxyEnabled,originUrl:config.originUrl},
     allowedOrigins:allowedOrigins(config),shadowMode:config.shadowMode,

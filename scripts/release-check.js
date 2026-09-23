@@ -8,18 +8,40 @@ const root=path.resolve(new URL('..',import.meta.url).pathname);
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
 const required=['README.md','SECURITY.md','ARCHITECTURE.md','THREAT-MODEL.md','CONFIGURATION.md','OPERATIONS.md','DEPLOYMENT.md','CLI.md','LICENSE','DISTRIBUTED-INTELLIGENCE.md','OPERATOR-GATEWAY.md','public/setup.html','src/setup.js','src/telemetry.js','src/gateway-policy.js','src/upstream-health.js','GATEWAY-PROTECTION.md','MULTI-ORIGIN-ROUTING.md','src/routing.js','test/unit/routing.test.js','test/multi-origin.integration.test.js','hub.js'];
 const failures=[];
-if(pkg.version!=='1.9.0') failures.push(`package version is ${pkg.version}`);
+if(pkg.version!=='2.0.0') failures.push(`package version is ${pkg.version}`);
 for(const file of required) if(!fs.existsSync(path.join(root,file))) failures.push(`missing ${file}`);
 for (const entry of ['app.js','hub.js']) { try { execFileSync(process.execPath,['--check',path.join(root,entry)],{stdio:'pipe'}); } catch { failures.push(`${entry} syntax check failed`); } }
 try { execFileSync(process.execPath,[path.join(root,'bin/anchorweight.js'),'version'],{stdio:'pipe'}); } catch { failures.push('CLI version command failed'); }
 const lock=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8'));
-if(lock.version!=='1.9.0' || lock.packages?.['']?.version!=='1.9.0') failures.push('package-lock version mismatch');
+if(lock.version!=='2.0.0' || lock.packages?.['']?.version!=='2.0.0') failures.push('package-lock version mismatch');
 
+const VERIFY=process.argv.includes('--verify');
+if (process.argv.some(arg=>arg.startsWith('--') && arg!=='--verify')) failures.push('unsupported release-check argument');
 const files=[];
-function walk(dir){for(const e of fs.readdirSync(dir,{withFileTypes:true})){if(['.git','data','backups','reports','node_modules','tmp'].includes(e.name) || ['SOURCE-MANIFEST.json','SOURCE-REVIEW.txt','main'].includes(e.name))continue;const fp=path.join(dir,e.name);if(e.isDirectory())walk(fp);else files.push(fp)}}
+const ignoredDirs=new Set(['.git','data','backups','reports','node_modules','tmp','coverage','.cache']);
+const ignoredFiles=new Set(['SOURCE-MANIFEST.json','SOURCE-REVIEW.txt','main']);
+function walk(dir){
+  for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
+    if (ignoredDirs.has(entry.name)||ignoredFiles.has(entry.name)||
+        (entry.name.startsWith('.env')&&entry.name!=='.env.example')||
+        /\.(?:log|bak|backup|zip|sqlite|sqlite-wal|sqlite-shm)$/.test(entry.name)) continue;
+    const fp=path.join(dir,entry.name);
+    if(entry.isSymbolicLink()) {failures.push(`symlink in release source: ${path.relative(root,fp)}`);continue;}
+    if(entry.isDirectory())walk(fp);
+    else if(entry.isFile())files.push(fp);
+  }
+}
 walk(root);
 const manifest=files.sort().map(fp=>({file:path.relative(root,fp).replaceAll('\\','/'),sha256:crypto.createHash('sha256').update(fs.readFileSync(fp)).digest('hex')}));
-fs.writeFileSync(path.join(root,'SOURCE-MANIFEST.json'),JSON.stringify({version:'1.9.0',files:manifest},null,2));
-
+const expected={version:'2.0.0',files:manifest};
+const manifestFile=path.join(root,'SOURCE-MANIFEST.json');
+if (VERIFY) {
+  try {
+    const current=JSON.parse(fs.readFileSync(manifestFile,'utf8'));
+    if(JSON.stringify(current)!==JSON.stringify(expected)) failures.push('source manifest mismatch: run release:check and review changes before committing');
+  } catch(err){ failures.push(`source manifest unavailable or invalid: ${err.message}`); }
+} else if (!failures.length) {
+  fs.writeFileSync(manifestFile,JSON.stringify(expected,null,2)+'\n');
+}
 if(failures.length){for(const f of failures)console.error('FAIL:',f);process.exit(1)}
-console.log(`AnchorWeight v1.9.0 release check PASS (${manifest.length} source files manifested)`);
+console.log(`AnchorWeight v2.0.0 release ${VERIFY?'verification':'check'} PASS (${manifest.length} source files manifested)`);
