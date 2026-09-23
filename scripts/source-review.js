@@ -14,7 +14,7 @@ function walk(dir){
 }
 for(const entry of ['src','bin','test','.github','config']) { const d=path.join(root,entry); if(fs.existsSync(d)) walk(d); }
 for(const entry of ['app.js','hub.js','package.json','Dockerfile','docker-compose.yml']) { const f=path.join(root,entry); if(fs.existsSync(f)) include.push(f); }
-let out=`AnchorWeight v2.0.0 — Plain Text Source Review Bundle\nGenerated: ${new Date().toISOString()}\n\n`;
+let out=`AnchorWeight v2.1.0 — Plain Text Source Review Bundle\nGenerated: ${new Date().toISOString()}\n\n`;
 for(const fp of [...new Set(include)].sort()){
   const rel=path.relative(root,fp).replaceAll('\\','/');
   out += `\n================================================================================\nFILE: ${rel}\n================================================================================\n`;

@@ -13,13 +13,14 @@ import { createSetupController, readOperatorSettings } from './src/setup.js';
 import { createGatewayPolicy } from './src/gateway-policy.js';
 import { createUpstreamHealth, maintenanceResponse } from './src/upstream-health.js';
 import { loadRoutes, routeForPath, unsafeRoutePath, routeSummary } from './src/routing.js';
+import { readDeclarative, createDeclarativeController } from './src/declarative-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep startup synchronous to the module loader; initialize the selected store inside main().
 // Some cPanel/Passenger Node loaders use require(), which rejects top-level await.
 async function main() {
 const config = loadConfig();
-const saved = readOperatorSettings(config);
+const saved = !config.declarativeEnabled ? readOperatorSettings(config) : null;
 if (saved) {
   Object.assign(config, saved);
   config.setupSource = 'operator-file';
@@ -27,8 +28,16 @@ if (saved) {
 const validation = validateConfig(config);
 if (!validation.valid) throw new Error(`Invalid AnchorWeight configuration: ${validation.errors.join('; ')}`);
 for (const warning of validation.warnings) console.warn(`[AnchorWeight] WARNING: ${warning}`);
-const routes = loadRoutes(config); // Fail before binding if an explicitly enabled route file is invalid.
-const routeStatus = routeSummary(routes,config.routesEnabled);
+// Opt-in config must parse and validate before opening the public listener.
+const unified = config.declarativeEnabled ? readDeclarative(config) : null;
+if (unified) {
+  config.originUrl=unified.originUrl;
+  config.proxyEnabled=unified.proxyEnabled;
+  config.setupSource='declarative-file';
+}
+let routes = unified ? unified.routes : loadRoutes(config);
+config.activeRoutes=routes;
+let routeStatus = routeSummary(routes,config.routesEnabled || config.declarativeEnabled);
 const store = await createStore(config);
 const telemetry = createTrafficTelemetry();
 const gateway = createGatewayPolicy(config);
@@ -44,29 +53,36 @@ function makeProxy(settings) {
     onMaintenance:(req,res)=>maintenanceResponse(req,res,{title:config.gatewayMaintenanceTitle,message:config.gatewayMaintenanceMessage})
   });
 }
-const routeProxies = new Map(routes.map(route=>[route.origin,makeProxy({originUrl:route.origin})]));
 function prepareDefault(settings){
+  const candidateRoutes = settings.routes || routes;
+  const candidateProxies = new Map(candidateRoutes.map(route=>[route.origin,makeProxy({originUrl:route.origin})]));
   const fallback=makeProxy(settings);
   return (req,res)=>{
     const pathname=new URL(req.url,'http://anchorweight.local').pathname;
-    if(routes.length && (unsafeRoutePath(pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/'))){
+    if(candidateRoutes.length && (unsafeRoutePath(pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/'))){
       return send(res,400,'application/json; charset=utf-8',JSON.stringify({error:'ambiguous_route_path'}),{'Cache-Control':'no-store'});
     }
-    const route=routeForPath(routes,pathname);
-    return (route?routeProxies.get(route.origin):fallback)(req,res);
+    const route=routeForPath(candidateRoutes,pathname);
+    return (route?candidateProxies.get(route.origin):fallback)(req,res);
   };
 }
 let activeProxy = config.proxyEnabled ? prepareDefault(config) : null;
-const setup = createSetupController(config, { onActivate:settings => {
+const setupFactory = config.declarativeEnabled ? createDeclarativeController : createSetupController;
+const setup = setupFactory(config, { onActivate:settings => {
   const nextProxy = settings.proxyEnabled ? prepareDefault(settings) : null;
   return () => {
     config.originUrl=settings.originUrl;
     config.proxyEnabled=settings.proxyEnabled;
+    if (settings.routes) {
+      routes=settings.routes;
+      config.activeRoutes=routes;
+      routeStatus=routeSummary(routes,true);
+    }
     activeProxy=nextProxy;
     health.probe().catch(err=>console.error('[AnchorWeight] health probe:',err.message));
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, health, routing:routeStatus });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, health, routing:()=>routeStatus });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -113,7 +129,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '2.0.0', routesEnabled:config.routesEnabled, routeCount:routes.length,
+        ok: true, service: 'AnchorWeight', version: '2.1.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -122,7 +138,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'2.0.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'2.1.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin, routing:routeStatus
@@ -167,7 +183,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.0.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.1.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -179,7 +195,7 @@ const server = http.createServer(async (req, res) => {
 
 health.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v2.0.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v2.1.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);

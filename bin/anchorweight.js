@@ -5,8 +5,9 @@ import { loadConfig } from '../src/config.js';
 import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, inspectConfiguredState, migrateStateFile } from '../src/ops.js';
 import { validateConfig } from '../src/config-schema.js';
 import { loadRoutes } from '../src/routing.js';
+import { readDeclarative } from '../src/declarative-config.js';
 
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -43,7 +44,10 @@ function redactedConfig(c) {
     basePath: c.basePath,
     mode: c.shadowMode ? 'shadow' : 'enforce',
     proxyEnabled: c.proxyEnabled,
-    routesEnabled: !!c.routesEnabled,
+    routesEnabled: !!(c.routesEnabled || c.declarativeEnabled),
+    declarativeEnabled: !!c.declarativeEnabled,
+    declarativeWritesEnabled: !!c.declarativeWritesEnabled,
+    declarativeFile: c.declarativeEnabled ? c.declarativeFile : '[disabled]',
     routeFile: c.routesEnabled ? c.routesFile : '[disabled]',
     originUrl: c.originUrl,
     trustProxy: c.trustProxy,
@@ -162,7 +166,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/2.0.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/2.1.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -199,7 +203,7 @@ async function doctor(argv) {
   const c=loadConfig();
   const checks=[];
   const add=(name,ok,detail)=>checks.push({Check:name,Status:ok?'PASS':'FAIL',Detail:detail});
-  const v=validate(c);
+  const v=formalValidation(c);
   add('Configuration',v.errors.length===0,v.errors.join('; ')||`valid${c.profileName?` (profile ${c.profileName})`:''}`);
   add('Persistent secret',!!process.env.AW_SECRET,process.env.AW_SECRET?'configured':'AW_SECRET is ephemeral');
   add('Dashboard token',!c.dashboardEnabled||!!c.dashboardToken,c.dashboardEnabled?(c.dashboardToken?'configured':'missing'):'dashboard disabled');
@@ -254,7 +258,11 @@ function stateCommandArgs(argv) {
 function formalValidation(c) {
   const schema=validateConfig(c);
   const legacy=validate(c);
-  try { loadRoutes(c); } catch(err) { schema.errors.push(`Multi-origin routes: ${err.message}`); }
+  try {
+    if (c.declarativeEnabled) { const settings=readDeclarative(c);
+      c.proxyEnabled=settings.proxyEnabled; c.originUrl=settings.originUrl; c.activeRoutes=settings.routes;
+    } else loadRoutes(c);
+  } catch(err) { schema.errors.push(`Gateway configuration: ${err.message}`); }
   return {
     schemaVersion:schema.schemaVersion,
     errors:[...new Set([...schema.errors,...legacy.errors])],

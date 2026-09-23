@@ -1,5 +1,5 @@
-AnchorWeight v2.0.0 — Plain Text Source Review Bundle
-Generated: 2026-09-23T18:33:29.837Z
+AnchorWeight v2.1.0 — Plain Text Source Review Bundle
+Generated: 2026-09-23T19:10:17.352Z
 
 
 ================================================================================
@@ -131,13 +131,14 @@ import { createSetupController, readOperatorSettings } from './src/setup.js';
 import { createGatewayPolicy } from './src/gateway-policy.js';
 import { createUpstreamHealth, maintenanceResponse } from './src/upstream-health.js';
 import { loadRoutes, routeForPath, unsafeRoutePath, routeSummary } from './src/routing.js';
+import { readDeclarative, createDeclarativeController } from './src/declarative-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep startup synchronous to the module loader; initialize the selected store inside main().
 // Some cPanel/Passenger Node loaders use require(), which rejects top-level await.
 async function main() {
 const config = loadConfig();
-const saved = readOperatorSettings(config);
+const saved = !config.declarativeEnabled ? readOperatorSettings(config) : null;
 if (saved) {
   Object.assign(config, saved);
   config.setupSource = 'operator-file';
@@ -145,8 +146,16 @@ if (saved) {
 const validation = validateConfig(config);
 if (!validation.valid) throw new Error(`Invalid AnchorWeight configuration: ${validation.errors.join('; ')}`);
 for (const warning of validation.warnings) console.warn(`[AnchorWeight] WARNING: ${warning}`);
-const routes = loadRoutes(config); // Fail before binding if an explicitly enabled route file is invalid.
-const routeStatus = routeSummary(routes,config.routesEnabled);
+// Opt-in config must parse and validate before opening the public listener.
+const unified = config.declarativeEnabled ? readDeclarative(config) : null;
+if (unified) {
+  config.originUrl=unified.originUrl;
+  config.proxyEnabled=unified.proxyEnabled;
+  config.setupSource='declarative-file';
+}
+let routes = unified ? unified.routes : loadRoutes(config);
+config.activeRoutes=routes;
+let routeStatus = routeSummary(routes,config.routesEnabled || config.declarativeEnabled);
 const store = await createStore(config);
 const telemetry = createTrafficTelemetry();
 const gateway = createGatewayPolicy(config);
@@ -162,29 +171,36 @@ function makeProxy(settings) {
     onMaintenance:(req,res)=>maintenanceResponse(req,res,{title:config.gatewayMaintenanceTitle,message:config.gatewayMaintenanceMessage})
   });
 }
-const routeProxies = new Map(routes.map(route=>[route.origin,makeProxy({originUrl:route.origin})]));
 function prepareDefault(settings){
+  const candidateRoutes = settings.routes || routes;
+  const candidateProxies = new Map(candidateRoutes.map(route=>[route.origin,makeProxy({originUrl:route.origin})]));
   const fallback=makeProxy(settings);
   return (req,res)=>{
     const pathname=new URL(req.url,'http://anchorweight.local').pathname;
-    if(routes.length && (unsafeRoutePath(pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/'))){
+    if(candidateRoutes.length && (unsafeRoutePath(pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/'))){
       return send(res,400,'application/json; charset=utf-8',JSON.stringify({error:'ambiguous_route_path'}),{'Cache-Control':'no-store'});
     }
-    const route=routeForPath(routes,pathname);
-    return (route?routeProxies.get(route.origin):fallback)(req,res);
+    const route=routeForPath(candidateRoutes,pathname);
+    return (route?candidateProxies.get(route.origin):fallback)(req,res);
   };
 }
 let activeProxy = config.proxyEnabled ? prepareDefault(config) : null;
-const setup = createSetupController(config, { onActivate:settings => {
+const setupFactory = config.declarativeEnabled ? createDeclarativeController : createSetupController;
+const setup = setupFactory(config, { onActivate:settings => {
   const nextProxy = settings.proxyEnabled ? prepareDefault(settings) : null;
   return () => {
     config.originUrl=settings.originUrl;
     config.proxyEnabled=settings.proxyEnabled;
+    if (settings.routes) {
+      routes=settings.routes;
+      config.activeRoutes=routes;
+      routeStatus=routeSummary(routes,true);
+    }
     activeProxy=nextProxy;
     health.probe().catch(err=>console.error('[AnchorWeight] health probe:',err.message));
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, health, routing:routeStatus });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, health, routing:()=>routeStatus });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -231,7 +247,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '2.0.0', routesEnabled:config.routesEnabled, routeCount:routes.length,
+        ok: true, service: 'AnchorWeight', version: '2.1.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -240,7 +256,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'2.0.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'2.1.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin, routing:routeStatus
@@ -285,7 +301,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.0.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.1.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -297,7 +313,7 @@ const server = http.createServer(async (req, res) => {
 
 health.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v2.0.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v2.1.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
@@ -346,8 +362,9 @@ import { loadConfig } from '../src/config.js';
 import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, inspectConfiguredState, migrateStateFile } from '../src/ops.js';
 import { validateConfig } from '../src/config-schema.js';
 import { loadRoutes } from '../src/routing.js';
+import { readDeclarative } from '../src/declarative-config.js';
 
-const VERSION = '2.0.0';
+const VERSION = '2.1.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -384,7 +401,10 @@ function redactedConfig(c) {
     basePath: c.basePath,
     mode: c.shadowMode ? 'shadow' : 'enforce',
     proxyEnabled: c.proxyEnabled,
-    routesEnabled: !!c.routesEnabled,
+    routesEnabled: !!(c.routesEnabled || c.declarativeEnabled),
+    declarativeEnabled: !!c.declarativeEnabled,
+    declarativeWritesEnabled: !!c.declarativeWritesEnabled,
+    declarativeFile: c.declarativeEnabled ? c.declarativeFile : '[disabled]',
     routeFile: c.routesEnabled ? c.routesFile : '[disabled]',
     originUrl: c.originUrl,
     trustProxy: c.trustProxy,
@@ -503,7 +523,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/2.0.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/2.1.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -540,7 +560,7 @@ async function doctor(argv) {
   const c=loadConfig();
   const checks=[];
   const add=(name,ok,detail)=>checks.push({Check:name,Status:ok?'PASS':'FAIL',Detail:detail});
-  const v=validate(c);
+  const v=formalValidation(c);
   add('Configuration',v.errors.length===0,v.errors.join('; ')||`valid${c.profileName?` (profile ${c.profileName})`:''}`);
   add('Persistent secret',!!process.env.AW_SECRET,process.env.AW_SECRET?'configured':'AW_SECRET is ephemeral');
   add('Dashboard token',!c.dashboardEnabled||!!c.dashboardToken,c.dashboardEnabled?(c.dashboardToken?'configured':'missing'):'dashboard disabled');
@@ -595,7 +615,11 @@ function stateCommandArgs(argv) {
 function formalValidation(c) {
   const schema=validateConfig(c);
   const legacy=validate(c);
-  try { loadRoutes(c); } catch(err) { schema.errors.push(`Multi-origin routes: ${err.message}`); }
+  try {
+    if (c.declarativeEnabled) { const settings=readDeclarative(c);
+      c.proxyEnabled=settings.proxyEnabled; c.originUrl=settings.originUrl; c.activeRoutes=settings.routes;
+    } else loadRoutes(c);
+  } catch(err) { schema.errors.push(`Gateway configuration: ${err.message}`); }
   return {
     schemaVersion:schema.schemaVersion,
     errors:[...new Set([...schema.errors,...legacy.errors])],
@@ -734,8 +758,36 @@ try {
   const sites = JSON.parse(fs.readFileSync(siteFile,'utf8'));
   const {server} = createIntelligenceHub({sites,file:process.env.AW_HUB_STATE_FILE || './data/intelligence-events.jsonl',
     adminToken:process.env.AW_HUB_ADMIN_TOKEN});
-  server.listen(port,()=>console.log(`AnchorWeight intelligence hub v2.0.0 listening on :${port}`));
+  server.listen(port,()=>console.log(`AnchorWeight intelligence hub v2.1.0 listening on :${port}`));
 } catch (err) { console.error('[AnchorWeight hub] startup failed:',err.message); process.exitCode=1; }
+
+
+================================================================================
+FILE: config/examples/gateway-basic.json
+================================================================================
+{
+  "version": 1,
+  "proxy": {
+    "enabled": false,
+    "defaultOrigin": "http://127.0.0.1:8081/"
+  },
+  "routes": []
+}
+
+
+================================================================================
+FILE: config/examples/gateway-multi.yaml
+================================================================================
+# Requires explicitly approved origins in cPanel; proxy is disabled by default.
+version: 1
+proxy:
+  enabled: false
+  defaultOrigin: "http://127.0.0.1:8081/"
+routes:
+  - path: "/api"
+    origin: "http://127.0.0.1:3001/"
+  - path: "/assets"
+    origin: "http://127.0.0.1:3002/"
 
 
 ================================================================================
@@ -832,7 +884,7 @@ FILE: package.json
 ================================================================================
 {
   "name": "anchorweight",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
   "type": "module",
   "main": "app.js",
@@ -991,6 +1043,7 @@ export function createAnchorWeight(config, deps = {}) {
   const publisher = deps.publisher || createEvidencePublisher(config);
   const telemetry = deps.telemetry || null;
   const setup = deps.setup || null;
+  const routingStatus = () => typeof deps.routing === 'function' ? deps.routing() : deps.routing || null;
   const gateway = deps.gateway || null;
   const health = deps.health || null;
   const log = event => { localLog(event); publisher.publish(event); };
@@ -1078,7 +1131,7 @@ export function createAnchorWeight(config, deps = {}) {
     const isPolicyPost = method === 'POST' && url.pathname === `${config.basePath}/api/policy`;
     const isReviewPost = method === 'POST' && url.pathname === `${config.basePath}/api/review`;
     const isSetupPost = method === 'POST' &&
-      [`${config.basePath}/api/setup/validate`,`${config.basePath}/api/setup/apply`].includes(url.pathname);
+      [`${config.basePath}/api/setup/validate`,`${config.basePath}/api/setup/apply`,`${config.basePath}/api/setup/rollback`].includes(url.pathname);
     if (!['GET', 'HEAD'].includes(method) && !isPolicyPost && !isReviewPost && !isSetupPost) return text(res, 405, 'Method not allowed');
 
     if (url.pathname.startsWith(`${config.basePath}/api/`)) {
@@ -1103,17 +1156,18 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'2.0.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'2.1.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '2.0.0', routing:deps.routing || null, telemetry:telemetry?.snapshot() || null, gateway:gateway?.snapshot() || null, upstreamHealth:health?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '2.1.0', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, gateway:gateway?.snapshot() || null, upstreamHealth:health?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
         return json(res, 200, setup.snapshot());
       }
       if (setup && isSetupPost) {
+        if (url.pathname.endsWith('/rollback') && !setup.rollback) return json(res,404,{error:'rollback_unavailable'});
         if (!admin.validateCsrf(req)) {
           audit({type:'admin_csrf_failed',client:admin.clientKey(req),path:url.pathname});
           return json(res,403,{error:'csrf_required'});
@@ -1122,7 +1176,7 @@ export function createAnchorWeight(config, deps = {}) {
         req.on('data',chunk=>{
           if (ended) return;
           bytes += chunk.length;
-          if (bytes > Math.min(config.adminBodyMaxBytes,8192)) {
+          if (bytes > (config.declarativeEnabled ? 32768 : Math.min(config.adminBodyMaxBytes,8192))) {
             ended=true;
             return json(res,413,{error:'request_body_too_large'});
           }
@@ -1135,13 +1189,22 @@ export function createAnchorWeight(config, deps = {}) {
           catch { return json(res,400,{error:'invalid_json'}); }
           try {
             if (url.pathname.endsWith('/validate')) return json(res,200,await setup.validateWithProbe(input));
+            if (url.pathname.endsWith('/rollback')) {
+              const result=setup.rollback();
+              audit({type:'operator_setup_rolled_back',client:admin.clientKey(req)});
+              return json(res,200,{ok:true,...result});
+            }
             const result=setup.apply(input);
             audit({type:'operator_setup_applied',client:admin.clientKey(req),proxyEnabled:result.settings.proxyEnabled});
             return json(res,200,{ok:true,...result});
           } catch(err) {
             const code=err.message || 'invalid_settings';
             if (code==='setup_write_disabled') return json(res,403,{error:code});
-            if (['invalid_origin','origin_not_approved','self_proxy_origin','invalid_config','invalid_settings'].includes(code)) return json(res,400,{error:code});
+            if (code==='no_previous_configuration') return json(res,409,{error:code});
+            if (['invalid_origin','origin_not_approved','self_proxy_origin','invalid_config','invalid_settings',
+              'invalid_declarative_document','invalid_route_document','invalid_route_entry','invalid_route_path',
+              'invalid_route_origin','route_origin_not_approved','reserved_route_path','duplicate_route_path',
+              'route_public_host_required','self_proxy_route'].includes(code)) return json(res,400,{error:code});
             console.error('[AnchorWeight] setup apply failed:',err);
             return json(res,500,{error:'setup_apply_failed'});
           }
@@ -1159,7 +1222,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'2.0.0', events });
+        return json(res, 200, { version:'2.1.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -1169,7 +1232,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'2.0.0', profile:null, campaign:null, events:[], timeline:[]
+          version:'2.1.0', profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });
@@ -1464,7 +1527,7 @@ export function createAuditLogger(file) {
   return function audit(event) {
     const record = {
       ts: new Date().toISOString(),
-      version: '2.0.0',
+      version: '2.1.0',
       ...event
     };
     try {
@@ -1936,6 +1999,11 @@ export function validateConfig(config) {
   if (config.dashboardEnabled && !config.dashboardToken) warnings.push('Dashboard is enabled but AW_DASHBOARD_TOKEN is empty; authenticated API requests will be rejected.');
   if (config.dashboardToken && config.dashboardToken.length < 16) warnings.push('AW_DASHBOARD_TOKEN should be at least 16 characters; 32+ random bytes recommended.');
 
+  if (config.declarativeEnabled && (config.routesEnabled || config.setupConfigEnabled))
+    errors.push('AW_DECLARATIVE_ENABLED cannot be combined with legacy AW_ROUTES_ENABLED or AW_SETUP_CONFIG_ENABLED; migrate intentionally');
+  if (config.declarativeWritesEnabled && !config.declarativeEnabled) errors.push('AW_DECLARATIVE_WRITES_ENABLED requires AW_DECLARATIVE_ENABLED');
+  if (config.declarativeWritesEnabled && !config.dashboardToken) errors.push('Declarative writes require AW_DASHBOARD_TOKEN');
+  if (config.declarativeEnabled) warnings.push('Declarative file controls proxy origin and routes; enforcement, auth, and secrets remain in cPanel.');
   if (config.routesEnabled != null && typeof config.routesEnabled !== 'boolean') errors.push('routesEnabled must be boolean');
   if (config.routesEnabled && (!config.routesFile || !config.setupPublicHost)) errors.push('routesEnabled requires routesFile and setupPublicHost');
   if ((config.routeAllowedOrigins||[]).length > 32) errors.push('routeAllowedOrigins must contain no more than 32 entries');
@@ -2056,6 +2124,9 @@ export function loadConfig(overrides = {}) {
     setupAllowedOrigins: listEnv('AW_SETUP_ALLOWED_ORIGINS'),
     setupPublicHost: process.env.AW_SETUP_PUBLIC_HOST || '',
     setupBaselineOrigin: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
+    declarativeEnabled: boolEnv('AW_DECLARATIVE_ENABLED', false),
+    declarativeWritesEnabled: boolEnv('AW_DECLARATIVE_WRITES_ENABLED', false),
+    declarativeFile: process.env.AW_DECLARATIVE_FILE || './data/anchorweight-gateway.json',
     routesEnabled: boolEnv('AW_ROUTES_ENABLED', false),
     routesFile: process.env.AW_ROUTES_FILE || './data/anchorweight-routes.json',
     routeAllowedOrigins: listEnv('AW_ROUTE_ALLOWED_ORIGINS'),
@@ -2155,6 +2226,242 @@ export function randomId(bytes = 12) {
 
 export function ipFingerprint(secret, ip) {
   return shortHmac(secret, `ip:${ip}`, 20);
+}
+
+
+================================================================================
+FILE: src/declarative-config.js
+================================================================================
+/**
+ * v2.1 declarative gateway configuration.
+ *
+ * The file may describe only the proxy switch, approved default origin, and
+ * approved path routes. Secrets, crawler policy and enforcement stay in cPanel.
+ * YAML uses a deliberately documented, safe subset: mappings, lists of route
+ * mappings, strings and booleans. No tags, references or arbitrary constructors.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import http from 'node:http';
+import https from 'node:https';
+import { canonicalOrigin, allowedOrigins } from './setup.js';
+import { validateRouteDocument } from './routing.js';
+import { validateConfig } from './config-schema.js';
+
+const MAX_BYTES = 32 * 1024;
+const ROOT_KEYS = ['proxy', 'routes', 'version'];
+const PROXY_KEYS = ['defaultOrigin', 'enabled'];
+
+function keysAre(value, keys) {
+  return value && typeof value === 'object' && !Array.isArray(value) &&
+    Object.keys(value).sort().join(',') === keys.sort().join(',');
+}
+function plainObject() { return Object.create(null); }
+
+/** Parse a conservative YAML subset, rejecting duplicate keys and special YAML features. */
+export function parseSimpleYaml(source) {
+  if (typeof source !== 'string' || Buffer.byteLength(source) > MAX_BYTES) throw Error('config_too_large');
+  const lines = [];
+  for (const [index, raw] of source.replace(/^\uFEFF/, '').split(/\r?\n/).entries()) {
+    if (/\t/.test(raw)) throw Error(`yaml_tabs_line_${index + 1}`);
+    const trimmed = raw.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const indent = raw.length - raw.trimStart().length;
+    if (indent % 2 || /[{}&*!|>]/.test(trimmed) || (/\[|\]/.test(trimmed) && !/^routes: \[\]$/.test(trimmed))) throw Error(`unsupported_yaml_line_${index + 1}`);
+    lines.push({ indent, text: trimmed, line: index + 1 });
+  }
+  if (!lines.length || lines[0].indent !== 0) throw Error('invalid_yaml_root');
+  let pos = 0;
+  function scalar(raw, line) {
+    const value = raw.trim();
+    if (!value || value === 'null' || value === '~') throw Error(`invalid_yaml_value_${line}`);
+    if (value === '[]') return [];
+    if (/^[0-9]+$/.test(value)) return Number(value);
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    if (value[0] === '"') {
+      try { const s = JSON.parse(value); if (typeof s !== 'string') throw Error(); return s; }
+      catch { throw Error(`invalid_yaml_string_${line}`); }
+    }
+    if (value[0] === "'") {
+      if (!value.endsWith("'")) throw Error(`invalid_yaml_string_${line}`);
+      return value.slice(1, -1).replace(/''/g, "'");
+    }
+    if (value.includes('#') || value.includes(': ') || /^[-?]/.test(value)) throw Error(`invalid_yaml_scalar_${line}`);
+    return value;
+  }
+  function put(obj, entry, depth) {
+    const match = /^([A-Za-z][A-Za-z0-9]*):(?:\s+(.*))?$/.exec(entry.text);
+    if (!match) throw Error(`invalid_yaml_key_${entry.line}`);
+    const [, key, inline] = match;
+    if (Object.hasOwn(obj, key)) throw Error(`duplicate_yaml_key_${key}`);
+    if (inline !== undefined) { obj[key] = scalar(inline, entry.line); return; }
+    if (pos >= lines.length || lines[pos].indent !== depth + 2) throw Error(`invalid_yaml_indent_${entry.line}`);
+    obj[key] = block(depth + 2);
+  }
+  function block(depth) {
+    if (pos >= lines.length || lines[pos].indent !== depth) throw Error('invalid_yaml_indent');
+    const array = lines[pos].text.startsWith('- ');
+    const result = array ? [] : plainObject();
+    while (pos < lines.length && lines[pos].indent === depth) {
+      const item = lines[pos++];
+      if (array) {
+        if (!item.text.startsWith('- ')) throw Error(`mixed_yaml_types_${item.line}`);
+        const obj = plainObject();
+        put(obj, { ...item, text: item.text.slice(2) }, depth);
+        while (pos < lines.length && lines[pos].indent === depth + 2) {
+          put(obj, lines[pos++], depth);
+        }
+        result.push(obj);
+      } else {
+        if (item.text.startsWith('- ')) throw Error(`mixed_yaml_types_${item.line}`);
+        put(result, item, depth);
+      }
+      if (pos < lines.length && lines[pos].indent > depth) throw Error(`unexpected_yaml_indent_${lines[pos].line}`);
+    }
+    return result;
+  }
+  const doc = block(0);
+  if (pos !== lines.length || Array.isArray(doc)) throw Error('invalid_yaml_document');
+  return doc;
+}
+
+export function serializeYaml(settings) {
+  // JSON-quoted strings make generated YAML unambiguous and prevent injection.
+  return `version: 1\nproxy:\n  enabled: ${settings.proxyEnabled}\n  defaultOrigin: ${JSON.stringify(settings.originUrl)}\nroutes:${settings.routes.length ? '\n' + settings.routes.map(r => `  - path: ${JSON.stringify(r.path)}\n    origin: ${JSON.stringify(r.origin)}`).join('\n') : ' []'}\n`;
+}
+
+/** File path is operator-controlled by env, never request-controlled. */
+export function configurationFile(config) {
+  const file = path.resolve(config.declarativeFile || './data/anchorweight-gateway.json');
+  const data = path.resolve('./data');
+  if (!file.startsWith(data + path.sep) || !/\.(?:json|ya?ml)$/i.test(file)) throw Error('invalid_declarative_path');
+  return file;
+}
+
+export function validateDeclarative(config, doc) {
+  if (!keysAre(doc, ROOT_KEYS) || doc.version !== 1 || !keysAre(doc.proxy, PROXY_KEYS) ||
+      typeof doc.proxy.enabled !== 'boolean' || !Array.isArray(doc.routes)) throw Error('invalid_declarative_document');
+  const originUrl = canonicalOrigin(doc.proxy.defaultOrigin);
+  if (!allowedOrigins(config).includes(originUrl)) throw Error('origin_not_approved');
+  const publicHost = String(config.setupPublicHost || '').toLowerCase();
+  if (publicHost && (new URL(originUrl).host.toLowerCase() === publicHost || new URL(originUrl).hostname.toLowerCase() === publicHost)) throw Error('self_proxy_origin');
+  const routes = doc.routes.length ? validateRouteDocument({ version:1, routes:doc.routes }, config) : Object.freeze([]);
+  const proxyEnabled = doc.proxy.enabled;
+  const validation = validateConfig({ ...config, originUrl, proxyEnabled });
+  if (!validation.valid) throw Error('invalid_config');
+  return Object.freeze({ proxyEnabled, originUrl, routes });
+}
+
+export function parseDeclarative(config, contents, file = configurationFile(config)) {
+  if (Buffer.byteLength(contents) > MAX_BYTES) throw Error('config_too_large');
+  let doc;
+  try { doc = /\.json(?:\.previous)?$/i.test(file) ? JSON.parse(contents) : parseSimpleYaml(contents); }
+  catch (err) { throw Error(`invalid_declarative_file:${err.message}`); }
+  return validateDeclarative(config, doc);
+}
+
+export function readDeclarative(config, file = configurationFile(config)) {
+  if (!config.declarativeEnabled) return null;
+  // Do not follow a symlink or accept a non-file/oversized configuration.
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+  try {
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.size > MAX_BYTES) throw Error('config_too_large_or_not_file');
+    const buffer = Buffer.alloc(MAX_BYTES + 1);
+    const n = fs.readSync(fd, buffer, 0, buffer.length, 0);
+    if (n > MAX_BYTES) throw Error('config_too_large');
+    return parseDeclarative(config, buffer.subarray(0, n).toString('utf8'), file);
+  } finally { fs.closeSync(fd); }
+}
+
+/** Browser editor: prepare first, back up previous file, then atomic replace and activate. */
+export function createDeclarativeController(config, { file = configurationFile(config), onActivate = () => () => {} } = {}) {
+  function snapshot() {
+    return { version:'2.1.0', declarativeEnabled:true,
+      configEnabled:true, writesEnabled:!!config.declarativeWritesEnabled,
+      previousAvailable:fs.existsSync(`${file}.previous`),
+      source:config.setupSource || 'declarative-file', shadowMode:config.shadowMode,
+      settings:{ proxyEnabled:config.proxyEnabled, originUrl:config.originUrl,
+        routes:(config.activeRoutes || []).map(r => ({ path:r.path, origin:r.origin })) },
+      allowedOrigins:allowedOrigins(config),
+      allowedRouteOrigins:config.routeAllowedOrigins || [],
+      limitations:['Only preapproved origins may be selected.','Secrets and crawler enforcement stay in cPanel.'] };
+  }
+  function validate(input) {
+    if (!keysAre(input, ['originUrl','proxyEnabled','routes'])) throw Error('invalid_settings');
+    const settings=validateDeclarative(config,{ version:1,
+      proxy:{ enabled:input.proxyEnabled, defaultOrigin:input.originUrl }, routes:input.routes });
+    return {ok:true,settings:{...settings,routes:settings.routes.map(r=>({...r}))},
+      change:JSON.stringify(settings)!==JSON.stringify({proxyEnabled:config.proxyEnabled,originUrl:config.originUrl,routes:config.activeRoutes||[]})};
+  }
+  async function validateWithProbe(input) {
+    const result=validate(input);
+    const targets=[result.settings.originUrl,...result.settings.routes.map(r=>r.origin)];
+    result.originProbe=await Promise.all(targets.map(origin=>new Promise(resolve=>{
+      const u=new URL(origin), transport=u.protocol==='https:'?https:http;
+      const request=transport.request(u,{method:'HEAD',timeout:2000},res=>{
+        res.resume();resolve({reachable:true,httpStatus:res.statusCode,healthy:(res.statusCode||500)<500});
+      });
+      request.once('timeout',()=>request.destroy(Error('timeout')));
+      request.once('error',()=>resolve({reachable:false,healthy:false,reason:'connection_failed'}));
+      request.end();
+    })));
+    return result;
+  }
+  function apply(input) {
+    if (!config.declarativeEnabled || !config.declarativeWritesEnabled) throw Error('setup_write_disabled');
+    const {settings}=validate(input);
+    const activate=onActivate(settings); // Must prepare every proxy before any write or state mutation.
+    if (typeof activate!=='function') throw Error('activation_not_prepared');
+    const data=path.dirname(file);
+    fs.mkdirSync(data,{recursive:true,mode:0o700});
+    if (fs.lstatSync(data).isSymbolicLink()) throw Error('unsafe_data_directory');
+    if (fs.existsSync(file) && fs.lstatSync(file).isSymbolicLink()) throw Error('unsafe_config_symlink');
+    const current = fs.existsSync(file) ? fs.readFileSync(file) : null;
+    if (current && current.length > MAX_BYTES) throw Error('config_too_large');
+    const doc={version:1,proxy:{enabled:settings.proxyEnabled,defaultOrigin:settings.originUrl},routes:settings.routes};
+    const encoded=/\.json$/i.test(file)?JSON.stringify(doc,null,2)+'\n':serializeYaml(settings);
+    const temp=`${file}.${process.pid}.tmp`, previous=`${file}.previous`;
+    try {
+      fs.writeFileSync(temp,encoded,{flag:'wx',mode:0o600});
+      if (current) {
+        const backup=`${previous}.${process.pid}.tmp`;
+        try {fs.writeFileSync(backup,current,{flag:'wx',mode:0o600});fs.renameSync(backup,previous);}
+        catch(err){try{fs.unlinkSync(backup);}catch{}throw err;}
+      }
+      fs.renameSync(temp,file);
+    } catch(err) {try{fs.unlinkSync(temp);}catch{} throw err;}
+    activate(); // Prepared commit must not throw.
+    config.setupSource='declarative-file';
+    return snapshot();
+  }
+  /** Restore the immediately previous file after revalidating it against current allowlists. */
+  function rollback() {
+    if (!config.declarativeEnabled || !config.declarativeWritesEnabled) throw Error('setup_write_disabled');
+    const previous=`${file}.previous`;
+    let settings;
+    try { settings=readDeclarative(config, previous); }
+    catch(err) {if(err?.code==='ENOENT')throw Error('no_previous_configuration');throw err;}
+    // The old destinations are revalidated against CURRENT allowlists before activation.
+    const activate=onActivate(settings);
+    if(typeof activate!=='function')throw Error('activation_not_prepared');
+    if (fs.lstatSync(file).isSymbolicLink()) throw Error('unsafe_config_symlink');
+    const current=fs.readFileSync(file);
+    if(current.length>MAX_BYTES)throw Error('config_too_large');
+    const old=fs.readFileSync(previous);
+    const temp=`${file}.${process.pid}.tmp`, backup=`${previous}.${process.pid}.tmp`;
+    try {
+      fs.writeFileSync(temp,old,{flag:'wx',mode:0o600});
+      fs.writeFileSync(backup,current,{flag:'wx',mode:0o600});
+      fs.renameSync(backup,previous);
+      fs.renameSync(temp,file);
+    } catch(err) { for(const f of [temp,backup])try{fs.unlinkSync(f);}catch{}throw err; }
+    activate();
+    config.setupSource='declarative-file';
+    return snapshot();
+  }
+  return { snapshot, validate, validateWithProbe, apply, rollback };
 }
 
 
@@ -2572,11 +2879,11 @@ export function createIntelligenceHub({sites, file, adminToken, now = () => Date
   }
   const server = http.createServer((req,res) => {
     const pathname = new URL(req.url,'http://localhost').pathname;
-    if (pathname === '/live' && req.method === 'GET') return response(res,200,{ok:true,service:'AnchorWeight Intelligence Hub',version:'2.0.0'});
+    if (pathname === '/live' && req.method === 'GET') return response(res,200,{ok:true,service:'AnchorWeight Intelligence Hub',version:'2.1.0'});
     if (pathname === '/v1/events' && req.method === 'GET') {
       if (!authenticate(req)) return response(res,401,{error:'unauthorized'});
       const limit = Math.min(100,Math.max(1,Number(new URL(req.url,'http://localhost').searchParams.get('limit')) || 50));
-      return response(res,200,{version:'2.0.0',siteCount:new Set(events.map(e=>e.siteId)).size,
+      return response(res,200,{version:'2.1.0',siteCount:new Set(events.map(e=>e.siteId)).size,
         total:events.length,events:events.slice(-limit).reverse(),limitations:[
           'Bot IDs are site-scoped; a matching ID from different sites is not an identity correlation.',
           'A site attests to local evidence; the hub does not independently verify signed canary paths.',
@@ -2710,7 +3017,7 @@ export function buildInvestigation(store, logFile, options) {
   const truncated = allMatching.length > limit;
   const events = allMatching.slice(-limit);
   return {
-    version:'2.0.0', kind:campaignId ? 'campaign' : 'bot',
+    version:'2.1.0', kind:campaignId ? 'campaign' : 'bot',
     caseId:campaignId || botId, profile, campaign, relatedCampaigns, memberProfiles,
     // events stays newest-first for v1.4 API compatibility; timeline is chronological.
     events:[...events].reverse(), timeline:events,
@@ -2726,7 +3033,7 @@ export function buildInvestigation(store, logFile, options) {
 export function buildCaseReport(investigation) {
   return {
     format:'anchorweight-investigation-v1', generatedAt:new Date().toISOString(),
-    version:'2.0.0', caseId:investigation.caseId, kind:investigation.kind,
+    version:'2.1.0', caseId:investigation.caseId, kind:investigation.kind,
     profile:investigation.profile, campaign:investigation.campaign,
     relatedCampaigns:investigation.relatedCampaigns,
     memberProfiles:investigation.memberProfiles,
@@ -2960,7 +3267,7 @@ export async function backupFiles(config, destination) {
     const dest=path.join(dir,path.basename(file));
     fs.copyFileSync(file,dest);copied.push({label,file:dest});
   }
-  const manifest={version:'2.0.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
+  const manifest={version:'2.1.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
   fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2));
   return {dir,manifest};
 }
@@ -2991,7 +3298,7 @@ export async function exportEvidence(config, destination) {
     ? await readSqliteState(config.sqliteFile) : config.stateBackend==='sqlite' ? {} : readJson(config.stateFile,{});
   const events=readJsonLines(config.logFile);
   const report={
-    version:'2.0.0',
+    version:'2.1.0',
     generatedAt:new Date().toISOString(),
     profile:config.profileName||null,
     stateBackend:config.stateBackend||'json',
@@ -3059,7 +3366,7 @@ export function migrateStateFile(file, options={}) {
   const temp=`${resolved}.${process.pid}.tmp`;
   fs.writeFileSync(temp,JSON.stringify({
     ...migrated.state,
-    meta:{...(migrated.state.meta||{}),appVersion:'2.0.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
+    meta:{...(migrated.state.meta||{}),appVersion:'2.1.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
   }));
   fs.renameSync(temp,resolved);
   return {file:resolved,backup,dryRun:false,...migrated};
@@ -3110,7 +3417,7 @@ export class PersistentStore extends MemoryStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
       const temp = `${this.file}.${process.pid}.tmp`;
-      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'2.0.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
+      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'2.1.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
       fs.renameSync(temp, this.file);
     } catch (err) {
       console.error('[AnchorWeight] Unable to persist state:', err.message);
@@ -3516,7 +3823,7 @@ export function readOperatorSettings(config,file=OPERATOR_CONFIG_FILE) {
 }
 export function createSetupController(config,{file=OPERATOR_CONFIG_FILE,onActivate=()=>{}}={}) {
   function snapshot() {return {
-    version:'2.0.0',configEnabled:!!config.setupConfigEnabled,
+    version:'2.1.0',configEnabled:!!config.setupConfigEnabled,
     writesEnabled:!!config.setupConfigEnabled&&!!config.setupWritesEnabled,
     settings:{proxyEnabled:config.proxyEnabled,originUrl:config.originUrl},
     allowedOrigins:allowedOrigins(config),shadowMode:config.shadowMode,
@@ -3634,7 +3941,7 @@ export class SqliteStore extends MemoryStore {
         this.migrationsApplied = [...migrated.applied, 'JSON->SQLite'];
       }
       this.db.prepare("INSERT INTO metadata (key,value) VALUES ('state_version',?)").run(String(CURRENT_STATE_VERSION));
-      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','2.0.0')").run();
+      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','2.1.0')").run();
       this.db.exec('COMMIT');
     } catch (err) {
       this.db.exec('ROLLBACK');
@@ -4301,6 +4608,118 @@ test('v0.9 CLI maps production-hardening flags', () => {
 
 
 ================================================================================
+FILE: test/declarative-config.integration.test.js
+================================================================================
+/** Full cPanel-style process test of YAML load, browser edits, routing and rollback. */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import http from 'node:http';
+import net from 'node:net';
+import { once } from 'node:events';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
+import { serializeYaml } from '../src/declarative-config.js';
+
+const app=fileURLToPath(new URL('../app.js',import.meta.url));
+const page=fs.readFileSync(fileURLToPath(new URL('../public/setup.html',import.meta.url)),'utf8');
+const secret='valid-dashboard-token-123456789';
+async function listen(server){server.listen(0,'127.0.0.1');await once(server,'listening');return server.address().port;}
+async function freePort(){const server=net.createServer();const port=await listen(server);server.close();await once(server,'close');return port;}
+async function waitLive(port,child){for(let i=0;i<90;i++){
+  if(child.exitCode!==null)throw Error('Startup failed: '+child.stderrText);
+  try{const r=await fetch(`http://127.0.0.1:${port}/live`);if(r.ok)return r.json();}catch{}
+  await new Promise(resolve=>setTimeout(resolve,55));
+}throw Error('No /live after timeout: '+child.stderrText);}
+async function stop(child){if(child.exitCode!==null||child.signalCode!==null)return;
+  const exited=once(child,'exit');child.kill('SIGTERM');const guard=setTimeout(()=>child.kill('SIGKILL'),1500);
+  try{await exited;}finally{clearTimeout(guard);}}
+function launch(cwd,port,env){
+  const clean=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('AW_')));
+  const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{
+    cwd,env:{...clean,PORT:String(port),AW_SECRET:'a-persistent-test-secret-123456789',
+      AW_DASHBOARD_TOKEN:secret,AW_SHADOW_MODE:'true',AW_BLACKHOLE_ENABLED:'false',
+      AW_AUDIT_ENABLED:'false',...env},stdio:['ignore','pipe','pipe']});
+  child.stderrText='';child.stderr.on('data',chunk=>child.stderrText+=chunk.toString());
+  child.stdout.on('data',()=>{});return child;
+}
+async function api(port,endpoint,method='GET',body,csrf){
+  const response=await fetch(`http://127.0.0.1:${port}/anchor/api/${endpoint}`,{
+    method,headers:{authorization:`Bearer ${secret}`,'content-type':'application/json',...(csrf?{'x-aw-csrf':csrf}:{})},
+    ...(body===undefined?{}:{body:JSON.stringify(body)})});
+  const json=await response.json();return {status:response.status,body:json};
+}
+test('v2.1 setup page parses and has route editor and manual rollback',()=>{
+  new vm.Script(page.match(/<script>([\s\S]*?)<\/script>/)[1]);
+  assert.match(page,/id="routeEditor"/);assert.match(page,/id="rollback"/);
+  assert.doesNotMatch(page,/<script\s+src=/i);
+});
+test('YAML configuration: live route edits, approved-only API, persistence and rollback',async t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-v21-integration-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  function server(label){return http.createServer((req,res)=>{res.setHeader('content-type','text/plain');res.end(`${label} ${req.method} ${req.url}`);});}
+  const defaultSrv=server('DEFAULT'),apiSrv=server('API'),assetSrv=server('ASSETS');
+  const d=await listen(defaultSrv),a=await listen(apiSrv),s=await listen(assetSrv);
+  t.after(()=>{for(const srv of [defaultSrv,apiSrv,assetSrv]){srv.closeAllConnections();srv.close();}});
+  const origin=`http://127.0.0.1:${d}/`,apiOrigin=`http://127.0.0.1:${a}/`,assetsOrigin=`http://127.0.0.1:${s}/`;
+  fs.mkdirSync(path.join(dir,'data'));
+  const filename=path.join(dir,'data','anchorweight-gateway.yaml');
+  fs.writeFileSync(filename,serializeYaml({proxyEnabled:true,originUrl:origin,routes:[{path:'/api',origin:apiOrigin}]}),{mode:0o600});
+  const env={AW_DECLARATIVE_ENABLED:'true',AW_DECLARATIVE_WRITES_ENABLED:'true',
+    AW_DECLARATIVE_FILE:'./data/anchorweight-gateway.yaml',AW_PROXY_ENABLED:'false',
+    AW_ORIGIN_URL:origin,AW_SETUP_ALLOWED_ORIGINS:origin,
+    AW_ROUTE_ALLOWED_ORIGINS:`${apiOrigin},${assetsOrigin}`,AW_SETUP_PUBLIC_HOST:'aw.example.com'};
+  const port=await freePort();let child=launch(dir,port,env);t.after(async()=>stop(child));
+  let live=await waitLive(port,child);
+  assert.equal(live.version,'2.1.0');assert.equal(live.proxyEnabled,true);assert.equal(live.routeCount,1);
+  const get=p=>fetch(`http://127.0.0.1:${port}${p}`);
+  assert.equal(await (await get('/api/hello?x=1')).text(),'API GET /api/hello?x=1');
+  assert.equal(await (await get('/apiary')).text(),'DEFAULT GET /apiary');
+  assert.equal((await get('/anchor/api/setup')).status,401);
+  let snapshot=await api(port,'setup');assert.equal(snapshot.status,200);
+  assert.equal(snapshot.body.declarativeEnabled,true);assert.equal(snapshot.body.writesEnabled,true);
+  assert.equal(snapshot.body.settings.routes.length,1);
+  const csrf=(await api(port,'session')).body.csrfToken;
+  const next={proxyEnabled:true,originUrl:origin,routes:[{path:'/assets',origin:assetsOrigin}]};
+  assert.equal((await api(port,'setup/apply','POST',next)).status,403,'CSRF is mandatory');
+  assert.equal((await api(port,'setup/apply','POST',{...next,routes:[{path:'/live',origin:assetsOrigin}]},csrf)).status,400);
+  assert.equal((await api(port,'setup/apply','POST',{...next,routes:[{path:'/assets',origin:'http://evil.example/'}]},csrf)).status,400);
+  const validation=await api(port,'setup/validate','POST',next,csrf);
+  assert.equal(validation.status,200);assert.equal(validation.body.originProbe.length,2);
+  assert.ok(validation.body.originProbe.every(p=>p.healthy));
+  const applied=await api(port,'setup/apply','POST',next,csrf);
+  assert.equal(applied.status,200);assert.equal(applied.body.settings.routes[0].path,'/assets');
+  assert.equal(applied.body.previousAvailable,true);
+  assert.equal(await (await get('/assets/style.css?x=2')).text(),'ASSETS GET /assets/style.css?x=2');
+  assert.equal(await (await get('/api/again')).text(),'DEFAULT GET /api/again');
+  const status=(await api(port,'stats')).body;
+  assert.deepEqual(status.routing.routes.map(r=>r.path),['/assets']);
+  assert.equal((await get('/ready')).status,200);
+  assert.equal(fs.statSync(filename).mode&0o777,0o600);
+  assert.equal((await api(port,'setup/rollback','POST',{},csrf)).status,200);
+  assert.equal(await (await get('/api/again')).text(),'API GET /api/again');
+  assert.equal(await (await get('/assets/style.css')).text(),'DEFAULT GET /assets/style.css');
+  await stop(child);
+  child=launch(dir,port,env);live=await waitLive(port,child);
+  assert.equal(live.routeCount,1,'rolled-back route persists on restart');
+  assert.equal(await (await get('/api/restarted')).text(),'API GET /api/restarted');
+});
+test('declarative mode does not silently ignore missing configuration or allow legacy mix',async t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-v21-missing-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const port=await freePort();const child=launch(dir,port,{AW_DECLARATIVE_ENABLED:'true'});
+  t.after(async()=>stop(child));
+  await once(child,'exit');
+  assert.match(child.stderrText,/ENOENT|startup failed/);
+  const port2=await freePort();const mixed=launch(dir,port2,{AW_DECLARATIVE_ENABLED:'true',AW_ROUTES_ENABLED:'true'});
+  t.after(async()=>stop(mixed));await once(mixed,'exit');
+  assert.match(mixed.stderrText,/Invalid AnchorWeight configuration/);
+});
+
+
+================================================================================
 FILE: test/gateway-protection.integration.test.js
 ================================================================================
 import test from 'node:test';
@@ -4341,7 +4760,7 @@ test('v1.8 cPanel require startup: proxy-only access rules, operator endpoints r
   const admin=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`);
   assert.equal(admin.status,401);
   const stats=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`,{headers:{Authorization:'Bearer long-dashboard-token-for-gateway-18'}});
-  const body=await stats.json();assert.equal(body.version,'2.0.0');assert.equal(body.gateway.denied,1);
+  const body=await stats.json();assert.equal(body.version,'2.1.0');assert.equal(body.gateway.denied,1);
   assert.equal(body.upstreamHealth.status,'disabled');
   const setup=await fetch(`http://127.0.0.1:${inst.port}/setup.html`);assert.equal(setup.status,200);
   const live=await fetch(`http://127.0.0.1:${inst.port}/live`);assert.equal(live.status,200);
@@ -4407,7 +4826,7 @@ test('cPanel-style multi-origin routing, fallback, query, proxy hot-switch and r
  const server=http.createServer();const port=await listen(server);const closed=once(server,'close');server.close();await closed;env.PORT=String(port);
  const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});
  child.errors='';child.stderr.on('data',chunk=>child.errors+=chunk.toString());t.after(async()=>{await stop(child);for(const s of [a,b,c,d]){s.closeAllConnections();s.close();}});
- const live=await waitLive(port,child);assert.equal(live.version,'2.0.0');assert.equal(live.routeCount,2);
+ const live=await waitLive(port,child);assert.equal(live.version,'2.1.0');assert.equal(live.routeCount,2);
  async function get(p,init){return fetch(`http://127.0.0.1:${port}${p}`,init);}
  assert.equal(await (await get('/api?x=1')).text(),'API GET /api?x=1');
  assert.equal(await (await get('/api/hello?x=1')).text(),'API GET /api/hello?x=1');
@@ -4514,7 +4933,7 @@ test('real cPanel-style startup, authenticated wizard apply, proxied traffic, te
   let child=start({port,cwd:dir,origin:target,viaRequire:true});
   t.after(async()=>{await stop(child);});
   let live=await online(port,child);
-  assert.equal(live.version,'2.0.0');assert.equal(live.proxyEnabled,false);
+  assert.equal(live.version,'2.1.0');assert.equal(live.proxyEnabled,false);
   const pageResponse=await fetch(`http://127.0.0.1:${port}/setup.html`);
   assert.equal(pageResponse.status,200);assert.match(await pageResponse.text(),/AnchorWeight Setup/);
   const noAuth=await fetch(`http://127.0.0.1:${port}/anchor/api/setup`);
@@ -5086,6 +5505,115 @@ test('ipFingerprint is stable but does not expose the raw IP', () => {
 
 
 ================================================================================
+FILE: test/unit/declarative-config.test.js
+================================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { loadConfig } from '../../src/config.js';
+import { validateConfig } from '../../src/config-schema.js';
+import { parseSimpleYaml, serializeYaml, validateDeclarative, parseDeclarative,
+  readDeclarative, createDeclarativeController } from '../../src/declarative-config.js';
+
+const base = () => loadConfig({
+  setupBaselineOrigin:'http://127.0.0.1:8081/',
+  setupAllowedOrigins:['http://127.0.0.1:8082/'],
+  routeAllowedOrigins:['http://127.0.0.1:3001/','http://127.0.0.1:3002/'],
+  setupPublicHost:'aw.example.com', declarativeEnabled:true,
+  declarativeWritesEnabled:true, dashboardToken:'valid-test-dashboard-token',
+  proxyEnabled:false, originUrl:'http://127.0.0.1:8081/', activeRoutes:[]
+});
+const doc = {
+  version:1, proxy:{enabled:true,defaultOrigin:'http://127.0.0.1:8082/'},
+  routes:[{path:'/api',origin:'http://127.0.0.1:3001/'},
+    {path:'/assets',origin:'http://127.0.0.1:3002/'}]
+};
+
+test('JSON and YAML parse to the same approved gateway route settings',()=>{
+  const config=base();
+  const expected=validateDeclarative(config,doc);
+  const yaml=serializeYaml({proxyEnabled:true,originUrl:doc.proxy.defaultOrigin,routes:doc.routes});
+  assert.deepEqual(parseDeclarative(config,JSON.stringify(doc),'/tmp/gateway.json'),expected);
+  assert.deepEqual(parseDeclarative(config,yaml,'/tmp/gateway.yaml'),expected);
+  assert.equal(parseSimpleYaml(yaml).version,1);
+});
+test('restricted YAML rejects features that would change its meaning or require executing constructors',()=>{
+  for(const bad of [
+    'version: 1\nversion: 1',
+    'version: !!js/function x',
+    'version: &anchor 1',
+    'version:\t1',
+    'version: 1\n  invalid: value',
+    'version: 1\nproxy:\n  enabled: false\n  enabled: true'
+  ]) assert.throws(()=>parseSimpleYaml(bad));
+});
+test('unapproved, overlapping, reserved, and excessive routes are rejected',()=>{
+  const config=base();
+  for(const bad of [
+    {...doc,proxy:{...doc.proxy,defaultOrigin:'http://evil.example/'}},
+    {...doc,routes:[{path:'/api',origin:'http://evil.example/'}]},
+    {...doc,routes:[{path:'/anchor',origin:'http://127.0.0.1:3001/'}]},
+    {...doc,routes:[{path:'/api',origin:'http://127.0.0.1:3001/'},{path:'/api',origin:'http://127.0.0.1:3002/'}]},
+    {...doc,routes:Array.from({length:17},(_,i)=>({path:`/path${i}`,origin:'http://127.0.0.1:3001/'}))},
+    {...doc,routes:[{path:'/api/%2f',origin:'http://127.0.0.1:3001/'}]},
+    {...doc,extra:'ignored'},
+    {...doc,proxy:{enabled:'true',defaultOrigin:'http://127.0.0.1:8082/'}}
+  ]) assert.throws(()=>validateDeclarative(config,bad));
+});
+test('enabling declarative configuration with legacy writable files is an explicit error',()=>{
+  for(const overrides of [{routesEnabled:true},{setupConfigEnabled:true}]){
+    const v=validateConfig({...base(),...overrides});
+    assert.equal(v.valid,false);
+    assert.match(v.errors.join(' '),/legacy/);
+  }
+});
+test('file reader rejects oversized/symlink configs; disabled setting ignores the file',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-dcl-unit-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'gateway.json'),symlink=path.join(dir,'alias.json');
+  const config=base();
+  fs.writeFileSync(file,JSON.stringify(doc));
+  assert.equal(readDeclarative(config,file).routes.length,2);
+  assert.equal(readDeclarative({...config,declarativeEnabled:false},file),null);
+  fs.symlinkSync(file,symlink);
+  if(fs.constants.O_NOFOLLOW)assert.throws(()=>readDeclarative(config,symlink));
+  fs.writeFileSync(file,' '.repeat(33000));
+  assert.throws(()=>readDeclarative(config,file),/config_too_large/);
+});
+test('wizard cannot write without explicit opt-in or an approved origin',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-dcl-controller-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'data','config.json');
+  const config=base();
+  const controller=createDeclarativeController({...config,declarativeWritesEnabled:false},{file});
+  const settings={proxyEnabled:true,originUrl:'http://127.0.0.1:8082/',routes:[]};
+  assert.throws(()=>controller.apply(settings),/setup_write_disabled/);
+  assert.equal(fs.existsSync(file),false);
+  assert.throws(()=>controller.validate({...settings,originUrl:'http://unsafe.example/'}),/origin_not_approved/);
+});
+test('wizard saves validated JSON with private permissions, previous version, and prepared activation',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-dcl-controller-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'data','gateway.json');
+  const config=base();
+  let activated=0;
+  const controller=createDeclarativeController(config,{file,onActivate:settings=>()=>{
+    config.proxyEnabled=settings.proxyEnabled;config.originUrl=settings.originUrl;config.activeRoutes=settings.routes;activated++;
+  }});
+  const first={proxyEnabled:true,originUrl:'http://127.0.0.1:8081/',routes:[{path:'/api',origin:'http://127.0.0.1:3001/'}]};
+  controller.apply(first);
+  assert.equal(activated,1);assert.equal(fs.statSync(file).mode&0o777,0o600);
+  const second={proxyEnabled:false,originUrl:'http://127.0.0.1:8082/',routes:[]};
+  controller.apply(second);
+  assert.equal(activated,2);assert.equal(readDeclarative(config,file).proxyEnabled,false);
+  assert.equal(readDeclarative(config,file+'.previous').proxyEnabled,true);
+  const before=fs.readFileSync(file,'utf8');
+  const fails=createDeclarativeController(config,{file,onActivate:()=>{throw Error('prepare_failed');}});
+  assert.throws(()=>fails.apply(first),/prepare_failed/);
+  assert.equal(fs.readFileSync(file,'utf8'),before);
+});
+
+
+================================================================================
 FILE: test/unit/decoy.test.js
 ================================================================================
 import test from 'node:test';
@@ -5489,7 +6017,7 @@ test('audit logger produces structured v1 records',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-audit-')); const file=path.join(dir,'audit.jsonl');
   createAuditLogger(file)({type:'operator_test',client:'abc'});
   const r=JSON.parse(fs.readFileSync(file,'utf8').trim());
-  assert.equal(r.version,'2.0.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
+  assert.equal(r.version,'2.1.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
   fs.rmSync(dir,{recursive:true,force:true});
 });
 
@@ -5998,7 +6526,7 @@ for(const backend of ['json','sqlite']){
   const p=await port();let child=await start(dir,p,backend);t.after(async()=>stop(child));
   const base=`http://127.0.0.1:${p}`;
   const ready=await (await fetch(`${base}/ready`)).json();
-  assert.equal(ready.version,'2.0.0');assert.equal(ready.stateBackend,backend);assert.equal(ready.stateVersion,5);
+  assert.equal(ready.version,'2.1.0');assert.equal(ready.stateBackend,backend);assert.equal(ready.stateVersion,5);
   const lure=await fetch(`${base}/anchor/`);assert.equal(lure.status,200);
   const token='Bearer v2-dashboard-token-123456789000';
   const stats=await (await fetch(`${base}/anchor/api/stats`,{headers:{authorization:token}})).json();

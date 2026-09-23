@@ -1,3 +1,13 @@
+# AnchorWeight v2.1.0 — Declarative Gateway Configuration & Route Wizard
+
+Upgrade from the currently deployed v2.0.x source with a backup-first overlay. Read
+[DECLARATIVE-CONFIGURATION.md](DECLARATIVE-CONFIGURATION.md). Installing v2.1.0
+alone does not enable the declarative configuration or any enforcement feature.
+Check `node --test --test-concurrency=1` and `npm run release:verify` before
+restarting; publish and tag only after live `/live` and dashboard checks pass.
+
+---
+
 # AnchorWeight v2.0.0 — Integration & Production Hardening
 
 See [V2-OPERATIONS.md](V2-OPERATIONS.md) for exact deployment, rollback, security boundaries, and limitations. Run `npm run release:verify` for a non-mutating source-integrity check after `npm run release:check`. The v1.9 single-origin and default-disabled routing behavior remains unchanged.

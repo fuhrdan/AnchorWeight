@@ -60,6 +60,11 @@ export function validateConfig(config) {
   if (config.dashboardEnabled && !config.dashboardToken) warnings.push('Dashboard is enabled but AW_DASHBOARD_TOKEN is empty; authenticated API requests will be rejected.');
   if (config.dashboardToken && config.dashboardToken.length < 16) warnings.push('AW_DASHBOARD_TOKEN should be at least 16 characters; 32+ random bytes recommended.');
 
+  if (config.declarativeEnabled && (config.routesEnabled || config.setupConfigEnabled))
+    errors.push('AW_DECLARATIVE_ENABLED cannot be combined with legacy AW_ROUTES_ENABLED or AW_SETUP_CONFIG_ENABLED; migrate intentionally');
+  if (config.declarativeWritesEnabled && !config.declarativeEnabled) errors.push('AW_DECLARATIVE_WRITES_ENABLED requires AW_DECLARATIVE_ENABLED');
+  if (config.declarativeWritesEnabled && !config.dashboardToken) errors.push('Declarative writes require AW_DASHBOARD_TOKEN');
+  if (config.declarativeEnabled) warnings.push('Declarative file controls proxy origin and routes; enforcement, auth, and secrets remain in cPanel.');
   if (config.routesEnabled != null && typeof config.routesEnabled !== 'boolean') errors.push('routesEnabled must be boolean');
   if (config.routesEnabled && (!config.routesFile || !config.setupPublicHost)) errors.push('routesEnabled requires routesFile and setupPublicHost');
   if ((config.routeAllowedOrigins||[]).length > 32) errors.push('routeAllowedOrigins must contain no more than 32 entries');

@@ -1,3 +1,10 @@
+## [2.1.0] - 2026-09-23 — Unified Gateway Configuration & Setup Wizard
+
+- Added opt-in private JSON and restricted YAML gateway configuration with no runtime dependencies.
+- Added authenticated route editing, bounded origin checks, previous-version rollback and explicit legacy-conflict validation.
+- Carried forward v2.0 hardening tests and preserved existing state schema, cPanel startup and opt-in enforcement defaults.
+- See DECLARATIVE-CONFIGURATION.md for activation and rollback; installation alone does not change proxy behavior.
+
 ## 2.0.0 — Integrated Defensive Security Platform
 
 - Preserved the complete v1.9 gateway, crawler-evidence and optional distributed-intelligence feature set.

@@ -1,4 +1,4 @@
-# AnchorWeight v2.0.0
+# AnchorWeight v2.1.0
 
 **Let bots identify themselves.**
 
@@ -12,6 +12,13 @@ AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification
 > **The maze is not the weapon. The maze is the test.**
 
 AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, or connection-exhaustion system.
+
+## v2.1 Unified Gateway Configuration & Route Wizard
+
+- Optional, private JSON or safe-subset YAML config for the proxy switch, approved default origin and up to 16 path routes. No additional npm dependencies or state migration.
+- Authenticated Setup Wizard route editor, bounded upstream HEAD validation, CSRF-protected live apply and previous-file rollback; file writes remain disabled until explicitly enabled.
+- Legacy environment, v1.7 operator settings and v1.9 route files remain supported with declarative mode off; conflicting modes fail validation if accidentally enabled together.
+- **Secrets, crawler enforcement, gateway rate/IP rules and health policy are not editable through the declarative file.** See [DECLARATIVE-CONFIGURATION.md](DECLARATIVE-CONFIGURATION.md) for migration and rollback.
 
 ## v2.0 Integrated Defensive Security Platform
 
