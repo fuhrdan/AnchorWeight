@@ -1,11 +1,11 @@
-# AnchorWeight v1.3.0 — Canary and evidence operations
+# AnchorWeight v1.4.0 — Canary and evidence operations
 
 ## Safe rollout on cPanel
 
 1. Download a backup of the live application, `.env`/cPanel environment, JSON/SQLite state, and audit/event files. Keep `AW_SECRET` unchanged.
 2. Stop the existing Node.js app before replacing the source. Preserve `data/`, `.env`, and cPanel Passenger files. Use `app.js` at the SAME application root and keep the v1.2 cPanel async-main startup fix.
 3. Keep `AW_STATE_BACKEND` unchanged (`json` unless you have separately completed and verified a SQLite migration). No new state schema or npm dependencies are required.
-4. Start in `AW_SHADOW_MODE=true`, confirm `/live` reports `1.3.0`, `/ready` and dashboard work, then visit `/anchor/` to inspect distinct branch links.
+4. Start in `AW_SHADOW_MODE=true`, confirm `/live` reports `1.4.0`, `/ready` and dashboard work, then visit `/anchor/` to inspect distinct branch links.
 5. Use `node --test --test-concurrency=1` on process/thread-limited shared hosting. Run `npm run release:check` before committing source.
 
 ## Config

@@ -1,5 +1,5 @@
-AnchorWeight v1.3.0 — Plain Text Source Review Bundle
-Generated: 2026-09-22T22:50:01.430Z
+AnchorWeight v1.4.0 — Plain Text Source Review Bundle
+Generated: 2026-09-23T15:35:26.923Z
 
 
 ================================================================================
@@ -175,7 +175,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '1.3.0',
+        ok: true, service: 'AnchorWeight', version: '1.4.0',
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -184,7 +184,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'1.3.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'1.4.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin
@@ -212,7 +212,7 @@ const server = http.createServer(async (req, res) => {
     if (proxy) return proxy(req, res);
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.3.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.4.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -223,7 +223,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v1.3.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v1.4.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
@@ -270,7 +270,7 @@ import { loadConfig } from '../src/config.js';
 import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, inspectConfiguredState, migrateStateFile } from '../src/ops.js';
 import { validateConfig } from '../src/config-schema.js';
 
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -424,7 +424,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.3.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.4.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -726,7 +726,7 @@ FILE: package.json
 ================================================================================
 {
   "name": "anchorweight",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
   "type": "module",
   "main": "app.js",
@@ -985,11 +985,11 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.3.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.4.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.3.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.4.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (url.pathname === `${config.basePath}/api/events`) {
@@ -1000,7 +1000,7 @@ export function createAnchorWeight(config, deps = {}) {
           campaignId: url.searchParams.get('campaign') || '',
           search: url.searchParams.get('q') || ''
         });
-        return json(res, 200, { version:'1.3.0', events });
+        return json(res, 200, { version:'1.4.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate`) {
@@ -1209,6 +1209,49 @@ function renderTerminal(depth, shadow, quarantineMode) {
 
 
 ================================================================================
+FILE: src/assessment.js
+================================================================================
+/**
+ * Bot DNA 2.0: a derived, non-scoring explanation of observed behavior.
+ * These are observations, NOT a determination that a person is malicious.
+ * Avoid persistently duplicating derived fields; v1.3 state remains compatible.
+ */
+export function assessProfile(p) {
+  const names = new Set(p.signalNames || []);
+  const automation = [
+    'automation_user_agent', 'missing_user_agent', 'rapid_request_burst',
+    'user_agent_changed'
+  ].filter(name => names.has(name));
+  const verified = [];
+  if ((p.validTraversals || 0) > 0) verified.push('signed_traversal');
+  if ((p.proofOfCrawl || 0) > 0) verified.push('proof_of_crawl');
+  if ((p.blackholeVisits || 0) > 0) verified.push('robots_disallowed_path');
+  if ((p.campaignIds || []).length > 0) verified.push('signed_canary_correlation');
+  const identity = p.goodBotVerified ? 'verified_search_crawler'
+    : p.goodBotClaimed ? 'unverified_search_crawler_claim' : 'unverified';
+  const tls = Array.isArray(p.trustedTlsFingerprints) ? p.trustedTlsFingerprints : [];
+  return {
+    automationObserved: automation.length > 0 || verified.length > 0,
+    automationIndicators: automation,
+    trapEvidence: verified,
+    identity,
+    tlsFingerprint: {
+      available: tls.length > 0,
+      source: tls.length > 0 ? 'trusted_proxy' : null,
+      variantsObserved: tls.length,
+      // A missing fingerprint is simply missing data, never a risk point.
+      missingIsSuspicious: false
+    },
+    limitations: [
+      'Automated does not necessarily mean malicious',
+      'User-agent and ordinary HTTP headers can be changed by a client',
+      'A shared network address does not establish a single actor'
+    ]
+  };
+}
+
+
+================================================================================
 FILE: src/audit.js
 ================================================================================
 import fs from 'node:fs';
@@ -1218,7 +1261,7 @@ export function createAuditLogger(file) {
   return function audit(event) {
     const record = {
       ts: new Date().toISOString(),
-      version: '1.3.0',
+      version: '1.4.0',
       ...event
     };
     try {
@@ -1235,6 +1278,7 @@ export function createAuditLogger(file) {
 FILE: src/behavior.js
 ================================================================================
 import crypto from 'node:crypto';
+import { assessProfile } from './assessment.js';
 
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
@@ -1265,6 +1309,21 @@ export class BehaviorEngine {
     if (!p.firstSeen) p.firstSeen = now;
     p.methods[req.method || 'GET'] = (p.methods[req.method || 'GET'] || 0) + 1;
     p.acceptSignatures[acceptHash] = (p.acceptSignatures[acceptHash] || 0) + 1;
+
+    // The TLS terminator, not this HTTP server, must produce JA4-compatible
+    // metadata. Only accept the dedicated header when explicitly enabled AND
+    // an overwriting trusted reverse proxy is configured. Never retain raw JA4.
+    if (this.config.trustProxy && this.config.trustedJa4Enabled) {
+      const ja4 = req.headers['x-aw-ja4'];
+      if (typeof ja4 === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(ja4)) {
+        p.trustedTlsFingerprints ||= [];
+        const fingerprint = shortHash(this.config.secret, `ja4:${ja4}`);
+        if (!p.trustedTlsFingerprints.includes(fingerprint)) {
+          p.trustedTlsFingerprints.push(fingerprint);
+          if (p.trustedTlsFingerprints.length > 8) p.trustedTlsFingerprints.shift();
+        }
+      }
+    }
 
     if (!p.userAgents.includes(uaHash)) {
       if (p.userAgents.length > 0) this.addSignal(ipKey, 'user_agent_changed', this.config.scoreUaChange, { uaHash });
@@ -1376,7 +1435,7 @@ export function newProfile() {
     intervalCount: 0, intervalTotalMs: 0, minIntervalMs: null, rapidRequestCount: 0,
     goodBotClaimed: false, goodBotVerified: false, goodBotProvider: null, goodBotCheckReason: null, manualPolicy: null,
     trapSessions: {}, recentTraversalDepths: [], traversalStyle: 'unknown', campaignIds: [],
-    offenseCount: 0, lastOffenseAt: null, evidence: []
+    offenseCount: 0, lastOffenseAt: null, evidence: [], trustedTlsFingerprints: []
   };
 }
 
@@ -1403,6 +1462,7 @@ export function publicProfile(ipKey, p) {
     offenseCount: p.offenseCount || 0,
     lastOffenseAt: p.lastOffenseAt || null,
     evidence: (p.evidence || []).slice(-12),
+    assessment: assessProfile(p),
     signals: p.signals.slice(-10)
   };
 }
@@ -1666,6 +1726,8 @@ export function validateConfig(config) {
   }
 
   if (config.trustProxy) warnings.push('trustProxy is enabled; only use it behind a trusted proxy that overwrites X-Forwarded-For.');
+  if (config.trustedJa4Enabled && !config.trustProxy) errors.push('trustedJa4Enabled requires trustProxy');
+  if (config.trustedJa4Enabled) warnings.push('trustedJa4Enabled requires the trusted TLS terminator to OVERWRITE X-AW-JA4 and strip client-supplied values.');
   if (config.allowQueryAdminToken) warnings.push('allowQueryAdminToken is enabled; bearer-only admin authentication is recommended.');
   if (config.scoreEnforcementEnabled) warnings.push('score-based enforcement is enabled; review Shadow Mode evidence before enabling in production.');
   if (config.blackholeEnabled && !config.proxyEnabled) warnings.push('robots blackhole is enabled without the reverse proxy; automatic robots.txt and hidden-link injection require proxy mode.');
@@ -1730,6 +1792,7 @@ export function loadConfig(overrides = {}) {
     sessionTtlMinutes: intEnv('AW_SESSION_TTL_MINUTES', 30, 1, 1440),
     sessionBindIp: boolEnv('AW_SESSION_BIND_IP', true),
     trustProxy: boolEnv('AW_TRUST_PROXY', false),
+    trustedJa4Enabled: boolEnv('AW_TRUSTED_JA4_ENABLED', false),
     dashboardEnabled: boolEnv('AW_DASHBOARD_ENABLED', true),
     dashboardToken: process.env.AW_DASHBOARD_TOKEN || '',
     logFile: process.env.AW_LOG_FILE || './data/anchorweight-events.jsonl',
@@ -2147,7 +2210,7 @@ export async function backupFiles(config, destination) {
     const dest=path.join(dir,path.basename(file));
     fs.copyFileSync(file,dest);copied.push({label,file:dest});
   }
-  const manifest={version:'1.3.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
+  const manifest={version:'1.4.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
   fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2));
   return {dir,manifest};
 }
@@ -2178,7 +2241,7 @@ export async function exportEvidence(config, destination) {
     ? await readSqliteState(config.sqliteFile) : config.stateBackend==='sqlite' ? {} : readJson(config.stateFile,{});
   const events=readJsonLines(config.logFile);
   const report={
-    version:'1.3.0',
+    version:'1.4.0',
     generatedAt:new Date().toISOString(),
     profile:config.profileName||null,
     stateBackend:config.stateBackend||'json',
@@ -2246,7 +2309,7 @@ export function migrateStateFile(file, options={}) {
   const temp=`${resolved}.${process.pid}.tmp`;
   fs.writeFileSync(temp,JSON.stringify({
     ...migrated.state,
-    meta:{...(migrated.state.meta||{}),appVersion:'1.3.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
+    meta:{...(migrated.state.meta||{}),appVersion:'1.4.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
   }));
   fs.renameSync(temp,resolved);
   return {file:resolved,backup,dryRun:false,...migrated};
@@ -2297,7 +2360,7 @@ export class PersistentStore extends MemoryStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
       const temp = `${this.file}.${process.pid}.tmp`;
-      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.3.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
+      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.4.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
       fs.renameSync(temp, this.file);
     } catch (err) {
       console.error('[AnchorWeight] Unable to persist state:', err.message);
@@ -2616,7 +2679,7 @@ export class SqliteStore extends MemoryStore {
         this.migrationsApplied = [...migrated.applied, 'JSON->SQLite'];
       }
       this.db.prepare("INSERT INTO metadata (key,value) VALUES ('state_version',?)").run(String(CURRENT_STATE_VERSION));
-      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','1.3.0')").run();
+      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','1.4.0')").run();
       this.db.exec('COMMIT');
     } catch (err) {
       this.db.exec('ROLLBACK');
@@ -3311,6 +3374,136 @@ test('rewrite helper changes robots and HTML bodies only as intended', () => {
 
 
 ================================================================================
+FILE: test/unit/bot-dna-2.test.js
+================================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { BehaviorEngine, publicProfile } from '../../src/behavior.js';
+import { MemoryStore } from '../../src/store.js';
+import { PersistentStore } from '../../src/persistent-store.js';
+import { createStore } from '../../src/create-store.js';
+import { loadConfig } from '../../src/config.js';
+import { validateConfig } from '../../src/config-schema.js';
+
+const KEY='abcdef12345678';
+const SECRET='example-test-secret-never-use-live';
+const JA4='t13d1516h2_8daaf6152771_02713d6af862';
+const HEADERS={ 'user-agent':'Mozilla/5.0', accept:'text/html', 'x-aw-ja4':JA4 };
+function make(overrides={}, store=new MemoryStore()) {
+  const config={secret:SECRET, rapidRequestMs:250, rapidRequestBurst:6,
+    scoreUaChange:10, scoreRapidBurst:10, scoreMissingUa:5,scoreAutomationUa:5,
+    trustProxy:false,trustedJa4Enabled:false,...overrides};
+  let tick=0;
+  return {behavior:new BehaviorEngine(config,store,()=>{},()=>{tick+=1000;return tick;}),store};
+}
+function observe(behavior, headers=HEADERS) {
+  return behavior.observeRequest(KEY,{method:'GET',headers},new URL('http://localhost/'));
+}
+
+test('Bot DNA 2.0 separates automation observations from signed-trap evidence',()=>{
+  const {behavior,store}=make();
+  observe(behavior, {'user-agent':'curl/8.0',accept:'*/*'});
+  const p=store.getProfile(KEY);
+  let a=publicProfile(KEY,p).assessment;
+  assert.equal(a.automationObserved,true);
+  assert.deepEqual(a.automationIndicators,['automation_user_agent']);
+  assert.deepEqual(a.trapEvidence,[]);
+  behavior.noteTraversal(KEY,1,'sessionId');
+  behavior.noteProof(KEY,3);
+  a=publicProfile(KEY,p).assessment;
+  assert.deepEqual(a.trapEvidence,['signed_traversal','proof_of_crawl']);
+  assert.match(a.limitations.join(' '),/does not necessarily mean malicious/);
+});
+
+test('missing JA4 is unavailable, not suspicious, and has no points',()=>{
+  const {behavior,store}=make({trustProxy:true,trustedJa4Enabled:true});
+  observe(behavior, {'user-agent':'Mozilla/5.0',accept:'text/html'});
+  const p=publicProfile(KEY,store.getProfile(KEY));
+  assert.equal(p.score,0);
+  assert.deepEqual(p.assessment.tlsFingerprint,{available:false,source:null,variantsObserved:0,missingIsSuspicious:false});
+});
+
+test('forged public header is ignored unless trusted source explicitly enabled',()=>{
+  for(const flags of [{trustProxy:false,trustedJa4Enabled:true},{trustProxy:true,trustedJa4Enabled:false}]) {
+    const {behavior,store}=make(flags);
+    observe(behavior);
+    assert.deepEqual(store.getProfile(KEY).trustedTlsFingerprints,[]);
+    assert.equal(publicProfile(KEY,store.getProfile(KEY)).assessment.tlsFingerprint.available,false);
+  }
+});
+
+test('trusted fingerprint is keyed, bounded, privacy-safe, and never adds score',()=>{
+  const {behavior,store}=make({trustProxy:true,trustedJa4Enabled:true});
+  observe(behavior);observe(behavior);
+  const p=store.getProfile(KEY);
+  assert.equal(p.trustedTlsFingerprints.length,1);
+  assert.equal(p.trustedTlsFingerprints[0].length,12);
+  assert.equal(JSON.stringify(p).includes(JA4),false);
+  assert.equal(p.score,0);
+  assert.equal(publicProfile(KEY,p).assessment.tlsFingerprint.source,'trusted_proxy');
+  for(let i=0;i<12;i++) observe(behavior,{...HEADERS,'x-aw-ja4':JA4+i});
+  assert.equal(p.trustedTlsFingerprints.length,8);
+  assert.equal(p.score,0);
+});
+
+test('malformed or multi-valued fingerprint header is ignored',()=>{
+  const {behavior,store}=make({trustProxy:true,trustedJa4Enabled:true});
+  for (const value of ['',JA4+'\nattack','x'.repeat(129),[JA4], 'a!bad!header']) {
+    observe(behavior,{...HEADERS,'x-aw-ja4':value});
+  }
+  assert.deepEqual(store.getProfile(KEY).trustedTlsFingerprints,[]);
+});
+
+test('trusted fingerprint options require trusted reverse proxy and default off',()=>{
+  const base=loadConfig({secret:SECRET});
+  assert.equal(base.trustedJa4Enabled,false);
+  const invalid=validateConfig({...base,trustedJa4Enabled:true,trustProxy:false});
+  assert.equal(invalid.valid,false);
+  assert.match(invalid.errors.join('; '),/requires trustProxy/);
+  const valid=validateConfig({...base,trustedJa4Enabled:true,trustProxy:true});
+  assert.equal(valid.valid,true);
+  assert.match(valid.warnings.join('; '),/OVERWRITE X-AW-JA4/);
+});
+
+test('older v1.3 profiles remain readable without new fingerprint field',()=>{
+  const store=new MemoryStore();const p=store.getProfile(KEY);
+  delete p.trustedTlsFingerprints;
+  assert.equal(publicProfile(KEY,p).assessment.tlsFingerprint.available,false);
+  p.goodBotClaimed=true;p.goodBotVerified=true;p.goodBotProvider='google';
+  assert.equal(publicProfile(KEY,p).assessment.identity,'verified_search_crawler');
+});
+
+test('v1.4 observation survives JSON reopen without state-schema migration',()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-botdna-json-'));
+  try {
+    const file=path.join(dir,'state.json');const store=new PersistentStore(file);
+    const {behavior}=make({trustProxy:true,trustedJa4Enabled:true},store);
+    observe(behavior);store.flush();
+    const reopened=new PersistentStore(file);
+    assert.equal(reopened.getPublicProfileById('AW-ABCDEF12').assessment.tlsFingerprint.variantsObserved,1);
+    assert.equal(JSON.parse(fs.readFileSync(file,'utf8')).version,5);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('v1.4 observation survives SQLite reopen without state-schema migration', {skip:Number(process.versions.node.split('.')[0])<22}, async()=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-botdna-sqlite-'));
+  try {
+    const c={stateBackend:'sqlite',stateFile:path.join(dir,'old.json'),sqliteFile:path.join(dir,'state.sqlite')};
+    const store=await createStore(c);
+    const {behavior}=make({trustProxy:true,trustedJa4Enabled:true},store);
+    observe(behavior);store.close();
+    const reopened=await createStore(c);
+    assert.equal(reopened.getPublicProfileById('AW-ABCDEF12').assessment.tlsFingerprint.variantsObserved,1);
+    assert.equal(reopened.loadedStateVersion,5);
+    reopened.close();
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+
+================================================================================
 FILE: test/unit/campaigns.test.js
 ================================================================================
 import test from 'node:test';
@@ -3556,7 +3749,7 @@ test('audit logger produces structured v1 records',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-audit-')); const file=path.join(dir,'audit.jsonl');
   createAuditLogger(file)({type:'operator_test',client:'abc'});
   const r=JSON.parse(fs.readFileSync(file,'utf8').trim());
-  assert.equal(r.version,'1.3.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
+  assert.equal(r.version,'1.4.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
   fs.rmSync(dir,{recursive:true,force:true});
 });
 

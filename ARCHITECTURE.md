@@ -32,7 +32,8 @@ Internet / trusted front proxy
 - `src/anchorweight.js`: Proof-of-Crawl orchestration, quarantine decisions, admin API.
 - `src/procedural.js`: deterministic signed traversal lineage.
 - `src/crypto.js`: HMAC helpers, timing-safe token comparison, keyed client fingerprints.
-- `src/behavior.js`: Bot DNA scoring and traversal characterization.
+- `src/behavior.js`: Bot DNA scoring, bounded keyed proxy TLS observations and traversal characterization.
+- `src/assessment.js`: derived non-scoring Bot DNA 2.0 evidence explanation.
 - `src/goodbot.js`: supported good-bot reverse/forward DNS verification.
 - `src/campaigns.js`: shared-signed-canary campaign correlation.
 - `src/store.js`: in-memory runtime state.

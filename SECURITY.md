@@ -79,3 +79,7 @@ The admin surface is rate-limited per keyed client identity. Administrative muta
 `/live` indicates process liveness. `/ready` may include a bounded probe of the configured origin; disable that behavior with `AW_READINESS_ORIGIN_CHECK=false` if the origin must not receive readiness HEAD requests.
 
 The Docker image runs as the unprivileged `node` user. systemd examples enable basic sandboxing. These are starting points, not substitutes for host-level firewalling and origin isolation.
+
+## Trusted JA4 metadata (v1.4)
+
+`AW_TRUSTED_JA4_ENABLED` is off by default and requires `AW_TRUST_PROXY=true`. The TLS-terminating proxy MUST strip a client-provided `X-AW-JA4` and replace it with its own observed value; Node HTTP cannot independently collect JA4 behind a TLS terminator. Accepted values are keyed/hashed and bounded, and do not alter scoring or block decisions. Missing fingerprints are not suspicious. See [BOT-DNA-2.md](BOT-DNA-2.md).

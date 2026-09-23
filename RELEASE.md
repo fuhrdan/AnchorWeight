@@ -1,4 +1,4 @@
-# AnchorWeight v1.3.0 Release Guide
+# AnchorWeight v1.4.0 Release Guide
 
 ## Pre-release gate
 
@@ -34,7 +34,7 @@ anchorweight migrate --profile production
 
 ## Release artifacts
 
-A v1.3.0 release should include the source ZIP and a SHA-256 checksum file. `SOURCE-MANIFEST.json` records SHA-256 hashes of reviewable source files.
+A v1.4.0 release should include the source ZIP and a SHA-256 checksum file. `SOURCE-MANIFEST.json` records SHA-256 hashes of reviewable source files.
 
 ## v1.2.0 SQLite release considerations
 

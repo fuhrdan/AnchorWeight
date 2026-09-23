@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0
+- Bot DNA 2.0 assessment: separate automation indicators, signed-trap evidence, and verified search-bot identity without changing existing scoring or enforcement defaults.
+- Optional trusted-proxy JA4-compatible observation, saved as bounded keyed hashes only; missing values never incur risk points.
+- Investigation console shows assessment and signal limitations. Backward-compatible JSON and SQLite state version 5; no migration.
+
 ## 1.3.0
 
 - Independent signed canary branches, branch-level lineage and bounded per-profile evidence.

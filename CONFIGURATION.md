@@ -34,6 +34,7 @@ Run `anchorweight config` to inspect the effective non-secret configuration and 
 | `AW_PROXY_BODY_MAX_BYTES` | `26214400` | Maximum proxied request body |
 | `AW_PUBLIC_SCHEME` | `https` | Forwarded public scheme |
 | `AW_TRUST_PROXY` | `false` | Trust front-proxy source headers; only behind a trusted overwriting proxy |
+| `AW_TRUSTED_JA4_ENABLED` | `false` | Optional informational JA4-compatible metadata from a trusted TLS proxy; requires `AW_TRUST_PROXY=true` and stripping/overwriting client `X-AW-JA4` |
 
 ## Administration
 

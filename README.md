@@ -1,4 +1,4 @@
-# AnchorWeight v1.3.0
+# AnchorWeight v1.4.0
 
 **Let bots identify themselves.**
 
@@ -111,6 +111,10 @@ If clients can bypass AnchorWeight and reach the origin directly, the reverse pr
 - Local benchmark script, expanded regression tests, and storage documentation.
 
 **Start with [SQLITE-MIGRATION.md](SQLITE-MIGRATION.md) before enabling SQLite on a live site.**
+
+## Bot DNA 2.0 (v1.4.0)
+
+See [BOT-DNA-2.md](BOT-DNA-2.md) for explainable evidence and optional trusted TLS fingerprint ingestion. The additional observations do not alter risk points or enforcement defaults.
 
 ## v1.3.0 highlights
 

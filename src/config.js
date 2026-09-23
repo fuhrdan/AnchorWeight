@@ -51,6 +51,7 @@ export function loadConfig(overrides = {}) {
     sessionTtlMinutes: intEnv('AW_SESSION_TTL_MINUTES', 30, 1, 1440),
     sessionBindIp: boolEnv('AW_SESSION_BIND_IP', true),
     trustProxy: boolEnv('AW_TRUST_PROXY', false),
+    trustedJa4Enabled: boolEnv('AW_TRUSTED_JA4_ENABLED', false),
     dashboardEnabled: boolEnv('AW_DASHBOARD_ENABLED', true),
     dashboardToken: process.env.AW_DASHBOARD_TOKEN || '',
     logFile: process.env.AW_LOG_FILE || './data/anchorweight-events.jsonl',

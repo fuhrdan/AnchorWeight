@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { assessProfile } from './assessment.js';
 
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
@@ -29,6 +30,21 @@ export class BehaviorEngine {
     if (!p.firstSeen) p.firstSeen = now;
     p.methods[req.method || 'GET'] = (p.methods[req.method || 'GET'] || 0) + 1;
     p.acceptSignatures[acceptHash] = (p.acceptSignatures[acceptHash] || 0) + 1;
+
+    // The TLS terminator, not this HTTP server, must produce JA4-compatible
+    // metadata. Only accept the dedicated header when explicitly enabled AND
+    // an overwriting trusted reverse proxy is configured. Never retain raw JA4.
+    if (this.config.trustProxy && this.config.trustedJa4Enabled) {
+      const ja4 = req.headers['x-aw-ja4'];
+      if (typeof ja4 === 'string' && /^[A-Za-z0-9_-]{8,128}$/.test(ja4)) {
+        p.trustedTlsFingerprints ||= [];
+        const fingerprint = shortHash(this.config.secret, `ja4:${ja4}`);
+        if (!p.trustedTlsFingerprints.includes(fingerprint)) {
+          p.trustedTlsFingerprints.push(fingerprint);
+          if (p.trustedTlsFingerprints.length > 8) p.trustedTlsFingerprints.shift();
+        }
+      }
+    }
 
     if (!p.userAgents.includes(uaHash)) {
       if (p.userAgents.length > 0) this.addSignal(ipKey, 'user_agent_changed', this.config.scoreUaChange, { uaHash });
@@ -140,7 +156,7 @@ export function newProfile() {
     intervalCount: 0, intervalTotalMs: 0, minIntervalMs: null, rapidRequestCount: 0,
     goodBotClaimed: false, goodBotVerified: false, goodBotProvider: null, goodBotCheckReason: null, manualPolicy: null,
     trapSessions: {}, recentTraversalDepths: [], traversalStyle: 'unknown', campaignIds: [],
-    offenseCount: 0, lastOffenseAt: null, evidence: []
+    offenseCount: 0, lastOffenseAt: null, evidence: [], trustedTlsFingerprints: []
   };
 }
 
@@ -167,6 +183,7 @@ export function publicProfile(ipKey, p) {
     offenseCount: p.offenseCount || 0,
     lastOffenseAt: p.lastOffenseAt || null,
     evidence: (p.evidence || []).slice(-12),
+    assessment: assessProfile(p),
     signals: p.signals.slice(-10)
   };
 }
