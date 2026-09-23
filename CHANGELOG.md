@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0] - 2026-09-23
+- Optional signed, bounded, privacy-minimized evidence transport to a separately deployed hub.
+- Authenticated multi-site evidence ingestion with timestamp/nonce replay protection,
+  event deduplication and bounded append-only JSONL persistence.
+- Hub read API returns evidence by site; no cross-site identity claims or remote enforcement.
+- Default-off deployment; existing state schema 5 and cPanel startup behavior retained.
+- Bounded in-memory publisher retries; unsent evidence may be lost on restart.
+
 ## [1.5.0] - 2026-09-23
 
 - Introduced Investigation Console 2.0 with bounded chronological case timelines, filters, campaign drilldown and explained relationships.

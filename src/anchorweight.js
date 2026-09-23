@@ -10,6 +10,7 @@ import { GoodBotVerifier } from './goodbot.js';
 import { AdminSecurity } from './admin-security.js';
 import { createAuditLogger } from './audit.js';
 import { CampaignEngine } from './campaigns.js';
+import { createEvidencePublisher } from './distributed.js';
 
 function esc(s) {
   return String(s).replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
@@ -56,7 +57,9 @@ function json(res, status, obj) {
 
 export function createAnchorWeight(config, deps = {}) {
   const store = deps.store || new MemoryStore(deps.now);
-  const log = deps.log || createLogger(config.logFile, { maxMb: config.eventMaxMb, retentionDays: config.eventRetentionDays });
+  const localLog = deps.log || createLogger(config.logFile, { maxMb: config.eventMaxMb, retentionDays: config.eventRetentionDays });
+  const publisher = deps.publisher || createEvidencePublisher(config);
+  const log = event => { localLog(event); publisher.publish(event); };
   const behavior = deps.behavior || new BehaviorEngine(config, store, log, deps.now);
   const goodBots = deps.goodBots || new GoodBotVerifier(config, deps.goodBotOptions || {});
   const campaigns = deps.campaigns || new CampaignEngine(config, store, log, deps.now);
@@ -164,11 +167,11 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.5.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.6.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.5.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.6.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (url.pathname === `${config.basePath}/api/events`) {
@@ -181,7 +184,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'1.5.0', events });
+        return json(res, 200, { version:'1.6.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -191,7 +194,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'1.5.0', profile:null, campaign:null, events:[], timeline:[]
+          version:'1.6.0', profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });
@@ -413,7 +416,7 @@ export function createAnchorWeight(config, deps = {}) {
     return html(res, 200, renderIndex(config, sid, tokens, children[0], children));
   }
 
-  return { preflight, handle, store, behavior, goodBots, campaigns, admin };
+  return { preflight, handle, store, behavior, goodBots, campaigns, admin, publisher };
 }
 
 function renderIndex(config, sid, tokens, child, entries) {

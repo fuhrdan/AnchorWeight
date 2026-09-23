@@ -53,6 +53,18 @@ export function validateConfig(config) {
     }
   }
 
+  if (config.intelligenceEnabled) {
+    if (!/^[a-z][a-z0-9_-]{2,31}$/.test(config.intelligenceSiteId || '')) errors.push('intelligenceSiteId must be 3-32 lowercase letters, digits, _ or - starting with a letter');
+    if (typeof config.intelligenceSiteSecret !== 'string' || config.intelligenceSiteSecret.length < 32) errors.push('intelligenceSiteSecret must be at least 32 characters');
+    try {
+      const hub = new URL(config.intelligenceHubUrl);
+      if (hub.username || hub.password || hub.hash || hub.search || hub.pathname !== '/v1/evidence' ||
+          !(hub.protocol === 'https:' || (hub.protocol === 'http:' && ['localhost','127.0.0.1','[::1]'].includes(hub.hostname)))) {
+        errors.push('intelligenceHubUrl must be HTTPS /v1/evidence (HTTP allowed only on loopback) without credentials or query');
+      }
+    } catch {errors.push('intelligenceHubUrl is invalid');}
+    warnings.push('Distributed intelligence is opt-in; only locally verified bounded evidence is forwarded.');
+  }
   if (config.trustProxy) warnings.push('trustProxy is enabled; only use it behind a trusted proxy that overwrites X-Forwarded-For.');
   if (config.trustedJa4Enabled && !config.trustProxy) errors.push('trustedJa4Enabled requires trustProxy');
   if (config.trustedJa4Enabled) warnings.push('trustedJa4Enabled requires the trusted TLS terminator to OVERWRITE X-AW-JA4 and strip client-supplied values.');

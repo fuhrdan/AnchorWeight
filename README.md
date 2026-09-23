@@ -1,4 +1,4 @@
-# AnchorWeight v1.5.0
+# AnchorWeight v1.6.0
 
 **Let bots identify themselves.**
 
@@ -12,6 +12,16 @@ AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification
 > **The maze is not the weapon. The maze is the test.**
 
 AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, or connection-exhaustion system.
+
+## v1.6 Distributed Intelligence Foundation
+
+- Separate, authenticated evidence-ingestion hub, disabled by default.
+- Explicit per-site registration; independently configured federation secret.
+- Private signed paths and internal IP keys never cross the federation boundary.
+- Locally verified evidence summaries, bounded asynchronous queue, and hub ingestion deduplication.
+- Sensor dashboard displays distributed publisher queue/sent/drop status.
+- No automatic cross-site identity inference or remote enforcement.
+- [Distributed intelligence deployment guide](DISTRIBUTED-INTELLIGENCE.md).
 
 ## v1.5 Investigation Console 2.0
 
@@ -289,3 +299,12 @@ AnchorWeight v1.0 supports a **single process / single local state writer**. The
 ## License
 
 MIT
+
+## Optional distributed intelligence (v1.6.0)
+
+Run `node bin/intelligence-hub.js` as a **separate Node application** with its own
+credentials and storage; see [DISTRIBUTED-INTELLIGENCE.md](DISTRIBUTED-INTELLIGENCE.md).
+The normal sensor is unchanged by default (`AW_INTELLIGENCE_ENABLED=false`).
+The hub aggregates site-scoped evidence but **does not** automatically associate
+profiles across different sites or apply policies. These are local attestations,
+not independent proof of common operator identity.
