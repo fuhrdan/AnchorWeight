@@ -1,3 +1,19 @@
+# AnchorWeight v2.6.0 — Installation & Operator Experience
+
+Upgrade from the **working, clean** v2.5.0 checkout. Stop the cPanel app, back up
+the entire application and preserve cPanel environment variables separately.
+Overlay the v2.6 source, run `node --test --test-concurrency=1` and
+`npm run release:verify`, restart the same Node app, and verify `/live` reports
+2.6.0, `/ready`, dashboard, wizard, and historical evidence. No automatic
+configuration import or policy changes occur on upgrade.
+
+Use [INSTALLATION-AND-OPERATIONS.md](INSTALLATION-AND-OPERATIONS.md) for first
+install, read-only doctor, gateway-only export/import/rollback, and recovery.
+Only after production checks pass: review staged files, commit, push `main`,
+then create/push the v2.6.0 tag. Never stage `data/`, secrets, or backups.
+
+---
+
 # AnchorWeight v2.5.0 — Webhook Alerts & Typed Extension Hooks
 
 Upgrade from a verified v2.4.0, preserving the app directory, Git checkout,

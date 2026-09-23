@@ -30,7 +30,7 @@ test('real Node startup: alerts stay private, authenticated snapshots work, norm
  t.after(()=>stop(child));child.stdout.resume();let errors='';child.stderr.on('data',x=>errors+=x);
  for(let i=0;i<90;i++){if(child.exitCode!==null)throw Error('startup failed '+errors);
    try{if((await fetch(base+'/live')).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
- assert.equal((await (await fetch(base+'/live')).json()).version,'2.5.0');
+ assert.equal((await (await fetch(base+'/live')).json()).version,'2.6.0');
  assert.equal(await (await fetch(base+'/hello')).text(),'ORIGIN OK');
  assert.equal((await fetch(base+'/anchor/api/stats')).status,401);
  const authorized=await fetch(base+'/anchor/api/stats',{headers:{authorization:'Bearer integration-sufficiently-long-dashboard-token'}});
@@ -54,5 +54,5 @@ test('enabled invalid alerts file prevents startup; disabled mode ignores missin
  t.after(()=>stop(good));good.stdout.resume();let goodErr='';good.stderr.on('data',x=>goodErr+=x);
  for(let i=0;i<90;i++){if(good.exitCode!==null)throw Error('disabled startup failed '+goodErr);
   try{if((await fetch(`http://127.0.0.1:${port}/live`)).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
- assert.equal((await(await fetch(`http://127.0.0.1:${port}/live`)).json()).version,'2.5.0');
+ assert.equal((await(await fetch(`http://127.0.0.1:${port}/live`)).json()).version,'2.6.0');
 });

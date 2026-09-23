@@ -1,6 +1,12 @@
-# AnchorWeight v2.5.0
+# AnchorWeight v2.6.0
 
 **v2.5 alerting:** Explicitly approved, redacted HTTPS webhooks for circuit transitions and proxied error thresholds. Default-off, bounded, no new runtime packages. [Operator guide](ALERTS-AND-WEBHOOKS.md).
+
+**v2.6 installation and operations:** guided cPanel setup plan, read-only
+`npm run doctor`, validated gateway-only JSON/YAML export/import, previous-file
+rollback, and fresh-install acceptance tests. New features are opt-in and no
+runtime dependencies or storage migrations were added. See
+[Installation & Operations](INSTALLATION-AND-OPERATIONS.md).
 
 **Let bots identify themselves.**
 

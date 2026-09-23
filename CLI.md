@@ -1,3 +1,10 @@
+## v2.6 operator workflow
+
+See [INSTALLATION-AND-OPERATIONS.md](INSTALLATION-AND-OPERATIONS.md) for
+`npm run setup`, read-only `npm run doctor`, and gateway-only config
+export/import/rollback commands. The original `anchorweight doctor` is retained
+for legacy compatibility; prefer `npm run doctor` for a **read-only** check.
+
 # AnchorWeight v1.2.0 CLI
 
 AnchorWeight ships a zero-runtime-dependency operator CLI:

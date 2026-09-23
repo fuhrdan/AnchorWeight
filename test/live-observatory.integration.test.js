@@ -28,7 +28,7 @@ test('live observatory: authenticated one-use ticket, redacted route metrics and
   PORT:String(port),AW_SECRET:'observatory-integration-secret-test',AW_DASHBOARD_TOKEN:'observatory-integration-dashboard-token',AW_PROXY_ENABLED:'true',AW_ORIGIN_URL:`http://127.0.0.1:${upstream}/`,AW_OBSERVATORY_LIVE_ENABLED:'true',AW_PUBLIC_SCHEME:'http',AW_BLACKHOLE_ENABLED:'false',AW_AUDIT_ENABLED:'false'};
  const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});t.after(async()=>stop(child));child.stdout.resume();let errors='';child.stderr.on('data',x=>errors+=x);
  for(let i=0;i<100;i++){if(child.exitCode!==null)throw Error('startup_failed '+errors);try{if((await fetch(base+'/live')).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
- assert.equal((await(await fetch(base+'/live')).json()).version,'2.5.0');
+ assert.equal((await(await fetch(base+'/live')).json()).version,'2.6.0');
  const url=base+'/anchor/api/observatory/ticket',headers={authorization:'Bearer observatory-integration-dashboard-token'};
  assert.equal((await fetch(url)).status,401);
  const ticketResponse=await fetch(url,{headers});assert.equal(ticketResponse.status,200);const {ticket}=await ticketResponse.json();

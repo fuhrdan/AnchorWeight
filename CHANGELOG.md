@@ -1,3 +1,11 @@
+## 2.6.0 — Installation & Operator Experience
+
+- Added interactive first-run cPanel installation plan and a read-only installation doctor (`npm run setup`, `npm run doctor`).
+- Added gateway-only JSON/YAML config export, validate-only import, explicit stopped-app apply, and revalidated rollback of the immediate previous config.
+- Added first-run/CLI regression tests and real app-startup acceptance tests for `/live`, `/ready`, dashboard, wizard and trap.
+- Preserved opt-in behavior, state schema v5, Node 22 cPanel startup, no new runtime dependencies, and existing v2.5 alert/stream settings.
+- See [INSTALLATION-AND-OPERATIONS.md](INSTALLATION-AND-OPERATIONS.md).
+
 ## 2.5.0 — Webhook Alerts & Typed Extension Hooks
 
 - Added optional private JSON alert rules for redacted proxy upstream errors, five-minute 5xx thresholds, and circuit open/recovery transitions.
