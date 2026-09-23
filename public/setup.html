@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AnchorWeight · Setup</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0b1220;color:#e5e7eb;font-family:system-ui,-apple-system,Segoe UI,sans-serif}header{background:#101827;border-bottom:1px solid #263244}header div,main{max-width:1000px;margin:auto;padding:1.4rem 1.6rem}h1{margin:0}h2{margin-top:0}a{color:#8dc1ff}.muted,.help{color:#aeb8c7}.help{font-size:.9rem}.panel{background:#121c2d;border:1px solid #2a3850;border-radius:14px;padding:1.2rem;margin:1rem 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem}.value{font-weight:700}input,button,select{font:inherit;background:#0b1220;color:#fff;padding:.7rem .8rem;border:1px solid #3a4960;border-radius:8px}input[type=text],input[type=password]{max-width:100%;width:100%}button{cursor:pointer;background:#24436b}button:hover{background:#31517d}button:disabled{opacity:.45;cursor:default}button.secondary{background:#18273e}.step{display:none}.step.active{display:block}.steps{display:flex;flex-wrap:wrap;gap:.5rem}.steps span{padding:.45rem .7rem;border-radius:999px;border:1px solid #3a4960}.steps .active{background:#31517d}.row{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-top:1rem}.warning{color:#f9cc86}.good{color:#98e6bf}.error{color:#ffc4c4}code,pre{background:#080d16;padding:.3rem;border-radius:5px;overflow:auto}pre{padding:1rem;white-space:pre-wrap}label{display:block;margin:.8rem 0}.check{display:flex;gap:.5rem;align-items:center}.check input{width:auto}.status{min-height:1.5rem}button:focus-visible,input:focus-visible{outline:2px solid #8dc1ff}@media(max-width:650px){header div,main{padding:1rem}}
+</style></head><body>
+<header><div><h1>⚓ AnchorWeight Setup</h1><p class="muted">v1.7.0 · Configure approved routing without editing secrets</p><a href="/dashboard.html">← Back to dashboard</a></div></header>
+<main>
+<section class="panel"><h2>Administrator connection</h2><p class="help">The dashboard token is used only for authenticated API calls. It is never included in a URL or saved to the server by this page.</p>
+<label for="token">Dashboard token</label><input id="token" type="password" autocomplete="current-password" placeholder="AW_DASHBOARD_TOKEN">
+<div class="row"><button id="connect">Load configuration</button><button class="secondary" id="saveToken">Save token in this browser</button><button class="secondary" id="forgetToken">Forget token</button></div><p class="status" id="message" role="status">Connect to begin.</p></section>
+<section id="wizard" class="panel" hidden>
+<div class="steps" id="steps"><span class="active">1 · Status</span><span>2 · Origin</span><span>3 · Mode</span><span>4 · Review</span></div>
+<section class="step active"><h2>Current installation</h2><div class="grid"><div><p class="help">Configuration source</p><p class="value" id="source">—</p></div><div><p class="help">Current protection mode</p><p class="value" id="shadow">—</p></div><div><p class="help">Browser configuration</p><p class="value" id="writeStatus">—</p></div></div>
+<p class="help">This wizard configures only the reverse proxy destination and whether it is enabled. Bot quarantine, credentials, federation and database settings remain in cPanel.</p></section>
+<section class="step"><h2>Choose an approved origin</h2><p class="help">Only an exact origin approved in cPanel may be selected. To add another destination, update AW_SETUP_ALLOWED_ORIGINS in cPanel and restart the application.</p>
+<label for="origin">Upstream origin URL</label><input id="origin" type="text" maxlength="2048" list="allowedOrigins" spellcheck="false" autocomplete="off" placeholder="http://127.0.0.1:8081"><datalist id="allowedOrigins"></datalist>
+<p class="help" id="originsHelp"></p></section>
+<section class="step"><h2>Choose routing mode</h2><label class="check"><input id="proxyEnabled" type="checkbox"> Enable reverse proxy for non-AnchorWeight routes</label>
+<p class="warning">If enabled, normal site requests are forwarded to the selected origin. Keep your origin private if using Silent Quarantine, and verify your domain routing before enabling this on a public site.</p><p class="help">Shadow/Enforce Mode is deliberately not editable through this wizard.</p></section>
+<section class="step"><h2>Review and validate</h2><pre id="review"></pre><p class="help">Validate checks exact origin approval and configuration schema. Applying performs the prepared proxy switch, then saves a private settings file for restart persistence.</p>
+<div class="row"><button id="validate">Validate settings</button><button id="apply" disabled>Apply configuration</button></div>
+<p class="status" id="result" role="status"></p><p id="readOnly" class="warning"></p></section>
+<div class="row"><button id="back" class="secondary">Back</button><button id="next">Next</button></div>
+</section>
+</main><script>
+let base='/anchor',step=0,connected=false,details=null,csrf='';
+const $=id=>document.getElementById(id);
+$('token').value=localStorage.getItem('anchorweightDashboardToken')||'';
+const auth=extra=>({Authorization:'Bearer '+$('token').value,'Content-Type':'application/json',...extra});
+function message(msg,error=false){$('message').textContent=msg;$('message').className='status '+(error?'error':'good');}
+async function discover(){try{const r=await fetch('/live',{cache:'no-store'});if(r.ok){const j=await r.json();base=j.basePath||base;}}catch{}}
+async function connect(){await discover();message('Loading…');try{const r=await fetch(base+'/api/setup',{headers:auth()});if(!r.ok)throw Error('HTTP '+r.status);details=await r.json();connected=true;csrf='';
+$('wizard').hidden=false;$('origin').value=details.settings.originUrl;$('proxyEnabled').checked=details.settings.proxyEnabled;
+$('source').textContent=details.source;$('shadow').textContent=details.shadowMode?'Shadow (observe only)':'Enforce';
+$('writeStatus').textContent=details.writesEnabled?'Enabled':'Read only';
+$('allowedOrigins').replaceChildren();for(const origin of details.allowedOrigins){const option=document.createElement('option');option.value=origin;$('allowedOrigins').append(option);}
+$('originsHelp').textContent='Approved: '+(details.allowedOrigins.join(' · ')||'none');
+$('readOnly').textContent=details.writesEnabled?'':'To apply settings, enable AW_SETUP_CONFIG_ENABLED=true and AW_SETUP_WRITES_ENABLED=true in cPanel, then restart. Validation remains available.';
+$('apply').disabled=true;message('Authenticated. Review each step.');show(0);
+}catch(e){connected=false;$('wizard').hidden=true;message('Unable to load configuration: '+e.message,true);}}
+$('connect').onclick=connect;$('saveToken').onclick=()=>{localStorage.setItem('anchorweightDashboardToken',$('token').value);message('Token saved in this browser.');};
+$('forgetToken').onclick=()=>{localStorage.removeItem('anchorweightDashboardToken');$('token').value='';csrf='';connected=false;$('wizard').hidden=true;message('Token removed from browser.');};
+async function ensureCsrf(){if(csrf)return csrf;const r=await fetch(base+'/api/session',{headers:auth()});if(!r.ok)throw Error('Session HTTP '+r.status);csrf=(await r.json()).csrfToken;return csrf;}
+function settings(){return {originUrl:$('origin').value.trim(),proxyEnabled:$('proxyEnabled').checked};}
+function show(n){if(!connected)return;step=Math.max(0,Math.min(3,n));document.querySelectorAll('.step').forEach((el,i)=>el.classList.toggle('active',i===step));
+document.querySelectorAll('#steps span').forEach((el,i)=>el.classList.toggle('active',i===step));$('back').disabled=step===0;$('next').disabled=step===3;
+if(step===3){$('review').textContent=JSON.stringify(settings(),null,2)+'\nShadow mode unchanged: '+(details.shadowMode?'on':'off');$('apply').disabled=true;$('result').textContent='';}}
+$('back').onclick=()=>show(step-1);$('next').onclick=()=>show(step+1);
+for(const id of ['origin','proxyEnabled'])$(id).addEventListener('input',()=>{$('apply').disabled=true;});
+async function request(action){let r=await fetch(base+'/api/setup/'+action,{method:'POST',headers:auth({'X-AW-CSRF':await ensureCsrf()}),body:JSON.stringify(settings())});
+if(r.status===403){csrf='';r=await fetch(base+'/api/setup/'+action,{method:'POST',headers:auth({'X-AW-CSRF':await ensureCsrf()}),body:JSON.stringify(settings())});}
+const body=await r.json();if(!r.ok)throw Error(body.error||'HTTP '+r.status);return body;}
+$('validate').onclick=async()=>{$('apply').disabled=true;$('result').textContent='Validating…';try{const j=await request('validate');$('result').textContent=(j.change?'Valid. A configuration change is ready. ':'Valid. No change from current settings. ')+(j.originProbe?.reachable?('Origin responded HTTP '+j.originProbe.httpStatus+'. '):('Origin did not respond: '+(j.originProbe?.reason||'unknown')+'. '))+(j.originProbe?.healthy?'':'Check upstream health before enabling proxy.');$('apply').disabled=!details.writesEnabled;}catch(e){$('result').textContent='Validation failed: '+e.message;}};
+$('apply').onclick=async()=>{if(!confirm('Apply this approved origin and proxy mode to the running AnchorWeight installation?'))return;
+$('apply').disabled=true;$('result').textContent='Applying…';try{details=await request('apply');$('result').textContent='Saved and applied. Verify /live and check your protected site.';message('Configuration applied.');$('writeStatus').textContent=details.writesEnabled?'Enabled':'Read only';$('source').textContent=details.source;}catch(e){$('result').textContent='Apply failed: '+e.message;}};
+</script></body></html>

@@ -65,6 +65,9 @@ export function validateConfig(config) {
     } catch {errors.push('intelligenceHubUrl is invalid');}
     warnings.push('Distributed intelligence is opt-in; only locally verified bounded evidence is forwarded.');
   }
+  if (config.setupWritesEnabled && !config.setupConfigEnabled) errors.push('setupWritesEnabled requires setupConfigEnabled');
+  if (config.setupWritesEnabled && !config.dashboardToken) errors.push('setupWritesEnabled requires an authenticated dashboard token');
+  if (config.setupConfigEnabled) warnings.push('Operator configuration file may override only proxyEnabled and originUrl; disable AW_SETUP_CONFIG_ENABLED to ignore it.');
   if (config.trustProxy) warnings.push('trustProxy is enabled; only use it behind a trusted proxy that overwrites X-Forwarded-For.');
   if (config.trustedJa4Enabled && !config.trustProxy) errors.push('trustedJa4Enabled requires trustProxy');
   if (config.trustedJa4Enabled) warnings.push('trustedJa4Enabled requires the trusted TLS terminator to OVERWRITE X-AW-JA4 and strip client-supplied values.');

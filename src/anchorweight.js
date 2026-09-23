@@ -59,6 +59,8 @@ export function createAnchorWeight(config, deps = {}) {
   const store = deps.store || new MemoryStore(deps.now);
   const localLog = deps.log || createLogger(config.logFile, { maxMb: config.eventMaxMb, retentionDays: config.eventRetentionDays });
   const publisher = deps.publisher || createEvidencePublisher(config);
+  const telemetry = deps.telemetry || null;
+  const setup = deps.setup || null;
   const log = event => { localLog(event); publisher.publish(event); };
   const behavior = deps.behavior || new BehaviorEngine(config, store, log, deps.now);
   const goodBots = deps.goodBots || new GoodBotVerifier(config, deps.goodBotOptions || {});
@@ -143,7 +145,9 @@ export function createAnchorWeight(config, deps = {}) {
     const method = req.method || 'GET';
     const isPolicyPost = method === 'POST' && url.pathname === `${config.basePath}/api/policy`;
     const isReviewPost = method === 'POST' && url.pathname === `${config.basePath}/api/review`;
-    if (!['GET', 'HEAD'].includes(method) && !isPolicyPost && !isReviewPost) return text(res, 405, 'Method not allowed');
+    const isSetupPost = method === 'POST' &&
+      [`${config.basePath}/api/setup/validate`,`${config.basePath}/api/setup/apply`].includes(url.pathname);
+    if (!['GET', 'HEAD'].includes(method) && !isPolicyPost && !isReviewPost && !isSetupPost) return text(res, 405, 'Method not allowed');
 
     if (url.pathname.startsWith(`${config.basePath}/api/`)) {
       if (!config.dashboardEnabled) return text(res, 404, 'Not found');
@@ -167,11 +171,50 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.6.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.7.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.6.0', mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.7.0', telemetry:telemetry?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+      }
+
+      if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
+        return json(res, 200, setup.snapshot());
+      }
+      if (setup && isSetupPost) {
+        if (!admin.validateCsrf(req)) {
+          audit({type:'admin_csrf_failed',client:admin.clientKey(req),path:url.pathname});
+          return json(res,403,{error:'csrf_required'});
+        }
+        let bytes=0, chunks=[], ended=false;
+        req.on('data',chunk=>{
+          if (ended) return;
+          bytes += chunk.length;
+          if (bytes > Math.min(config.adminBodyMaxBytes,8192)) {
+            ended=true;
+            return json(res,413,{error:'request_body_too_large'});
+          }
+          chunks.push(chunk);
+        });
+        req.on('end',async()=>{
+          if (ended) return;
+          let input;
+          try { input=JSON.parse(Buffer.concat(chunks).toString('utf8')); }
+          catch { return json(res,400,{error:'invalid_json'}); }
+          try {
+            if (url.pathname.endsWith('/validate')) return json(res,200,await setup.validateWithProbe(input));
+            const result=setup.apply(input);
+            audit({type:'operator_setup_applied',client:admin.clientKey(req),proxyEnabled:result.settings.proxyEnabled});
+            return json(res,200,{ok:true,...result});
+          } catch(err) {
+            const code=err.message || 'invalid_settings';
+            if (code==='setup_write_disabled') return json(res,403,{error:code});
+            if (['invalid_origin','origin_not_approved','self_proxy_origin','invalid_config','invalid_settings'].includes(code)) return json(res,400,{error:code});
+            console.error('[AnchorWeight] setup apply failed:',err);
+            return json(res,500,{error:'setup_apply_failed'});
+          }
+        });
+        return true;
       }
 
       if (url.pathname === `${config.basePath}/api/events`) {
@@ -184,7 +227,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'1.6.0', events });
+        return json(res, 200, { version:'1.7.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -194,7 +237,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'1.6.0', profile:null, campaign:null, events:[], timeline:[]
+          version:'1.7.0', profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });

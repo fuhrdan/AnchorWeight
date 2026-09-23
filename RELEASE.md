@@ -1,3 +1,8 @@
+# AnchorWeight v1.7.0 — Operator Setup Wizard & Traffic Telemetry
+
+Use `OPERATOR-GATEWAY.md` for the first deployment. Web configuration is opt-in;
+new deployments and upgrades retain existing cPanel proxy/enforcement settings.
+
 # AnchorWeight v1.5.0 Release Guide
 
 ## Pre-release gate

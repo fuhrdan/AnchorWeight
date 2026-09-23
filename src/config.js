@@ -62,6 +62,12 @@ export function loadConfig(overrides = {}) {
     stateFile: process.env.AW_STATE_FILE || './data/anchorweight-state.json',
     stateBackend: (process.env.AW_STATE_BACKEND || 'json').toLowerCase(),
     sqliteFile: process.env.AW_SQLITE_FILE || './data/anchorweight-state.sqlite',
+    // Browser edits require explicit operator opt-in; environment remains the baseline.
+    setupConfigEnabled: boolEnv('AW_SETUP_CONFIG_ENABLED', false),
+    setupWritesEnabled: boolEnv('AW_SETUP_WRITES_ENABLED', false),
+    setupAllowedOrigins: listEnv('AW_SETUP_ALLOWED_ORIGINS'),
+    setupPublicHost: process.env.AW_SETUP_PUBLIC_HOST || '',
+    setupBaselineOrigin: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyEnabled: boolEnv('AW_PROXY_ENABLED', false),
     originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),

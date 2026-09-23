@@ -53,13 +53,18 @@ export function createReverseProxy(config, deps = {}) {
     headers['x-forwarded-host'] = String(req.headers.host || '');
     headers['x-forwarded-proto'] = config.publicScheme;
 
+    deps.onUpstreamStart?.(req);
     const upstream = transport.request(target, {
       method: req.method,
       headers,
       timeout: config.proxyTimeoutMs,
       agent: deps.agent
     }, upstreamRes => {
+      let upstreamEnded=false;
+      upstreamRes.once('end',()=>{upstreamEnded=true;deps.onUpstreamEnd?.(req);});
+      upstreamRes.once('close',()=>{if(upstreamEnded)deps.onUpstreamEnd?.(req);else deps.onUpstreamFailure?.(req);});
       const statusCode = upstreamRes.statusCode || 502;
+      deps.onUpstreamResponse?.(req,statusCode);
       const responseHeaders = filteredHeaders(upstreamRes.headers);
       const contentType = String(upstreamRes.headers['content-type'] || '');
       const contentEncoding = String(upstreamRes.headers['content-encoding'] || '');
@@ -125,6 +130,7 @@ export function createReverseProxy(config, deps = {}) {
 
     upstream.on('timeout', () => upstream.destroy(new Error('origin_timeout')));
     upstream.on('error', err => {
+      deps.onUpstreamFailure?.(req);
       deps.onProxyError?.(err);
       if (!res.headersSent) {
         res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });

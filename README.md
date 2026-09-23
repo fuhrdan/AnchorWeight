@@ -1,4 +1,4 @@
-# AnchorWeight v1.6.0
+# AnchorWeight v1.7.0
 
 **Let bots identify themselves.**
 
@@ -12,6 +12,21 @@ AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification
 > **The maze is not the weapon. The maze is the test.**
 
 AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, or connection-exhaustion system.
+
+## v1.7 Operator Setup Wizard & Traffic Telemetry
+
+- Authenticated `/setup.html` wizard with an explicit opt-in before browser
+  changes can apply; no environment-file rewriting or arbitrary origin access.
+- cPanel-approved, exact-match origins, server-side configuration validation,
+  bounded origin HEAD probe, CSRF-protected apply, and private atomic local
+  settings for restart persistence. Credentials and enforcement policy stay in
+  cPanel. Disabling the feature restores environment-specified routing.
+- New bounded per-process telemetry reports request totals, final status
+  classes, active requests/upstreams, mean response time, upstream first-header
+  latency and five-minute traffic trends. No request identities are stored.
+- Existing JSON/SQLite schema v5, cPanel startup compatibility, distributed
+  evidence reporting and dashboard investigation features remain unchanged.
+- See [OPERATOR-GATEWAY.md](OPERATOR-GATEWAY.md) before enabling proxy mode.
 
 ## v1.6 Distributed Intelligence Foundation
 

@@ -1,3 +1,13 @@
+## v1.7.0 — Operator Setup Wizard & Traffic Telemetry
+
+- Added a read-only-by-default browser setup flow for approved origins and proxy mode.
+- Added bearer + CSRF authenticated validation/apply APIs, bounded HEAD probe,
+  restricted private operator settings file, and live reverse-proxy swapping.
+- Added aggregate in-memory traffic telemetry with five-minute trends, status
+  classes, response timings, and active upstream/request gauges.
+- Kept JSON/SQLite state schema v5 and previous detection, investigation,
+  federation and cPanel startup semantics. No runtime npm dependencies added.
+
 # Changelog
 
 ## [1.6.0] - 2026-09-23

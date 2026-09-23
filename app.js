@@ -8,20 +8,47 @@ import { loadConfig } from './src/config.js';
 import { createStore } from './src/create-store.js';
 import { createReverseProxy } from './src/proxy.js';
 import { validateConfig } from './src/config-schema.js';
+import { createTrafficTelemetry } from './src/telemetry.js';
+import { createSetupController, readOperatorSettings } from './src/setup.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep startup synchronous to the module loader; initialize the selected store inside main().
 // Some cPanel/Passenger Node loaders use require(), which rejects top-level await.
 async function main() {
 const config = loadConfig();
+const saved = readOperatorSettings(config);
+if (saved) {
+  Object.assign(config, saved);
+  config.setupSource = 'operator-file';
+}
 const validation = validateConfig(config);
 if (!validation.valid) throw new Error(`Invalid AnchorWeight configuration: ${validation.errors.join('; ')}`);
 for (const warning of validation.warnings) console.warn(`[AnchorWeight] WARNING: ${warning}`);
 const store = await createStore(config);
-const aw = createAnchorWeight(config, { store });
+const telemetry = createTrafficTelemetry();
+const contexts = new WeakMap();
+function makeProxy(settings) {
+  return createReverseProxy({ ...config, originUrl:settings.originUrl }, {
+    onUpstreamStart:req=>contexts.get(req)?.upstreamStart(),
+    onUpstreamResponse:(req,status)=>contexts.get(req)?.upstreamResponse(status),
+    onUpstreamEnd:req=>contexts.get(req)?.upstreamEnd(),
+    onUpstreamFailure:req=>contexts.get(req)?.upstreamFailure(),
+    onProxyError:err=>console.error('[AnchorWeight] origin:',err.message)
+  });
+}
+let activeProxy = config.proxyEnabled ? makeProxy(config) : null;
+const setup = createSetupController(config, { onActivate:settings => {
+  const nextProxy = settings.proxyEnabled ? makeProxy(settings) : null;
+  return () => {
+    config.originUrl=settings.originUrl;
+    config.proxyEnabled=settings.proxyEnabled;
+    activeProxy=nextProxy;
+  };
+} });
+const aw = createAnchorWeight(config, { store, telemetry, setup });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
-const proxy = config.proxyEnabled ? createReverseProxy(config, { onProxyError: err => console.error('[AnchorWeight] origin:', err.message) }) : null;
+const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
 
 function send(res, status, type, body, headers = {}) {
   res.writeHead(status, {
@@ -51,13 +78,16 @@ function checkOriginReady() {
 }
 
 const server = http.createServer(async (req, res) => {
+  const context = telemetry.begin(req,res);
+  contexts.set(req,context);
+  res.once('close',()=>contexts.delete(req));
   try {
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '1.6.0',
+        ok: true, service: 'AnchorWeight', version: '1.7.0',
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -66,11 +96,17 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'1.6.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'1.7.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin
       }), { 'Cache-Control':'no-store' });
+    }
+    if (url.pathname === '/setup.html' && config.dashboardEnabled && req.method === 'GET') {
+      return send(res, 200, 'text/html; charset=utf-8', setupPage, {
+        'Cache-Control':'no-store', 'X-Robots-Tag':'noindex, nofollow',
+        'Content-Security-Policy':"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
+      });
     }
     if (url.pathname === '/dashboard.html' && config.dashboardEnabled) {
       return send(res, 200, 'text/html; charset=utf-8', dashboard, {
@@ -91,10 +127,13 @@ const server = http.createServer(async (req, res) => {
       return aw.handle(req, res, url);
     }
 
-    if (proxy) return proxy(req, res);
+    if (activeProxy) {
+      context.markProxied();
+      return activeProxy(req,res);
+    }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.6.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.7.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -105,7 +144,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v1.6.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v1.7.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
