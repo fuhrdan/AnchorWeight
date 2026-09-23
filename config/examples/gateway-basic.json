@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "proxy": {
+    "enabled": false,
+    "defaultOrigin": "http://127.0.0.1:8081/"
+  },
+  "routes": []
+}

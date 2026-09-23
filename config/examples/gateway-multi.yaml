@@ -1,0 +1,10 @@
+# Requires explicitly approved origins in cPanel; proxy is disabled by default.
+version: 1
+proxy:
+  enabled: false
+  defaultOrigin: "http://127.0.0.1:8081/"
+routes:
+  - path: "/api"
+    origin: "http://127.0.0.1:3001/"
+  - path: "/assets"
+    origin: "http://127.0.0.1:3002/"
