@@ -97,3 +97,21 @@ copy, not a continuously synchronized mirror. Read [SQLITE-MIGRATION.md](SQLITE-
 ## v1.3 canary controls
 
 `AW_CANARY_BRANCH_COUNT=7` (2–12) controls the number of independently signed branches displayed by each lure page. `AW_CANARY_VARIANTS_ENABLED=true` is the new default; `false` restores shared v1.2 link tokens with optional `?view=` labels. See [CANARY-EVIDENCE.md](CANARY-EVIDENCE.md).
+
+## v2.3 opt-in per-origin resilience
+
+`AW_RESILIENCE_ENABLED=false` leaves all existing proxy behavior unchanged.
+Set the following only after validating the equivalent fallback application:
+
+| Variable | Default | Description |
+|---|---|---|
+| `AW_RESILIENCE_ENABLED` | `false` | Opt-in per-origin breaker |
+| `AW_RESILIENCE_FAILURE_THRESHOLD` | `3` | Consecutive HTTP 5xx/transport errors to open (2–20) |
+| `AW_RESILIENCE_COOLDOWN_MS` | `30000` | Open-state cooldown before one half-open read probe (1000–300000) |
+| `AW_RESILIENCE_HEALTH_ENABLED` | `false` | Independent per-origin HEAD probes; requires resilience enabled |
+| `AW_RESILIENCE_HEALTH_INTERVAL_MS` | `30000` | Probe interval (5000–300000) |
+| `AW_RESILIENCE_HEALTH_TIMEOUT_MS` | `2000` | Probe timeout (500–10000) |
+| `AW_RESILIENCE_FALLBACKS_FILE` | empty | Optional private `0600` JSON file under `./data` |
+| `AW_RESILIENCE_ALLOWED_ORIGINS` | empty | Exact comma-delimited operator-approved fallback origins |
+
+See [UPSTREAM-RESILIENCE.md](UPSTREAM-RESILIENCE.md) for fallbacks, limits and rollback.

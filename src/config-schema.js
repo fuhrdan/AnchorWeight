@@ -34,6 +34,15 @@ export function validateConfig(config) {
   intRange('proxyBodyMaxBytes', config.proxyBodyMaxBytes, 1024, 1073741824);
   intRange('shutdownGraceMs', config.shutdownGraceMs, 1000, 120000);
   intRange('gatewayRatePerMinute',config.gatewayRatePerMinute??120,1,100000);
+  // Circuit breakers must not silently turn on because of a route or proxy setting.
+  for (const name of ['resilienceEnabled','resilienceHealthEnabled'])
+    if (config[name] !== undefined && typeof config[name] !== 'boolean') errors.push(`${name} must be boolean`);
+  intRange('resilienceFailureThreshold',config.resilienceFailureThreshold??3,2,20);
+  intRange('resilienceCooldownMs',config.resilienceCooldownMs??30000,1000,300000);
+  intRange('resilienceHealthIntervalMs',config.resilienceHealthIntervalMs??30000,5000,300000);
+  intRange('resilienceHealthTimeoutMs',config.resilienceHealthTimeoutMs??2000,500,10000);
+  if (config.resilienceHealthEnabled && !config.resilienceEnabled) errors.push('resilienceHealthEnabled requires resilienceEnabled');
+  if ((config.resilienceAllowedOrigins||[]).length>32) errors.push('too many resilience allowed origins');
   intRange('gatewayHealthIntervalMs',config.gatewayHealthIntervalMs??30000,5000,300000);
   intRange('gatewayHealthTimeoutMs',config.gatewayHealthTimeoutMs??2000,500,10000);
   for(const name of ['gatewayAccessEnabled','gatewayRateEnabled','gatewayShadowMode','gatewayHealthEnabled','gatewayMaintenanceEnabled'])

@@ -19,6 +19,7 @@ function fixture(t,extra={}) {
     setupConfigEnabled:true,setupWritesEnabled:true,
     // Isolate this legacy setup fixture from unrelated cPanel routing flags.
     routesEnabled:false,declarativeEnabled:false,
+    intelligenceEnabled:false,appAuthEnabled:false,trustedJa4Enabled:false,
     setupBaselineOrigin:'http://127.0.0.1:9999',
     setupAllowedOrigins:['https://origin.example:8443/'],
     originUrl:'http://127.0.0.1:9999',proxyEnabled:false,

@@ -45,6 +45,13 @@ export function createReverseProxy(config, deps = {}) {
     target.pathname = incoming.pathname;
     target.search = incoming.search;
     const headers = filteredHeaders(req.headers);
+    // Fallbacks are operator-approved but may be separate services. Never
+    // forward application credentials to an alternate origin. Ordinary primary
+    // proxy traffic retains Authorization, unless app-auth removed it already.
+    if (deps.stripCredentials) {
+      delete headers.authorization;
+      delete headers['x-api-key'];
+    }
     headers.host = origin.host;
     if (config.blackholeEnabled) headers['accept-encoding'] = 'identity';
 

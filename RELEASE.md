@@ -1,13 +1,13 @@
-# AnchorWeight v2.2.0 — Application Authentication & Security Policies
+# AnchorWeight v2.3.0 — Circuit Breakers & Upstream Resilience
 
-Upgrade from v2.1.0 with the existing backup-first overlay. See
-[APPLICATION-AUTH.md](APPLICATION-AUTH.md). Installation does NOT turn on
-application authentication, the reverse proxy, rate limiting or crawler
-enforcement. Preserve cPanel environment variables and the private `data/` folder.
+Upgrade from a verified v2.2.0 with the existing backup-first overlay. See
+[UPSTREAM-RESILIENCE.md](UPSTREAM-RESILIENCE.md) for the opt-in breaker, health,
+fallback configuration and rollback. Preserve your existing environment variables,
+`data/` and Git checkout; **do not enable the new feature during the code upgrade**.
 
-Run `node --test --test-concurrency=1` and `npm run release:verify` on Node 22
-before restarting. Verify `/live` (2.2.0), `/ready`, dashboard, wizard and evidence.
-Commit, push and tag only after production checks pass.
+On Node 22, run `node --test --test-concurrency=1` and `npm run release:verify` before
+restarting. Verify `/live` reports `2.3.0`, `/ready`, dashboard, wizard and evidence.
+Only then commit and push the production-tested files and create the v2.3.0 tag.
 
 ---
 

@@ -15,6 +15,8 @@ import { createUpstreamHealth, maintenanceResponse } from './src/upstream-health
 import { loadRoutes, routeForPath, unsafeRoutePath, routeSummary } from './src/routing.js';
 import { readDeclarative, createDeclarativeController } from './src/declarative-config.js';
 import { readAuthPolicies, createAppAuth } from './src/app-auth.js';
+import { createResilience, loadFallbacks } from './src/resilience.js';
+import { canonicalOrigin } from './src/setup.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep startup synchronous to the module loader; initialize the selected store inside main().
@@ -45,14 +47,30 @@ const gateway = createGatewayPolicy(config);
 // Load credentials once, before opening the listener. A broken enabled policy must fail startup.
 const applicationAuth = createAppAuth(readAuthPolicies(config));
 const health = createUpstreamHealth(config);
+// Each origin has an independent breaker; fallback choices are loaded only from a
+// private, operator-approved file. Never derive destinations from request headers.
+const configuredOrigins = [config.originUrl,...routes.map(r=>r.origin)];
+// New resilience requires root-only canonical destinations. Do not tighten the
+// legacy proxy URL rules for installations that leave resilience disabled.
+if (config.resilienceEnabled) configuredOrigins.forEach(canonicalOrigin);
+const fallbacks = loadFallbacks(config, configuredOrigins);
+const resilience = createResilience(config,{fallbacks});
 const contexts = new WeakMap();
-function makeProxy(settings) {
+function makeProxy(settings, {stripCredentials=false} = {}) {
+  const origin = settings.originUrl;
   return createReverseProxy({ ...config, originUrl:settings.originUrl }, {
+    stripCredentials,
     onUpstreamStart:req=>contexts.get(req)?.upstreamStart(),
-    onUpstreamResponse:(req,status)=>contexts.get(req)?.upstreamResponse(status),
+    onUpstreamResponse:(req,status)=>{
+      contexts.get(req)?.upstreamResponse(status);
+      resilience.response(origin,status);
+    },
     onUpstreamEnd:req=>contexts.get(req)?.upstreamEnd(),
     onUpstreamFailure:req=>contexts.get(req)?.upstreamFailure(),
-    onProxyError:err=>console.error('[AnchorWeight] origin:',err.message),
+    onProxyError:err=>{
+      resilience.failure(origin);
+      console.error('[AnchorWeight] origin:',err.message);
+    },
     onMaintenance:(req,res)=>maintenanceResponse(req,res,{title:config.gatewayMaintenanceTitle,message:config.gatewayMaintenanceMessage})
   });
 }
@@ -60,13 +78,23 @@ function prepareDefault(settings){
   const candidateRoutes = settings.routes || routes;
   const candidateProxies = new Map(candidateRoutes.map(route=>[route.origin,makeProxy({originUrl:route.origin})]));
   const fallback=makeProxy(settings);
+  // Build only already-validated fallback proxies. A request never supplies an origin.
+  const alternateProxies=new Map([...fallbacks.values()].map(origin=>
+    [origin,makeProxy({originUrl:origin},{stripCredentials:true})]));
   return (req,res)=>{
     const pathname=new URL(req.url,'http://anchorweight.local').pathname;
     if((candidateRoutes.length || config.appAuthEnabled) && (unsafeRoutePath(pathname)||unsafeRoutePath(String(req.url||'').split('?')[0])||!String(req.url||'').startsWith('/'))){
       return send(res,400,'application/json; charset=utf-8',JSON.stringify({error:'ambiguous_route_path'}),{'Cache-Control':'no-store'});
     }
     const route=routeForPath(candidateRoutes,pathname);
-    return (route?candidateProxies.get(route.origin):fallback)(req,res);
+    const primary=new URL(route?.origin || settings.originUrl).href;
+    const selected=resilience.choose(primary,req);
+    if (selected===null) {
+      // Unsafe methods are never replayed or rerouted to a fallback origin.
+      return maintenanceResponse(req,res,{title:config.gatewayMaintenanceTitle,message:config.gatewayMaintenanceMessage});
+    }
+    return (selected===primary ? (route?candidateProxies.get(route.origin):fallback)
+      : alternateProxies.get(selected))(req,res);
   };
 }
 let activeProxy = config.proxyEnabled ? prepareDefault(config) : null;
@@ -83,9 +111,11 @@ const setup = setupFactory(config, { onActivate:settings => {
     }
     activeProxy=nextProxy;
     health.probe().catch(err=>console.error('[AnchorWeight] health probe:',err.message));
+    // The resilience pool reads config.activeRoutes/originUrl on each snapshot.
+    // Changed live routing cannot continue using stale origin health state.
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, routing:()=>routeStatus });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, resilience, routing:()=>routeStatus });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -132,7 +162,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '2.2.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
+        ok: true, service: 'AnchorWeight', version: '2.3.0', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -141,7 +171,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'2.2.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'2.3.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin, routing:routeStatus
@@ -195,7 +225,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.2.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.3.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -206,8 +236,9 @@ const server = http.createServer(async (req, res) => {
 });
 
 health.start();
+resilience.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v2.2.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v2.3.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
@@ -220,6 +251,7 @@ function shutdown(signal) {
   shuttingDown = true;
   console.log(`[AnchorWeight] ${signal}: graceful shutdown started`);
   health.stop();
+  resilience.stop();
   try { store.flush?.(); } catch (err) { console.error('[AnchorWeight] state flush:', err.message); }
   const timer = setTimeout(() => {
     console.error('[AnchorWeight] graceful shutdown timed out');

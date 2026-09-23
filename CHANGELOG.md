@@ -1,3 +1,11 @@
+## 2.3.0 — Circuit Breakers & Upstream Resilience
+
+- Opt-in per-origin circuit breakers and bounded independent HEAD health probes.
+- Private, explicitly approved fallbacks for **new bodyless GET/HEAD requests only** while primary circuit is open.
+- Never replay in-flight requests or route unsafe methods to a fallback. Existing 5xx responses pass through.
+- Authenticated dashboard shows sanitized per-path breaker status; no state schema or dependency change.
+- cPanel-compatible startup and rollback guide in UPSTREAM-RESILIENCE.md.
+
 ## [2.2.0] - 2026-09-23 — Application Authentication & Security Policies
 
 - Added opt-in per-path HTTP Basic Auth and API-key verification for proxied application routes, separate from dashboard and crawler evidence.

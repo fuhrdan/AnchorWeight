@@ -62,7 +62,7 @@ test('YAML configuration: live route edits, approved-only API, persistence and r
     AW_ROUTE_ALLOWED_ORIGINS:`${apiOrigin},${assetsOrigin}`,AW_SETUP_PUBLIC_HOST:'aw.example.com'};
   const port=await freePort();let child=launch(dir,port,env);t.after(async()=>stop(child));
   let live=await waitLive(port,child);
-  assert.equal(live.version,'2.2.0');assert.equal(live.proxyEnabled,true);assert.equal(live.routeCount,1);
+  assert.equal(live.version,'2.3.0');assert.equal(live.proxyEnabled,true);assert.equal(live.routeCount,1);
   const get=p=>fetch(`http://127.0.0.1:${port}${p}`);
   assert.equal(await (await get('/api/hello?x=1')).text(),'API GET /api/hello?x=1');
   assert.equal(await (await get('/apiary')).text(),'DEFAULT GET /apiary');

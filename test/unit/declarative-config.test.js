@@ -16,6 +16,7 @@ const base = () => loadConfig({
   // Tests must represent a clean declarative setup regardless of the operator's
   // inherited cPanel environment. Legacy modes are tested explicitly below.
   routesEnabled:false, setupConfigEnabled:false, setupWritesEnabled:false,
+  intelligenceEnabled:false, appAuthEnabled:false, trustedJa4Enabled:false,
   declarativeWritesEnabled:true, dashboardToken:'valid-test-dashboard-token',
   proxyEnabled:false, originUrl:'http://127.0.0.1:8081/', activeRoutes:[]
 });

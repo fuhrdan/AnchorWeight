@@ -1,4 +1,4 @@
-# AnchorWeight v2.2.0
+# AnchorWeight v2.3.0
 
 **Let bots identify themselves.**
 
@@ -12,6 +12,16 @@ AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification
 > **The maze is not the weapon. The maze is the test.**
 
 AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, or connection-exhaustion system.
+
+## v2.3 Upstream Resilience (opt-in)
+
+- Per-origin, process-local circuit breakers with independent failure thresholds and cooldowns.
+- Optional bounded HEAD probes (two at a time), including configured fallback origins.
+- Optional exact-match, allowlisted fallback mapping in a private `0600` JSON file.
+- Only NEW bodyless GET/HEAD requests switch to fallbacks while a primary circuit is open. POST/PUT/PATCH/DELETE are never replayed or rerouted.
+- HTTP 5xx responses contribute to opening a circuit but are returned unmodified; an in-flight failure is never retried.
+- Per-path breaker state and fallback counts appear in the authenticated dashboard without origin URLs or secrets.
+- Disabled by default; no state-schema migration or runtime dependencies. See [UPSTREAM-RESILIENCE.md](UPSTREAM-RESILIENCE.md).
 
 ## v2.1 Unified Gateway Configuration & Route Wizard
 
