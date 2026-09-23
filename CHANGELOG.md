@@ -1,3 +1,11 @@
+## 1.8.0 — Gateway Protection & Reliability
+
+- Added opt-in IPv4/IPv6 CIDR access rules and per-IP fixed-window rate limits, including path-specific ceilings and shadow-only reporting.
+- Gateway policies only apply when proxy mode is enabled, and do not alter Bot DNA scoring, signed canary evidence, or administrator/trap endpoints.
+- Added optional bounded upstream HEAD probes and an opt-in HTTP 503 maintenance response for GET/HEAD transport failures.
+- Added authenticated dashboard health and enforcement counters; existing JSON/SQLite state schema remains unchanged.
+- Kept cPanel-compatible `app.js` initialization without top-level await. No additional npm runtime dependencies.
+
 ## v1.7.0 — Operator Setup Wizard & Traffic Telemetry
 
 - Added a read-only-by-default browser setup flow for approved origins and proxy mode.

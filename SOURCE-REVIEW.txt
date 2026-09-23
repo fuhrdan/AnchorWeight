@@ -1,5 +1,5 @@
-AnchorWeight v1.7.0 — Plain Text Source Review Bundle
-Generated: 2026-09-23T17:23:16.690Z
+AnchorWeight v1.8.0 — Plain Text Source Review Bundle
+Generated: 2026-09-23T17:47:53.522Z
 
 
 ================================================================================
@@ -128,6 +128,8 @@ import { createReverseProxy } from './src/proxy.js';
 import { validateConfig } from './src/config-schema.js';
 import { createTrafficTelemetry } from './src/telemetry.js';
 import { createSetupController, readOperatorSettings } from './src/setup.js';
+import { createGatewayPolicy } from './src/gateway-policy.js';
+import { createUpstreamHealth, maintenanceResponse } from './src/upstream-health.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep startup synchronous to the module loader; initialize the selected store inside main().
@@ -144,6 +146,8 @@ if (!validation.valid) throw new Error(`Invalid AnchorWeight configuration: ${va
 for (const warning of validation.warnings) console.warn(`[AnchorWeight] WARNING: ${warning}`);
 const store = await createStore(config);
 const telemetry = createTrafficTelemetry();
+const gateway = createGatewayPolicy(config);
+const health = createUpstreamHealth(config);
 const contexts = new WeakMap();
 function makeProxy(settings) {
   return createReverseProxy({ ...config, originUrl:settings.originUrl }, {
@@ -151,7 +155,8 @@ function makeProxy(settings) {
     onUpstreamResponse:(req,status)=>contexts.get(req)?.upstreamResponse(status),
     onUpstreamEnd:req=>contexts.get(req)?.upstreamEnd(),
     onUpstreamFailure:req=>contexts.get(req)?.upstreamFailure(),
-    onProxyError:err=>console.error('[AnchorWeight] origin:',err.message)
+    onProxyError:err=>console.error('[AnchorWeight] origin:',err.message),
+    onMaintenance:(req,res)=>maintenanceResponse(req,res,{title:config.gatewayMaintenanceTitle,message:config.gatewayMaintenanceMessage})
   });
 }
 let activeProxy = config.proxyEnabled ? makeProxy(config) : null;
@@ -161,9 +166,10 @@ const setup = createSetupController(config, { onActivate:settings => {
     config.originUrl=settings.originUrl;
     config.proxyEnabled=settings.proxyEnabled;
     activeProxy=nextProxy;
+    health.probe().catch(err=>console.error('[AnchorWeight] health probe:',err.message));
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, health });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -205,7 +211,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '1.7.0',
+        ok: true, service: 'AnchorWeight', version: '1.8.0',
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -214,7 +220,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'1.7.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'1.8.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin
@@ -246,12 +252,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (activeProxy) {
+      const policy=gateway.check(req,url.pathname);
+      if (policy.action!=='pass') {
+        if(policy.retryAfter)res.setHeader('Retry-After',String(policy.retryAfter));
+        return send(res,policy.action==='deny'?403:429,'application/json; charset=utf-8',
+          JSON.stringify({error:policy.reason}),{'Cache-Control':'no-store'});
+      }
       context.markProxied();
       return activeProxy(req,res);
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.7.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.8.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -261,8 +273,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+health.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v1.7.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v1.8.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
@@ -274,6 +287,7 @@ function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[AnchorWeight] ${signal}: graceful shutdown started`);
+  health.stop();
   try { store.flush?.(); } catch (err) { console.error('[AnchorWeight] state flush:', err.message); }
   const timer = setTimeout(() => {
     console.error('[AnchorWeight] graceful shutdown timed out');
@@ -310,7 +324,7 @@ import { loadConfig } from '../src/config.js';
 import { backupFiles, restoreFiles, exportEvidence, pruneEvents, inspectState, inspectConfiguredState, migrateStateFile } from '../src/ops.js';
 import { validateConfig } from '../src/config-schema.js';
 
-const VERSION = '1.7.0';
+const VERSION = '1.8.0';
 const args = process.argv.slice(2);
 const command = args[0] && !args[0].startsWith('--') ? args.shift() : 'start';
 
@@ -464,7 +478,7 @@ async function trapTest(argv) {
   const max = health.blockDepth || 3;
   console.log(`Walking trap at ${next} (up to ${max} levels)`);
   for (let depth = 0; depth <= max; depth++) {
-    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.7.0' } });
+    const r = await fetch(next, { redirect: 'manual', headers: { 'User-Agent': 'AnchorWeight-CLI-Trap-Test/1.8.0' } });
     const body = await r.text();
     console.log(`  depth ${depth}: HTTP ${r.status} ${new URL(next).pathname}`);
     if (depth >= max) break;
@@ -694,7 +708,7 @@ try {
   const sites = JSON.parse(fs.readFileSync(siteFile,'utf8'));
   const {server} = createIntelligenceHub({sites,file:process.env.AW_HUB_STATE_FILE || './data/intelligence-events.jsonl',
     adminToken:process.env.AW_HUB_ADMIN_TOKEN});
-  server.listen(port,()=>console.log(`AnchorWeight intelligence hub v1.7.0 listening on :${port}`));
+  server.listen(port,()=>console.log(`AnchorWeight intelligence hub v1.8.0 listening on :${port}`));
 } catch (err) { console.error('[AnchorWeight hub] startup failed:',err.message); process.exitCode=1; }
 
 
@@ -792,7 +806,7 @@ FILE: package.json
 ================================================================================
 {
   "name": "anchorweight",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
   "type": "module",
   "main": "app.js",
@@ -950,6 +964,8 @@ export function createAnchorWeight(config, deps = {}) {
   const publisher = deps.publisher || createEvidencePublisher(config);
   const telemetry = deps.telemetry || null;
   const setup = deps.setup || null;
+  const gateway = deps.gateway || null;
+  const health = deps.health || null;
   const log = event => { localLog(event); publisher.publish(event); };
   const behavior = deps.behavior || new BehaviorEngine(config, store, log, deps.now);
   const goodBots = deps.goodBots || new GoodBotVerifier(config, deps.goodBotOptions || {});
@@ -1060,11 +1076,11 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'1.7.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'1.8.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '1.7.0', telemetry:telemetry?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '1.8.0', telemetry:telemetry?.snapshot() || null, gateway:gateway?.snapshot() || null, upstreamHealth:health?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
@@ -1116,7 +1132,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'1.7.0', events });
+        return json(res, 200, { version:'1.8.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -1126,7 +1142,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'1.7.0', profile:null, campaign:null, events:[], timeline:[]
+          version:'1.8.0', profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });
@@ -1421,7 +1437,7 @@ export function createAuditLogger(file) {
   return function audit(event) {
     const record = {
       ts: new Date().toISOString(),
-      version: '1.7.0',
+      version: '1.8.0',
       ...event
     };
     try {
@@ -1832,6 +1848,7 @@ export function parseStartFlags(args) {
 FILE: src/config-schema.js
 ================================================================================
 import path from 'node:path';
+import { parseRules, parseRatePaths } from './gateway-policy.js';
 export const CONFIG_SCHEMA_VERSION = 1;
 
 export function validateConfig(config) {
@@ -1865,6 +1882,23 @@ export function validateConfig(config) {
   intRange('adminBodyMaxBytes', config.adminBodyMaxBytes, 512, 1048576);
   intRange('proxyBodyMaxBytes', config.proxyBodyMaxBytes, 1024, 1073741824);
   intRange('shutdownGraceMs', config.shutdownGraceMs, 1000, 120000);
+  intRange('gatewayRatePerMinute',config.gatewayRatePerMinute??120,1,100000);
+  intRange('gatewayHealthIntervalMs',config.gatewayHealthIntervalMs??30000,5000,300000);
+  intRange('gatewayHealthTimeoutMs',config.gatewayHealthTimeoutMs??2000,500,10000);
+  for(const name of ['gatewayAccessEnabled','gatewayRateEnabled','gatewayShadowMode','gatewayHealthEnabled','gatewayMaintenanceEnabled'])
+    if(config[name]!==undefined && typeof config[name]!=='boolean')errors.push(`${name} must be boolean`);
+  try {
+    if((config.gatewayAllowIps||[]).length>128||(config.gatewayDenyIps||[]).length>128)throw Error('too_many_ip_rules');
+    parseRules(config.gatewayAllowIps||[]);parseRules(config.gatewayDenyIps||[]);
+  } catch {errors.push('gateway IP rules require valid IPv4/IPv6 addresses or CIDR ranges (max 128 each)');}
+  try {parseRatePaths(JSON.stringify(config.gatewayRatePaths??[]));}
+  catch {errors.push('gateway rate paths must be up to 16 valid {path,perMinute} entries');}
+  if(config.gatewayAccessEnabled||config.gatewayRateEnabled)warnings.push('Gateway rules apply only to proxied traffic; use gateway shadow mode to validate before enforcement.');
+  for(const [key,max] of [['gatewayMaintenanceTitle',80],['gatewayMaintenanceMessage',160]]) {
+    const value=config[key];
+    if(value!=null && (typeof value!=='string'||value.length<1||value.length>max||/[\x00-\x1f\x7f]/.test(value)))errors.push(`${key} must be printable text up to ${max} characters`);
+  }
+  if(config.gatewayMaintenanceEnabled)warnings.push('Maintenance fallback masks transport errors for GET/HEAD only; not origin HTTP 5xx or partial responses.');
   oneOf('stateBackend', config.stateBackend ?? 'json', ['json','sqlite']);
   if (config.stateBackend === 'sqlite' && !config.sqliteFile) errors.push('sqliteFile is required for the SQLite backend');
   if (config.stateBackend === 'sqlite' && config.sqliteFile && config.stateFile && path.resolve(config.sqliteFile) === path.resolve(config.stateFile)) errors.push('sqliteFile and stateFile must be different files');
@@ -1934,6 +1968,11 @@ function listEnv(name) {
 }
 
 
+function ratePathEnv() {
+  const raw=process.env.AW_GATEWAY_RATE_PATHS || '[]';
+  try {return JSON.parse(raw);} catch {return raw;} // Schema rejects invalid configuration at startup.
+}
+
 function profileEnv() {
   const name = String(process.env.AW_PROFILE || '').trim();
   if (!name) return {};
@@ -1988,6 +2027,19 @@ export function loadConfig(overrides = {}) {
     proxyEnabled: boolEnv('AW_PROXY_ENABLED', false),
     originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),
+    gatewayAccessEnabled: boolEnv('AW_GATEWAY_ACCESS_ENABLED', false),
+    gatewayRateEnabled: boolEnv('AW_GATEWAY_RATE_ENABLED', false),
+    gatewayShadowMode: boolEnv('AW_GATEWAY_SHADOW_MODE', true),
+    gatewayAllowIps: listEnv('AW_GATEWAY_ALLOW_IPS'),
+    gatewayDenyIps: listEnv('AW_GATEWAY_DENY_IPS'),
+    gatewayRatePerMinute: intEnv('AW_GATEWAY_RATE_PER_MINUTE', 120, 1, 100000),
+    gatewayRatePaths: ratePathEnv(),
+    gatewayHealthEnabled: boolEnv('AW_GATEWAY_HEALTH_ENABLED', false),
+    gatewayHealthIntervalMs: intEnv('AW_GATEWAY_HEALTH_INTERVAL_MS', 30000, 5000, 300000),
+    gatewayHealthTimeoutMs: intEnv('AW_GATEWAY_HEALTH_TIMEOUT_MS', 2000, 500, 10000),
+    gatewayMaintenanceEnabled: boolEnv('AW_GATEWAY_MAINTENANCE_ENABLED', false),
+    gatewayMaintenanceTitle: process.env.AW_GATEWAY_MAINTENANCE_TITLE || 'Service temporarily unavailable',
+    gatewayMaintenanceMessage: process.env.AW_GATEWAY_MAINTENANCE_MESSAGE || 'Please try again shortly.',
     publicScheme: process.env.AW_PUBLIC_SCHEME || 'https',
     branchCount: intEnv('AW_CANARY_BRANCH_COUNT', 7, 2, 12),
     canaryVariantsEnabled: boolEnv('AW_CANARY_VARIANTS_ENABLED', true),
@@ -2232,6 +2284,129 @@ export function noteEvidence(store, key, details, now = Date.now()) {
 
 
 ================================================================================
+FILE: src/gateway-policy.js
+================================================================================
+// Independent edge-access policy. This is not Bot DNA evidence or a DDoS firewall.
+// All policy is explicitly opt-in; avoid storing raw IPs in snapshots/logs.
+import net from 'node:net';
+import crypto from 'node:crypto';
+
+function addressBytes(value) {
+  if (net.isIP(value) === 4) return {family:4, bytes:Buffer.from(value.split('.').map(Number))};
+  if (net.isIP(value) !== 6) throw Error('invalid_ip_rule');
+  let address=value.toLowerCase().split('%')[0];
+  let ipv4=null;
+  if (address.includes('.')) {
+    const at=address.lastIndexOf(':');
+    const part=address.slice(at+1);
+    if (net.isIP(part)!==4) throw Error('invalid_ip_rule');
+    const pieces=part.split('.').map(Number);
+    ipv4=pieces;
+    address=address.slice(0,at)+':'+((pieces[0]<<8)|pieces[1]).toString(16)+':'+((pieces[2]<<8)|pieces[3]).toString(16);
+  }
+  const segments=address.split('::');
+  if (segments.length>2) throw Error('invalid_ip_rule');
+  const left=segments[0]?segments[0].split(':'):[];
+  const right=segments.length===2&&segments[1]?segments[1].split(':'):[];
+  if (segments.length===1&&left.length!==8 || segments.length===2&&left.length+right.length>=8) throw Error('invalid_ip_rule');
+  const words=[...left,...Array(8-left.length-right.length).fill('0'),...right];
+  if(words.length!==8||words.some(x=>!/^[0-9a-f]{1,4}$/.test(x)))throw Error('invalid_ip_rule');
+  const bytes=Buffer.alloc(16);
+  words.forEach((w,i)=>bytes.writeUInt16BE(parseInt(w,16),i*2));
+  // Normalize IPv4-mapped IPv6 to IPv4 for consistent IPv4 access policies.
+  if(bytes.subarray(0,10).every(b=>b===0) && bytes[10]===255 && bytes[11]===255)
+    return {family:4,bytes:bytes.subarray(12)};
+  return {family:6,bytes};
+}
+export function parseCidr(raw) {
+  if(typeof raw!=='string'||raw.length>64)throw Error('invalid_ip_rule');
+  const segments=raw.trim().split('/');
+  if(segments.length>2)throw Error('invalid_ip_rule');
+  const address=addressBytes(segments[0]);
+  const bits=address.family===4?32:128;
+  let prefix=bits;
+  if(segments.length===2) {
+    if(!/^(0|[1-9]\d{0,2})$/.test(segments[1]))throw Error('invalid_ip_rule');
+    prefix=Number(segments[1]);
+    if(prefix>bits)throw Error('invalid_ip_rule');
+  }
+  return {...address,prefix};
+}
+function matches(addr,rule){
+  if(addr.family!==rule.family)return false;
+  const full=rule.prefix>>>3,partial=rule.prefix%8;
+  for(let i=0;i<full;i++)if(addr.bytes[i]!==rule.bytes[i])return false;
+  return !partial || (addr.bytes[full]>>(8-partial))===(rule.bytes[full]>>(8-partial));
+}
+export function parseRules(values=[]) {return values.map(parseCidr);}
+function boundedRules(input){
+  if (!Array.isArray(input)||input.length>16)throw Error('invalid_rate_paths');
+  return input.map(item=>{
+    if(!item||typeof item!=='object'||Array.isArray(item)||Object.keys(item).sort().join(',')!=='path,perMinute' ||
+      typeof item.path!=='string'||!/^(\/|\/[A-Za-z0-9/_-]{1,127})$/.test(item.path)||
+      !Number.isInteger(item.perMinute)||item.perMinute<1||item.perMinute>100000)throw Error('invalid_rate_paths');
+    return {...item};
+  }).sort((a,b)=>b.path.length-a.path.length);
+}
+export function parseRatePaths(raw='[]') {
+  try{return boundedRules(JSON.parse(raw));}catch{throw Error('invalid_rate_paths');}
+}
+export function createGatewayPolicy(config,{now=()=>Date.now()}={}) {
+  const allow=parseRules(config.gatewayAllowIps||[]), deny=parseRules(config.gatewayDenyIps||[]);
+  const paths=boundedRules(config.gatewayRatePaths||[]);
+  const clients=new Map();
+  const stats={observed:0,denied:0,wouldDeny:0,rateLimited:0,wouldRateLimit:0};
+  const secret=config.secret || 'temporary-gateway-secret';
+  function identify(req) {
+    let ip=req.socket?.remoteAddress||'';
+    if(config.trustProxy){
+      const forwarded=req.headers['x-forwarded-for'];
+      if(typeof forwarded==='string' && forwarded.length<1024) ip=forwarded.split(',')[0].trim();
+    }
+    try{return addressBytes(ip);}catch{return null;}
+  }
+  function pathLimit(pathname){
+    const rule=paths.find(r=>pathname===r.path || pathname.startsWith(r.path.endsWith('/')?r.path:r.path+'/'));
+    return rule?{name:rule.path,perMinute:rule.perMinute}:{name:'default',perMinute:config.gatewayRatePerMinute||120};
+  }
+  function prune(time){for(const [k,v] of clients)if(time-v.minute>1)clients.delete(k);}
+  function check(req,pathname){
+    if(!config.gatewayAccessEnabled&&!config.gatewayRateEnabled)return {action:'pass'};
+    const time=Math.floor(now()/60000);
+    if(clients.size>=10000)prune(time);
+    stats.observed++;
+    const addr=identify(req);
+    // Unparseable identifiers must not acquire blanket allow privileges.
+    if(!addr)return {action:'pass'}; // Do not group unrelated clients under an unknown IP.
+    const denied=addr&&deny.some(x=>matches(addr,x));
+    const allowed=addr&&allow.some(x=>matches(addr,x));
+    if(config.gatewayAccessEnabled&&denied){
+      const shadow=!!config.gatewayShadowMode;
+      stats[shadow?'wouldDeny':'denied']++;
+      return {action:shadow?'pass':'deny',reason:'ip_deny_rule',observed:true};
+    }
+    if(!config.gatewayRateEnabled||allowed)return {action:'pass'};
+    const limit=pathLimit(pathname);
+    const ip=addr?`${addr.family}:${addr.bytes.toString('hex')}`:'unknown';
+    const key=crypto.createHmac('sha256',secret).update(ip+'\0'+limit.name).digest('hex');
+    const previous=clients.get(key);
+    const count=previous?.minute===time?previous.count+1:1;
+    if(clients.size>=10000&&!clients.has(key))prune(time);
+    if(clients.size>=10000&&!clients.has(key))return {action:'pass'}; // Capacity reached; avoid falsely blocking an unrelated visitor.
+    clients.set(key,{minute:time,count});
+    // Reject only after threshold; don't treat request rate as crawler conviction.
+    if(count>limit.perMinute){
+      const shadow=!!config.gatewayShadowMode;
+      stats[shadow?'wouldRateLimit':'rateLimited']++;
+      return {action:shadow?'pass':'rate_limit',reason:'edge_rate_limit',retryAfter:Math.max(1,60-Math.floor(now()/1000)%60),observed:true};
+    }
+    return {action:'pass'};
+  }
+  return {check,snapshot:()=>({enabled:!!(config.gatewayAccessEnabled||config.gatewayRateEnabled),shadowMode:!!config.gatewayShadowMode,accessEnabled:!!config.gatewayAccessEnabled,rateEnabled:!!config.gatewayRateEnabled,defaultPerMinute:config.gatewayRatePerMinute,ratePathCount:paths.length,allowRuleCount:allow.length,denyRuleCount:deny.length,...stats})};
+}
+
+
+================================================================================
 FILE: src/goodbot.js
 ================================================================================
 import dns from 'node:dns/promises';
@@ -2362,11 +2537,11 @@ export function createIntelligenceHub({sites, file, adminToken, now = () => Date
   }
   const server = http.createServer((req,res) => {
     const pathname = new URL(req.url,'http://localhost').pathname;
-    if (pathname === '/live' && req.method === 'GET') return response(res,200,{ok:true,service:'AnchorWeight Intelligence Hub',version:'1.7.0'});
+    if (pathname === '/live' && req.method === 'GET') return response(res,200,{ok:true,service:'AnchorWeight Intelligence Hub',version:'1.8.0'});
     if (pathname === '/v1/events' && req.method === 'GET') {
       if (!authenticate(req)) return response(res,401,{error:'unauthorized'});
       const limit = Math.min(100,Math.max(1,Number(new URL(req.url,'http://localhost').searchParams.get('limit')) || 50));
-      return response(res,200,{version:'1.7.0',siteCount:new Set(events.map(e=>e.siteId)).size,
+      return response(res,200,{version:'1.8.0',siteCount:new Set(events.map(e=>e.siteId)).size,
         total:events.length,events:events.slice(-limit).reverse(),limitations:[
           'Bot IDs are site-scoped; a matching ID from different sites is not an identity correlation.',
           'A site attests to local evidence; the hub does not independently verify signed canary paths.',
@@ -2500,7 +2675,7 @@ export function buildInvestigation(store, logFile, options) {
   const truncated = allMatching.length > limit;
   const events = allMatching.slice(-limit);
   return {
-    version:'1.7.0', kind:campaignId ? 'campaign' : 'bot',
+    version:'1.8.0', kind:campaignId ? 'campaign' : 'bot',
     caseId:campaignId || botId, profile, campaign, relatedCampaigns, memberProfiles,
     // events stays newest-first for v1.4 API compatibility; timeline is chronological.
     events:[...events].reverse(), timeline:events,
@@ -2516,7 +2691,7 @@ export function buildInvestigation(store, logFile, options) {
 export function buildCaseReport(investigation) {
   return {
     format:'anchorweight-investigation-v1', generatedAt:new Date().toISOString(),
-    version:'1.7.0', caseId:investigation.caseId, kind:investigation.kind,
+    version:'1.8.0', caseId:investigation.caseId, kind:investigation.kind,
     profile:investigation.profile, campaign:investigation.campaign,
     relatedCampaigns:investigation.relatedCampaigns,
     memberProfiles:investigation.memberProfiles,
@@ -2750,7 +2925,7 @@ export async function backupFiles(config, destination) {
     const dest=path.join(dir,path.basename(file));
     fs.copyFileSync(file,dest);copied.push({label,file:dest});
   }
-  const manifest={version:'1.7.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
+  const manifest={version:'1.8.0',stateBackend:backend,createdAt:new Date().toISOString(),profile:config.profileName||null,copied};
   fs.writeFileSync(path.join(dir,'manifest.json'),JSON.stringify(manifest,null,2));
   return {dir,manifest};
 }
@@ -2781,7 +2956,7 @@ export async function exportEvidence(config, destination) {
     ? await readSqliteState(config.sqliteFile) : config.stateBackend==='sqlite' ? {} : readJson(config.stateFile,{});
   const events=readJsonLines(config.logFile);
   const report={
-    version:'1.7.0',
+    version:'1.8.0',
     generatedAt:new Date().toISOString(),
     profile:config.profileName||null,
     stateBackend:config.stateBackend||'json',
@@ -2849,7 +3024,7 @@ export function migrateStateFile(file, options={}) {
   const temp=`${resolved}.${process.pid}.tmp`;
   fs.writeFileSync(temp,JSON.stringify({
     ...migrated.state,
-    meta:{...(migrated.state.meta||{}),appVersion:'1.7.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
+    meta:{...(migrated.state.meta||{}),appVersion:'1.8.0',migratedBy:'anchorweight migrate',writtenAt:new Date().toISOString()}
   }));
   fs.renameSync(temp,resolved);
   return {file:resolved,backup,dryRun:false,...migrated};
@@ -2900,7 +3075,7 @@ export class PersistentStore extends MemoryStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
       const temp = `${this.file}.${process.pid}.tmp`;
-      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.7.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
+      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'1.8.0', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
       fs.renameSync(temp, this.file);
     } catch (err) {
       console.error('[AnchorWeight] Unable to persist state:', err.message);
@@ -3124,7 +3299,10 @@ export function createReverseProxy(config, deps = {}) {
     upstream.on('error', err => {
       deps.onUpstreamFailure?.(req);
       deps.onProxyError?.(err);
-      if (!res.headersSent) {
+      if (err.message === 'request_body_too_large') return; // Request limiter will send 413, never substitute maintenance.
+      if (!res.headersSent && config.gatewayMaintenanceEnabled && ['GET','HEAD'].includes(req.method)) {
+        deps.onMaintenance?.(req,res);
+      } else if (!res.headersSent) {
         res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
         res.end('Bad gateway');
       } else {
@@ -3200,7 +3378,7 @@ export function readOperatorSettings(config,file=OPERATOR_CONFIG_FILE) {
 }
 export function createSetupController(config,{file=OPERATOR_CONFIG_FILE,onActivate=()=>{}}={}) {
   function snapshot() {return {
-    version:'1.7.0',configEnabled:!!config.setupConfigEnabled,
+    version:'1.8.0',configEnabled:!!config.setupConfigEnabled,
     writesEnabled:!!config.setupConfigEnabled&&!!config.setupWritesEnabled,
     settings:{proxyEnabled:config.proxyEnabled,originUrl:config.originUrl},
     allowedOrigins:allowedOrigins(config),shadowMode:config.shadowMode,
@@ -3318,7 +3496,7 @@ export class SqliteStore extends MemoryStore {
         this.migrationsApplied = [...migrated.applied, 'JSON->SQLite'];
       }
       this.db.prepare("INSERT INTO metadata (key,value) VALUES ('state_version',?)").run(String(CURRENT_STATE_VERSION));
-      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','1.7.0')").run();
+      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','1.8.0')").run();
       this.db.exec('COMMIT');
     } catch (err) {
       this.db.exec('ROLLBACK');
@@ -3577,6 +3755,79 @@ export function createTrafficTelemetry({now=()=>Date.now()}={}) {
         proxied:w.reduce((n,b)=>n+b.proxied,0)};})};
   }
   return {begin,snapshot};
+}
+
+
+================================================================================
+FILE: src/upstream-health.js
+================================================================================
+// Optional bounded HEAD probes for the currently active, already approved origin.
+// Monitor state is advisory; transport errors are handled by the proxy itself.
+import http from 'node:http';
+import https from 'node:https';
+
+const escapeHtml=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+export function maintenanceResponse(req,res,{title='Service temporarily unavailable',message='Please try again shortly.'}={}){
+  if(res.headersSent){res.destroy();return;}
+  const accept=String(req.headers.accept||'');
+  const json=accept.includes('application/json')||req.url?.startsWith('/api/');
+  const body=json?JSON.stringify({error:'upstream_unavailable',message:title}):
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title></head><body><main><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p></main></body></html>`;
+  res.writeHead(503,{'Content-Type':json?'application/json; charset=utf-8':'text/html; charset=utf-8',
+    'Cache-Control':'no-store','Retry-After':'30','X-Content-Type-Options':'nosniff'});
+  res.end(req.method==='HEAD'?'':body);
+}
+export function createUpstreamHealth(config,{getOrigin=()=>config.originUrl,getProxyEnabled=()=>config.proxyEnabled,
+  requestHttp=http.request,requestHttps=https.request}={}){
+  let state={status:'disabled',lastCheckedAt:null,lastHttpStatus:null,consecutiveFailures:0,latencyMs:null};
+  let timer=null,stopped=false,inFlight=false,activeOrigin=null;
+  async function probe(){
+    if(stopped||inFlight)return snapshot();
+    if(!config.gatewayHealthEnabled||!getProxyEnabled()){
+      state={...state,status:'disabled'};return snapshot();
+    }
+    inFlight=true;
+    const started=Date.now();
+    const origin=new URL(getOrigin());
+    const probedOrigin=origin.href;
+    if(activeOrigin!==probedOrigin){
+      activeOrigin=probedOrigin;
+      state={status:'unknown',lastCheckedAt:null,lastHttpStatus:null,consecutiveFailures:0,latencyMs:null};
+    }
+    const result=await new Promise(resolve=>{
+      const transport=origin.protocol==='https:'?requestHttps:requestHttp;
+      let settled=false;
+      const done=value=>{if(!settled){settled=true;resolve(value);}};
+      const req=transport(origin,{method:'HEAD',timeout:config.gatewayHealthTimeoutMs||2000},res=>{
+        res.resume();done({httpStatus:res.statusCode,ok:(res.statusCode||500)<500});
+      });
+      req.once('timeout',()=>req.destroy(new Error('timeout')));
+      req.once('error',()=>done({ok:false,httpStatus:null}));
+      req.end();
+    });
+    if(activeOrigin!==probedOrigin||!getProxyEnabled()||new URL(getOrigin()).href!==probedOrigin){
+      inFlight=false;
+      queueMicrotask(()=>{probe().catch(()=>{inFlight=false;});});
+      return snapshot(); // Never attribute an old origin's health to a newly selected origin.
+    }
+    const failures=result.ok?0:state.consecutiveFailures+1;
+    state={status:result.ok?'healthy':failures>=2?'unavailable':'degraded',
+      lastCheckedAt:new Date().toISOString(),lastHttpStatus:result.httpStatus||null,
+      consecutiveFailures:failures,latencyMs:Date.now()-started};
+    inFlight=false;
+    return snapshot();
+  }
+  function start(){
+    if(!config.gatewayHealthEnabled||timer)return;
+    stopped=false;
+    timer=setInterval(()=>{probe().catch(()=>{inFlight=false;});},config.gatewayHealthIntervalMs||30000);
+    timer.unref?.();
+    probe().catch(()=>{inFlight=false;});
+  }
+  function stop(){stopped=true;if(timer)clearInterval(timer);timer=null;}
+  function snapshot(){const current=getProxyEnabled()?new URL(getOrigin()).href:null;
+    return {...state,status:!config.gatewayHealthEnabled||!current?'disabled':current!==activeOrigin?'unknown':state.status,enabled:!!config.gatewayHealthEnabled,probeMethod:'HEAD',scope:'local_process'};}
+  return {start,stop,probe,snapshot};
 }
 
 
@@ -3912,6 +4163,74 @@ test('v0.9 CLI maps production-hardening flags', () => {
 
 
 ================================================================================
+FILE: test/gateway-protection.integration.test.js
+================================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import http from 'node:http';
+import net from 'node:net';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { fileURLToPath } from 'node:url';
+const app=fileURLToPath(new URL('../app.js',import.meta.url));
+async function freePort(){const s=net.createServer();s.listen(0,'127.0.0.1');await once(s,'listening');const n=s.address().port;s.close();await once(s,'close');return n;}
+async function start(options){
+ const port=await freePort();const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-gateway18-'));
+ const base=Object.fromEntries(Object.entries(process.env).filter(([key])=>!key.startsWith('AW_')));
+ const env={...base,PORT:String(port),AW_SECRET:'test-very-long-secret-for-gateway-18',AW_DASHBOARD_TOKEN:'long-dashboard-token-for-gateway-18',
+  AW_AUDIT_ENABLED:'false',AW_BLACKHOLE_ENABLED:'false',AW_PROXY_ENABLED:'true',AW_ORIGIN_URL:options.origin,
+  AW_SHADOW_MODE:'true',AW_SETUP_CONFIG_ENABLED:'false',...options.env};
+ const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});
+ child.stderrText='';child.stderr.on('data',data=>child.stderrText+=data.toString());child.stdout.resume();
+ for(let i=0;i<80;i++){
+  if(child.exitCode!==null)throw Error('startup failed: '+child.stderrText);
+  try{const r=await fetch(`http://127.0.0.1:${port}/live`);if(r.ok)return {child,port,dir,env};}catch{}
+  await new Promise(resolve=>setTimeout(resolve,75));
+ }
+ throw Error('timeout: '+child.stderrText);
+}
+async function stop(x){if(x.child.exitCode===null){const done=once(x.child,'exit');x.child.kill('SIGTERM');await done;}fs.rmSync(x.dir,{recursive:true,force:true});}
+test('v1.8 cPanel require startup: proxy-only access rules, operator endpoints remain reachable',async()=>{
+ const origin=http.createServer((_req,res)=>res.end('secret origin'));
+ origin.listen(0,'127.0.0.1');await once(origin,'listening');
+ const inst=await start({origin:`http://127.0.0.1:${origin.address().port}`,env:{AW_GATEWAY_ACCESS_ENABLED:'true',AW_GATEWAY_DENY_IPS:'127.0.0.0/8',AW_GATEWAY_SHADOW_MODE:'false'}});
+ try{
+  const denied=await fetch(`http://127.0.0.1:${inst.port}/private`);
+  assert.equal(denied.status,403);assert.equal((await denied.json()).error,'ip_deny_rule');
+  const admin=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`);
+  assert.equal(admin.status,401);
+  const stats=await fetch(`http://127.0.0.1:${inst.port}/anchor/api/stats`,{headers:{Authorization:'Bearer long-dashboard-token-for-gateway-18'}});
+  const body=await stats.json();assert.equal(body.version,'1.8.0');assert.equal(body.gateway.denied,1);
+  assert.equal(body.upstreamHealth.status,'disabled');
+  const setup=await fetch(`http://127.0.0.1:${inst.port}/setup.html`);assert.equal(setup.status,200);
+  const live=await fetch(`http://127.0.0.1:${inst.port}/live`);assert.equal(live.status,200);
+ }finally{await stop(inst);origin.closeAllConnections();origin.close();}
+});
+test('rate limiting then upstream outage: GET 503 maintenance, POST 502 and normal upstream 5xx intact',async()=>{
+ const origin=http.createServer((req,res)=>{res.statusCode=req.url==='/unhealthy'?503:200;res.end('ORIGIN');});
+ origin.listen(0,'127.0.0.1');await once(origin,'listening');
+ const inst=await start({origin:`http://127.0.0.1:${origin.address().port}`,env:{AW_GATEWAY_RATE_ENABLED:'true',AW_GATEWAY_SHADOW_MODE:'false',
+  AW_GATEWAY_RATE_PER_MINUTE:'200',AW_GATEWAY_RATE_PATHS:'[{"path":"/limited","perMinute":2}]',AW_GATEWAY_HEALTH_ENABLED:'true',
+  AW_GATEWAY_HEALTH_INTERVAL_MS:'5000',AW_GATEWAY_MAINTENANCE_ENABLED:'true'}});
+ try{
+  for(let i=0;i<2;i++)assert.equal((await fetch(`http://127.0.0.1:${inst.port}/limited`)).status,200);
+  const throttled=await fetch(`http://127.0.0.1:${inst.port}/limited`);assert.equal(throttled.status,429);
+  assert.ok(Number(throttled.headers.get('retry-after'))>0);
+  const originError=await fetch(`http://127.0.0.1:${inst.port}/unhealthy`);
+  assert.equal(originError.status,503);assert.equal(await originError.text(),'ORIGIN');
+  origin.closeAllConnections();await new Promise(resolve=>origin.close(resolve));
+  const maintenance=await fetch(`http://127.0.0.1:${inst.port}/some-page`);
+  assert.equal(maintenance.status,503);assert.match(await maintenance.text(),/Service temporarily unavailable/);
+  const post=await fetch(`http://127.0.0.1:${inst.port}/submit`,{method:'POST',body:'x'});
+  assert.equal(post.status,502,'state-changing requests are never retried or converted into generic GET maintenance');
+ }finally{await stop(inst);}
+});
+
+
+================================================================================
 FILE: test/operator-gateway.integration.test.js
 ================================================================================
 import test from 'node:test';
@@ -3977,7 +4296,7 @@ test('real cPanel-style startup, authenticated wizard apply, proxied traffic, te
   let child=start({port,cwd:dir,origin:target,viaRequire:true});
   t.after(async()=>{await stop(child);});
   let live=await online(port,child);
-  assert.equal(live.version,'1.7.0');assert.equal(live.proxyEnabled,false);
+  assert.equal(live.version,'1.8.0');assert.equal(live.proxyEnabled,false);
   const pageResponse=await fetch(`http://127.0.0.1:${port}/setup.html`);
   assert.equal(pageResponse.status,200);assert.match(await pageResponse.text(),/AnchorWeight Setup/);
   const noAuth=await fetch(`http://127.0.0.1:${port}/anchor/api/setup`);
@@ -4683,6 +5002,103 @@ test('two sensors deliver separately authenticated, site-scoped events without j
 
 
 ================================================================================
+FILE: test/unit/gateway-protection.test.js
+================================================================================
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { parseCidr,parseRatePaths,createGatewayPolicy } from '../../src/gateway-policy.js';
+import { validateConfig } from '../../src/config-schema.js';
+import { maintenanceResponse,createUpstreamHealth } from '../../src/upstream-health.js';
+import { loadConfig } from '../../src/config.js';
+import http from 'node:http';
+import { once } from 'node:events';
+
+const req=(ip='192.0.2.5',headers={})=>({socket:{remoteAddress:ip},headers});
+const config=overrides=>({secret:'test-secret-32-chars-minimum------',trustProxy:false,gatewayAccessEnabled:true,gatewayRateEnabled:true,gatewayShadowMode:false,
+ gatewayAllowIps:[],gatewayDenyIps:[],gatewayRatePerMinute:2,gatewayRatePaths:[],...overrides});
+
+test('IPv4 and IPv6 CIDRs, mapped IPv4, invalid masks rejected',()=>{
+ assert.equal(parseCidr('192.0.2.0/24').prefix,24);
+ assert.equal(parseCidr('2001:db8::/32').family,6);
+ assert.throws(()=>parseCidr('192.0.2.1/33'));
+ assert.throws(()=>parseCidr('2001:db8::/129'));
+ assert.throws(()=>parseCidr('not-an-ip/24'));
+ const p=createGatewayPolicy(config({gatewayDenyIps:['192.0.2.0/24','2001:db8::/32']}));
+ assert.equal(p.check(req(),'/x').action,'deny');
+ assert.equal(p.check(req('::ffff:192.0.2.4'),'/x').action,'deny');
+ assert.equal(p.check(req('2001:db8::abc'),'/x').action,'deny');
+ assert.equal(p.check(req('2001:db9::abc'),'/x').action,'pass');
+});
+test('deny precedence, allow only bypasses rate, no raw IP in statistics',()=>{
+ const p=createGatewayPolicy(config({gatewayAllowIps:['192.0.2.5'],gatewayDenyIps:['192.0.2.5']}));
+ assert.equal(p.check(req(),'/x').action,'deny');
+ assert.doesNotMatch(JSON.stringify(p.snapshot()),/192\.0\.2/);
+ const bypass=createGatewayPolicy(config({gatewayAllowIps:['192.0.2.5']}));
+ for(let i=0;i<5;i++)assert.equal(bypass.check(req(),'/x').action,'pass');
+});
+test('per-IP minute windows and most-specific path, shadow is not an IP conviction',()=>{
+ let clock=0;
+ const c=config({gatewayRatePerMinute:3,gatewayRatePaths:[{path:'/api/login',perMinute:1}]});
+ const p=createGatewayPolicy(c,{now:()=>clock});
+ assert.equal(p.check(req(),'/api/login').action,'pass');
+ const rejection=p.check(req(),'/api/login');
+ assert.equal(rejection.action,'rate_limit');assert.equal(rejection.retryAfter,60);
+ assert.equal(p.check(req(),' /api/login').action,'pass');
+ assert.equal(p.check(req('192.0.2.6'),'/api/login').action,'pass');
+ clock=61000;assert.equal(p.check(req(),'/api/login').action,'pass');
+ const shadow=createGatewayPolicy({...c,gatewayShadowMode:true},{now:()=>clock});
+ shadow.check(req(),'/api/login');assert.equal(shadow.check(req(),'/api/login').action,'pass');
+ assert.equal(shadow.snapshot().wouldRateLimit,1);
+ const shadowDeny=createGatewayPolicy({...c,gatewayDenyIps:['192.0.2.5'],gatewayShadowMode:true});
+ assert.equal(shadowDeny.check(req(),'/any').action,'pass');assert.equal(shadowDeny.snapshot().wouldDeny,1);
+});
+test('invalid client address fails open without merging visitors into unknown quota',()=>{
+ const p=createGatewayPolicy(config({gatewayRatePerMinute:1}));
+ for(let i=0;i<10;i++)assert.equal(p.check(req('unknown'),'/a').action,'pass');
+});
+test('spoofed forwarding header ignored unless trustProxy explicitly enabled',()=>{
+ const raw=req('192.0.2.5',{'x-forwarded-for':'203.0.113.88'});
+ const opts=config({gatewayDenyIps:['203.0.113.0/24'],gatewayRateEnabled:false});
+ assert.equal(createGatewayPolicy(opts).check(raw,'/').action,'pass');
+ assert.equal(createGatewayPolicy({...opts,trustProxy:true}).check(raw,'/').action,'deny');
+});
+test('strict path and config validation',()=>{
+ assert.deepEqual(parseRatePaths('[{"path":"/api/login","perMinute":10}]'),[{path:'/api/login',perMinute:10}]);
+ for(const input of ['not-json','[{"path":"/a","perMinute":0}]','[{"path":"/a","perMinute":1,"origin":"http://evil"}]'])
+  assert.throws(()=>parseRatePaths(input));
+ const base=loadConfig({gatewayRatePaths:[],gatewayDenyIps:['192.0.2.0/24']});
+ assert.equal(validateConfig(base).valid,true);
+ assert.equal(validateConfig({...base,gatewayDenyIps:['127.0.0.1/99']}).valid,false);
+ assert.equal(validateConfig({...base,gatewayRatePaths:[{path:'/api',perMinute:0}]}).valid,false);
+});
+test('health probe checks only active origin and updates status without requiring proxy restart',async()=>{
+ const origin=http.createServer((req,res)=>{res.statusCode=503;res.end();});
+ origin.listen(0,'127.0.0.1');await once(origin,'listening');
+ try{
+  let enabled=false;let current=`http://127.0.0.1:${origin.address().port}`;
+  const health=createUpstreamHealth({gatewayHealthEnabled:true,gatewayHealthTimeoutMs:500,gatewayHealthIntervalMs:10000},{getOrigin:()=>current,getProxyEnabled:()=>enabled});
+  assert.equal((await health.probe()).status,'disabled');
+  enabled=true;assert.equal((await health.probe()).status,'degraded');
+  assert.equal((await health.probe()).status,'unavailable');
+  origin.removeAllListeners('request');origin.on('request',(_req,res)=>{res.statusCode=204;res.end();});
+  assert.equal((await health.probe()).status,'healthy');
+  enabled=false;assert.equal(health.snapshot().status,'disabled');health.stop();
+ }finally{origin.closeAllConnections();origin.close();}
+});
+test('opt-in maintenance response preserves status 503 and content type',()=>{
+ const calls=[];
+ const res={headersSent:false,writeHead:(status,headers)=>{calls.push([status,headers]);},end:body=>calls.push(body)};
+ maintenanceResponse({method:'GET',headers:{accept:'application/json'},url:'/x'},res);
+ assert.equal(calls[0][0],503);assert.equal(calls[0][1]['Retry-After'],'30');
+ assert.equal(JSON.parse(calls[1]).error,'upstream_unavailable');
+ const html=[];maintenanceResponse({method:'GET',headers:{accept:'text/html'},url:'/x'},
+   {headersSent:false,writeHead:(status,headers)=>html.push([status,headers]),end:body=>html.push(body)},
+   {title:'Newlands <Maintenance>',message:'Please wait & retry'});
+ assert.match(html[1],/Newlands &lt;Maintenance&gt;/);assert.match(html[1],/Please wait &amp; retry/);
+});
+
+
+================================================================================
 FILE: test/unit/investigation.test.js
 ================================================================================
 import test from 'node:test';
@@ -4855,7 +5271,7 @@ test('audit logger produces structured v1 records',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-audit-')); const file=path.join(dir,'audit.jsonl');
   createAuditLogger(file)({type:'operator_test',client:'abc'});
   const r=JSON.parse(fs.readFileSync(file,'utf8').trim());
-  assert.equal(r.version,'1.7.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
+  assert.equal(r.version,'1.8.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
   fs.rmSync(dir,{recursive:true,force:true});
 });
 

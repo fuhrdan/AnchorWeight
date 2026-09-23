@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { parseRules, parseRatePaths } from './gateway-policy.js';
 export const CONFIG_SCHEMA_VERSION = 1;
 
 export function validateConfig(config) {
@@ -32,6 +33,23 @@ export function validateConfig(config) {
   intRange('adminBodyMaxBytes', config.adminBodyMaxBytes, 512, 1048576);
   intRange('proxyBodyMaxBytes', config.proxyBodyMaxBytes, 1024, 1073741824);
   intRange('shutdownGraceMs', config.shutdownGraceMs, 1000, 120000);
+  intRange('gatewayRatePerMinute',config.gatewayRatePerMinute??120,1,100000);
+  intRange('gatewayHealthIntervalMs',config.gatewayHealthIntervalMs??30000,5000,300000);
+  intRange('gatewayHealthTimeoutMs',config.gatewayHealthTimeoutMs??2000,500,10000);
+  for(const name of ['gatewayAccessEnabled','gatewayRateEnabled','gatewayShadowMode','gatewayHealthEnabled','gatewayMaintenanceEnabled'])
+    if(config[name]!==undefined && typeof config[name]!=='boolean')errors.push(`${name} must be boolean`);
+  try {
+    if((config.gatewayAllowIps||[]).length>128||(config.gatewayDenyIps||[]).length>128)throw Error('too_many_ip_rules');
+    parseRules(config.gatewayAllowIps||[]);parseRules(config.gatewayDenyIps||[]);
+  } catch {errors.push('gateway IP rules require valid IPv4/IPv6 addresses or CIDR ranges (max 128 each)');}
+  try {parseRatePaths(JSON.stringify(config.gatewayRatePaths??[]));}
+  catch {errors.push('gateway rate paths must be up to 16 valid {path,perMinute} entries');}
+  if(config.gatewayAccessEnabled||config.gatewayRateEnabled)warnings.push('Gateway rules apply only to proxied traffic; use gateway shadow mode to validate before enforcement.');
+  for(const [key,max] of [['gatewayMaintenanceTitle',80],['gatewayMaintenanceMessage',160]]) {
+    const value=config[key];
+    if(value!=null && (typeof value!=='string'||value.length<1||value.length>max||/[\x00-\x1f\x7f]/.test(value)))errors.push(`${key} must be printable text up to ${max} characters`);
+  }
+  if(config.gatewayMaintenanceEnabled)warnings.push('Maintenance fallback masks transport errors for GET/HEAD only; not origin HTTP 5xx or partial responses.');
   oneOf('stateBackend', config.stateBackend ?? 'json', ['json','sqlite']);
   if (config.stateBackend === 'sqlite' && !config.sqliteFile) errors.push('sqliteFile is required for the SQLite backend');
   if (config.stateBackend === 'sqlite' && config.sqliteFile && config.stateFile && path.resolve(config.sqliteFile) === path.resolve(config.stateFile)) errors.push('sqliteFile and stateFile must be different files');

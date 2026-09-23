@@ -1,4 +1,4 @@
-# AnchorWeight v1.7.0
+# AnchorWeight v1.8.0
 
 **Let bots identify themselves.**
 
@@ -27,6 +27,14 @@ AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file 
 - Existing JSON/SQLite schema v5, cPanel startup compatibility, distributed
   evidence reporting and dashboard investigation features remain unchanged.
 - See [OPERATOR-GATEWAY.md](OPERATOR-GATEWAY.md) before enabling proxy mode.
+
+## v1.8 Gateway Protection & Reliability
+
+- Optional, independent access-rule and per-IP rate-limit gates for **proxied traffic only**, disabled by default.
+- IPv4/IPv6 CIDR allow and deny rules, shadow-mode counters and optional bounded path-specific request limits.
+- Optional bounded upstream HEAD health probes and opt-in 503 maintenance responses for transport errors on GET/HEAD.
+- Authenticated dashboard displays access, rate and upstream status without leaking IPs or paths.
+- No new runtime dependencies or state migration; [operator guide](GATEWAY-PROTECTION.md).
 
 ## v1.6 Distributed Intelligence Foundation
 

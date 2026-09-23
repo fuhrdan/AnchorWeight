@@ -17,6 +17,11 @@ function listEnv(name) {
 }
 
 
+function ratePathEnv() {
+  const raw=process.env.AW_GATEWAY_RATE_PATHS || '[]';
+  try {return JSON.parse(raw);} catch {return raw;} // Schema rejects invalid configuration at startup.
+}
+
 function profileEnv() {
   const name = String(process.env.AW_PROFILE || '').trim();
   if (!name) return {};
@@ -71,6 +76,19 @@ export function loadConfig(overrides = {}) {
     proxyEnabled: boolEnv('AW_PROXY_ENABLED', false),
     originUrl: process.env.AW_ORIGIN_URL || 'http://127.0.0.1:8081',
     proxyTimeoutMs: intEnv('AW_PROXY_TIMEOUT_MS', 15000, 1000, 120000),
+    gatewayAccessEnabled: boolEnv('AW_GATEWAY_ACCESS_ENABLED', false),
+    gatewayRateEnabled: boolEnv('AW_GATEWAY_RATE_ENABLED', false),
+    gatewayShadowMode: boolEnv('AW_GATEWAY_SHADOW_MODE', true),
+    gatewayAllowIps: listEnv('AW_GATEWAY_ALLOW_IPS'),
+    gatewayDenyIps: listEnv('AW_GATEWAY_DENY_IPS'),
+    gatewayRatePerMinute: intEnv('AW_GATEWAY_RATE_PER_MINUTE', 120, 1, 100000),
+    gatewayRatePaths: ratePathEnv(),
+    gatewayHealthEnabled: boolEnv('AW_GATEWAY_HEALTH_ENABLED', false),
+    gatewayHealthIntervalMs: intEnv('AW_GATEWAY_HEALTH_INTERVAL_MS', 30000, 5000, 300000),
+    gatewayHealthTimeoutMs: intEnv('AW_GATEWAY_HEALTH_TIMEOUT_MS', 2000, 500, 10000),
+    gatewayMaintenanceEnabled: boolEnv('AW_GATEWAY_MAINTENANCE_ENABLED', false),
+    gatewayMaintenanceTitle: process.env.AW_GATEWAY_MAINTENANCE_TITLE || 'Service temporarily unavailable',
+    gatewayMaintenanceMessage: process.env.AW_GATEWAY_MAINTENANCE_MESSAGE || 'Please try again shortly.',
     publicScheme: process.env.AW_PUBLIC_SCHEME || 'https',
     branchCount: intEnv('AW_CANARY_BRANCH_COUNT', 7, 2, 12),
     canaryVariantsEnabled: boolEnv('AW_CANARY_VARIANTS_ENABLED', true),

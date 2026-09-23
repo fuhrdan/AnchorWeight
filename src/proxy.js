@@ -132,7 +132,10 @@ export function createReverseProxy(config, deps = {}) {
     upstream.on('error', err => {
       deps.onUpstreamFailure?.(req);
       deps.onProxyError?.(err);
-      if (!res.headersSent) {
+      if (err.message === 'request_body_too_large') return; // Request limiter will send 413, never substitute maintenance.
+      if (!res.headersSent && config.gatewayMaintenanceEnabled && ['GET','HEAD'].includes(req.method)) {
+        deps.onMaintenance?.(req,res);
+      } else if (!res.headersSent) {
         res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
         res.end('Bad gateway');
       } else {

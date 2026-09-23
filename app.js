@@ -10,6 +10,8 @@ import { createReverseProxy } from './src/proxy.js';
 import { validateConfig } from './src/config-schema.js';
 import { createTrafficTelemetry } from './src/telemetry.js';
 import { createSetupController, readOperatorSettings } from './src/setup.js';
+import { createGatewayPolicy } from './src/gateway-policy.js';
+import { createUpstreamHealth, maintenanceResponse } from './src/upstream-health.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep startup synchronous to the module loader; initialize the selected store inside main().
@@ -26,6 +28,8 @@ if (!validation.valid) throw new Error(`Invalid AnchorWeight configuration: ${va
 for (const warning of validation.warnings) console.warn(`[AnchorWeight] WARNING: ${warning}`);
 const store = await createStore(config);
 const telemetry = createTrafficTelemetry();
+const gateway = createGatewayPolicy(config);
+const health = createUpstreamHealth(config);
 const contexts = new WeakMap();
 function makeProxy(settings) {
   return createReverseProxy({ ...config, originUrl:settings.originUrl }, {
@@ -33,7 +37,8 @@ function makeProxy(settings) {
     onUpstreamResponse:(req,status)=>contexts.get(req)?.upstreamResponse(status),
     onUpstreamEnd:req=>contexts.get(req)?.upstreamEnd(),
     onUpstreamFailure:req=>contexts.get(req)?.upstreamFailure(),
-    onProxyError:err=>console.error('[AnchorWeight] origin:',err.message)
+    onProxyError:err=>console.error('[AnchorWeight] origin:',err.message),
+    onMaintenance:(req,res)=>maintenanceResponse(req,res,{title:config.gatewayMaintenanceTitle,message:config.gatewayMaintenanceMessage})
   });
 }
 let activeProxy = config.proxyEnabled ? makeProxy(config) : null;
@@ -43,9 +48,10 @@ const setup = createSetupController(config, { onActivate:settings => {
     config.originUrl=settings.originUrl;
     config.proxyEnabled=settings.proxyEnabled;
     activeProxy=nextProxy;
+    health.probe().catch(err=>console.error('[AnchorWeight] health probe:',err.message));
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, health });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -87,7 +93,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '1.7.0',
+        ok: true, service: 'AnchorWeight', version: '1.8.0',
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
@@ -96,7 +102,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'1.7.0', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'1.8.0', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, origin
@@ -128,12 +134,18 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (activeProxy) {
+      const policy=gateway.check(req,url.pathname);
+      if (policy.action!=='pass') {
+        if(policy.retryAfter)res.setHeader('Retry-After',String(policy.retryAfter));
+        return send(res,policy.action==='deny'?403:429,'application/json; charset=utf-8',
+          JSON.stringify({error:policy.reason}),{'Cache-Control':'no-store'});
+      }
       context.markProxied();
       return activeProxy(req,res);
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.7.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v1.8.0</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -143,8 +155,9 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+health.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v1.7.0 listening on :${config.port}`);
+  console.log(`AnchorWeight v1.8.0 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);
@@ -156,6 +169,7 @@ function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[AnchorWeight] ${signal}: graceful shutdown started`);
+  health.stop();
   try { store.flush?.(); } catch (err) { console.error('[AnchorWeight] state flush:', err.message); }
   const timer = setTimeout(() => {
     console.error('[AnchorWeight] graceful shutdown timed out');
