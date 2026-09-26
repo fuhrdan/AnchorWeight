@@ -1,11 +1,11 @@
-FROM node:24-alpine AS verify
+FROM node:25-alpine AS verify
 WORKDIR /src
 COPY package*.json ./
 RUN npm ci --ignore-scripts
 COPY . .
 RUN npm test && npm audit --audit-level=high
 
-FROM node:24-alpine AS runtime
+FROM node:25-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=8080
 COPY --from=verify --chown=node:node /src /app
