@@ -134,6 +134,12 @@ export function loadConfig(overrides = {}) {
     adaptiveDeceptionEnabled: boolEnv('AW_ADAPTIVE_DECEPTION_ENABLED', true),
     adaptiveDeceptionShadowMode: boolEnv('AW_ADAPTIVE_DECEPTION_SHADOW_MODE', true),
     adaptiveDeceptionHistoryLimit: intEnv('AW_ADAPTIVE_DECEPTION_HISTORY_LIMIT', 24, 4, 100),
+    // v2.9 deterministic intervention policy remains shadow-first.
+    adaptiveInterventionEnabled: boolEnv('AW_ADAPTIVE_INTERVENTION_ENABLED', true),
+    adaptiveInterventionShadowMode: boolEnv('AW_ADAPTIVE_INTERVENTION_SHADOW_MODE', true),
+    adaptiveInterventionCooldownMs: intEnv('AW_ADAPTIVE_INTERVENTION_COOLDOWN_MS', 30000, 1000, 3600000),
+    adaptiveInterventionHistoryLimit: intEnv('AW_ADAPTIVE_INTERVENTION_HISTORY_LIMIT', 32, 4, 100),
+    adaptiveInterventionAllowed: listEnv('AW_ADAPTIVE_INTERVENTION_ALLOWED').length ? listEnv('AW_ADAPTIVE_INTERVENTION_ALLOWED') : ['normal_response','shadow_branch','signed_decoy','depth_extension','rate_friction'],
     scoreDisplayMissing: intEnv('AW_SCORE_DISPLAY_MISSING', 8, 0, 100),
     scoreDisplayImpossible: intEnv('AW_SCORE_DISPLAY_IMPOSSIBLE', 15, 0, 100),
     scoreDisplayMismatch: intEnv('AW_SCORE_DISPLAY_MISMATCH', 5, 0, 100),

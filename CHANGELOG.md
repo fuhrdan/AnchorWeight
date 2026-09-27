@@ -1,3 +1,11 @@
+## 2.9.0 - Adaptive Intervention Engine
+
+- Added deterministic, shadow-first intervention policy above v2.8 adaptive deception recommendations.
+- Added per-intervention cooldowns, allowlists, bounded history and effectiveness telemetry.
+- Added observable outcome scoring and deterministic low-effectiveness strategy switching.
+- Exposed bounded adaptive deception and intervention summaries through public Bot DNA projections.
+- Kept authentication, quarantine and blocking under existing explicit policy controls.
+
 ## 2.8.0 - Adaptive Deception Foundation
 
 - Added shadow-first adaptive deception recommendations.

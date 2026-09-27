@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { assessProfile } from './assessment.js';
 import { assessClientEnvironment } from './client-environment.js';
 import { createAdaptiveDeception } from './adaptive-deception.js';
+import { createAdaptiveIntervention } from './adaptive-intervention.js';
 
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
@@ -18,6 +19,7 @@ export class BehaviorEngine {
     this.log = log;
     this.now = now;
     this.adaptiveDeception = createAdaptiveDeception(config, log, now);
+    this.adaptiveIntervention = createAdaptiveIntervention(config, log, now);
   }
 
   observeRequest(ipKey, req, url) {
@@ -85,7 +87,8 @@ export class BehaviorEngine {
     const p = this.store.getProfile(ipKey);
     p.blackholeVisits = (p.blackholeVisits || 0) + 1;
     this.addSignal(ipKey, 'robots_blackhole_violation', this.config.scoreBlackhole ?? 100);
-    this.adaptiveDeception.observe(p, { kind:'blackhole' });
+    const adaptive = this.adaptiveDeception.observe(p, { kind:'blackhole' });
+    this.adaptiveIntervention.observe(p, { kind:'blackhole' }, adaptive.recommendation);
   }
 
   noteTraversal(ipKey, depth, sessionId = '') {
@@ -97,12 +100,15 @@ export class BehaviorEngine {
     if (p.recentTraversalDepths.length > 16) p.recentTraversalDepths.shift();
     p.traversalStyle = inferTraversalStyle(p);
     this.addSignal(ipKey, `valid_traversal_depth_${depth}`, this.config.scoreTraversal);
-    this.adaptiveDeception.observe(p, { kind:'traversal', depth });
+    const adaptive = this.adaptiveDeception.observe(p, { kind:'traversal', depth });
+    this.adaptiveIntervention.observe(p, { kind:'traversal', depth }, adaptive.recommendation);
   }
 
   noteInvalidTraversal(ipKey, reason) {
     const p = this.store.getProfile(ipKey);
     p.invalidTraversals++;
+    const adaptive = this.adaptiveDeception.observe(p, { kind:'invalid_traversal', reason });
+    this.adaptiveIntervention.observe(p, { kind:'invalid_traversal', reason }, adaptive.recommendation);
     if (['bad_chain', 'non_sequential', 'session_ip_mismatch'].includes(reason)) {
       this.addSignalOnce(ipKey, `invalid_${reason}`, this.config.scoreInvalidTraversal, { reason });
     }
@@ -113,7 +119,8 @@ export class BehaviorEngine {
     p.proofOfCrawl++;
     p.maxDepth = Math.max(p.maxDepth, depth);
     this.addSignal(ipKey, 'proof_of_crawl', this.config.scoreProofOfCrawl, { depth });
-    this.adaptiveDeception.observe(p, { kind:'proof_of_crawl', depth });
+    const adaptive = this.adaptiveDeception.observe(p, { kind:'proof_of_crawl', depth });
+    this.adaptiveIntervention.observe(p, { kind:'proof_of_crawl', depth }, adaptive.recommendation);
   }
 
   addSignalOnce(ipKey, signal, points, detail = {}) {
@@ -200,7 +207,8 @@ export function newProfile() {
     trapSessions: {}, recentTraversalDepths: [], traversalStyle: 'unknown', campaignIds: [],
     offenseCount: 0, lastOffenseAt: null, evidence: [], trustedTlsFingerprints: [],
     displayFingerprints: [], clientEnvironment: { observations:0, lastAt:null, lastReasons:[] },
-    adaptiveDeception: { observations:0, interventions:0, lastAt:null, lastIntervention:null, history:[], attackerCost:{requestsDiverted:0,shadowTraversals:0,decoyInteractions:0,additionalDepth:0,estimatedDelayMs:0,originRequestsPrevented:0} }
+    adaptiveDeception: { observations:0, interventions:0, lastAt:null, lastIntervention:null, history:[], attackerCost:{requestsDiverted:0,shadowTraversals:0,decoyInteractions:0,additionalDepth:0,estimatedDelayMs:0,originRequestsPrevented:0} },
+    adaptiveIntervention: { decisions:0,switches:0,lastAt:null,lastDecision:null,lastReason:null,pending:null,history:[],effectiveness:{} }
   };
 }
 
@@ -229,6 +237,8 @@ export function publicProfile(ipKey, p) {
     lastOffenseAt: p.lastOffenseAt || null,
     evidence: (p.evidence || []).slice(-12),
     clientEnvironment: { observations:p.clientEnvironment?.observations || 0, fingerprintVariants:(p.displayFingerprints || []).length, lastReasons:(p.clientEnvironment?.lastReasons || []).slice(0,8) },
+    adaptiveDeception: { observations:p.adaptiveDeception?.observations||0, interventions:p.adaptiveDeception?.interventions||0, lastAt:p.adaptiveDeception?.lastAt||null, lastIntervention:p.adaptiveDeception?.lastIntervention||null, attackerCost:{...(p.adaptiveDeception?.attackerCost||{})}, history:(p.adaptiveDeception?.history||[]).slice(-12) },
+    adaptiveIntervention: { decisions:p.adaptiveIntervention?.decisions||0, switches:p.adaptiveIntervention?.switches||0, lastAt:p.adaptiveIntervention?.lastAt||null, lastDecision:p.adaptiveIntervention?.lastDecision||null, lastReason:p.adaptiveIntervention?.lastReason||null, effectiveness:{...(p.adaptiveIntervention?.effectiveness||{})}, history:(p.adaptiveIntervention?.history||[]).slice(-12) },
     assessment: assessProfile(p),
     signals: p.signals.slice(-10)
   };
