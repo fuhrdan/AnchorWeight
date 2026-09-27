@@ -1,3 +1,11 @@
+## 2.7.0 — Client Environment Consistency
+
+- Added privacy-minimized browser display/viewport consistency observations as supporting Bot DNA evidence.
+- Added bounded keyed display fingerprints and explainable anomaly reasons without canvas/font/WebGL fingerprinting.
+- Unusual resolutions and missing screen APIs are low-weight signals; impossible relationships and repeated contradictions carry more weight.
+- Existing score enforcement remains opt-in and Shadow Mode remains the recommended rollout.
+- Added unit coverage and operator documentation in CLIENT-ENVIRONMENT.md.
+
 ## 2.6.0 — Installation & Operator Experience
 
 - Added interactive first-run cPanel installation plan and a read-only installation doctor (`npm run setup`, `npm run doctor`).

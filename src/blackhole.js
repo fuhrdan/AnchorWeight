@@ -1,3 +1,5 @@
+import { injectClientEnvironmentCollector } from './client-environment.js';
+
 function escapeAttr(value) {
   return String(value).replace(/[&<>"']/g, c => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -39,7 +41,16 @@ function isUtf8Like(contentType) {
 }
 
 export function shouldRewriteOriginResponse({ pathname, method, statusCode, contentType, contentEncoding, config }) {
-  if (!config?.blackholeEnabled || method !== 'GET') return false;
+  if (method !== 'GET') return false;
+
+  const clientEnvHtml =
+    !!config?.clientEnvironmentEnabled &&
+    statusCode >= 200 &&
+    statusCode < 300 &&
+    String(contentType || '').toLowerCase().includes('text/html') &&
+    !pathname.startsWith(`${config.basePath}/`);
+
+  if (config?.blackholeEnabled === false && !clientEnvHtml) return false;
   if (contentEncoding && String(contentEncoding).toLowerCase() !== 'identity') return false;
   if (!isUtf8Like(contentType)) return false;
 
@@ -47,16 +58,33 @@ export function shouldRewriteOriginResponse({ pathname, method, statusCode, cont
     return statusCode === 200;
   }
 
-  return !!config.blackholeInjectLink &&
-    statusCode >= 200 && statusCode < 300 &&
-    String(contentType || '').toLowerCase().includes('text/html') &&
-    !pathname.startsWith(`${config.basePath}/`);
+return clientEnvHtml || (
+  config.blackholeEnabled !== false &&
+  config.blackholeInjectLink !== false &&
+  statusCode >= 200 &&
+  statusCode < 300 &&
+  String(contentType || '').toLowerCase().includes('text/html') &&
+  !pathname.startsWith(`${config.basePath}/`)
+    );
+    
 }
 
 export function rewriteOriginResponse(body, { pathname, contentType, config }) {
   if (pathname === '/robots.txt') return appendRobotsDisallow(body, config.blackholePath);
+
   if (String(contentType || '').toLowerCase().includes('text/html')) {
-    return injectHiddenBlackholeLink(body, config.blackholePath);
+    let output = String(body ?? '');
+
+    if (config.blackholeEnabled !== false && config.blackholeInjectLink !== false) {
+      output = injectHiddenBlackholeLink(output, config.blackholePath);
+    }
+
+    if (config.clientEnvironmentEnabled) {
+      output = injectClientEnvironmentCollector(output, config.basePath);
+    }
+
+    return output;
   }
+
   return String(body ?? '');
 }

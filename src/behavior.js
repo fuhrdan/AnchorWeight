@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { assessProfile } from './assessment.js';
+import { assessClientEnvironment } from './client-environment.js';
 
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
@@ -130,6 +131,42 @@ export class BehaviorEngine {
     return p.score;
   }
 
+  noteClientEnvironment(ipKey, input) {
+    const p = this.store.getProfile(ipKey);
+    p.displayFingerprints ||= [];
+    p.clientEnvironment ||= { observations:0, lastAt:null, lastReasons:[] };
+    const assessment = assessClientEnvironment(input, {
+      secret:this.config.secret,
+      previousFingerprints:p.displayFingerprints
+    });
+    p.clientEnvironment.observations++;
+    p.clientEnvironment.lastAt=this.now();
+    p.clientEnvironment.lastReasons=assessment.reasons.slice(0,8);
+    if (!p.displayFingerprints.includes(assessment.fingerprint)) {
+      p.displayFingerprints.push(assessment.fingerprint);
+      if (p.displayFingerprints.length > 4) p.displayFingerprints.shift();
+    }
+    for (const reason of assessment.reasons) {
+      const configured = {
+        screen_api_unavailable:this.config.scoreDisplayMissing,
+        display_values_missing:this.config.scoreDisplayMissing,
+        display_dimensions_invalid:this.config.scoreDisplayImpossible,
+        available_area_exceeds_screen:this.config.scoreDisplayImpossible,
+        viewport_materially_exceeds_screen:this.config.scoreDisplayImpossible,
+        device_pixel_ratio_invalid:this.config.scoreDisplayImpossible,
+        orientation_dimension_mismatch:this.config.scoreDisplayMismatch,
+        unusual_color_depth:this.config.scoreDisplayUnusual,
+        unusual_aspect_ratio:this.config.scoreDisplayUnusual,
+        unusual_small_screen:this.config.scoreDisplayUnusual,
+        display_fingerprint_changed_repeatedly:this.config.scoreDisplayChange
+      }[reason.reason];
+      this.addSignalOnce(ipKey, `client_env_${reason.reason}`, configured ?? reason.points, { fingerprint:assessment.fingerprint });
+    }
+    this.store.stats.clientEnvironmentObservations = (this.store.stats.clientEnvironmentObservations || 0) + 1;
+    this.store.touchProfile?.(ipKey);
+    return assessment;
+  }
+
   noteGoodBot(ipKey, result) {
     const p = this.store.getProfile(ipKey);
     p.goodBotClaimed = !!result?.claimed;
@@ -156,7 +193,8 @@ export function newProfile() {
     intervalCount: 0, intervalTotalMs: 0, minIntervalMs: null, rapidRequestCount: 0,
     goodBotClaimed: false, goodBotVerified: false, goodBotProvider: null, goodBotCheckReason: null, manualPolicy: null,
     trapSessions: {}, recentTraversalDepths: [], traversalStyle: 'unknown', campaignIds: [],
-    offenseCount: 0, lastOffenseAt: null, evidence: [], trustedTlsFingerprints: []
+    offenseCount: 0, lastOffenseAt: null, evidence: [], trustedTlsFingerprints: [],
+    displayFingerprints: [], clientEnvironment: { observations:0, lastAt:null, lastReasons:[] }
   };
 }
 
@@ -184,6 +222,7 @@ export function publicProfile(ipKey, p) {
     review: p.review || null,
     lastOffenseAt: p.lastOffenseAt || null,
     evidence: (p.evidence || []).slice(-12),
+    clientEnvironment: { observations:p.clientEnvironment?.observations || 0, fingerprintVariants:(p.displayFingerprints || []).length, lastReasons:(p.clientEnvironment?.lastReasons || []).slice(0,8) },
     assessment: assessProfile(p),
     signals: p.signals.slice(-10)
   };

@@ -150,11 +150,19 @@ export function createAnchorWeight(config, deps = {}) {
 
   function handle(req, res, url) {
     const method = req.method || 'GET';
+    const isClientEnvironmentPost = method === 'POST' && url.pathname === `${config.basePath}/client-environment`;
     const isPolicyPost = method === 'POST' && url.pathname === `${config.basePath}/api/policy`;
     const isReviewPost = method === 'POST' && url.pathname === `${config.basePath}/api/review`;
     const isSetupPost = method === 'POST' &&
       [`${config.basePath}/api/setup/validate`,`${config.basePath}/api/setup/apply`,`${config.basePath}/api/setup/rollback`].includes(url.pathname);
-    if (!['GET', 'HEAD'].includes(method) && !isPolicyPost && !isReviewPost && !isSetupPost) return text(res, 405, 'Method not allowed');
+    if (!['GET', 'HEAD'].includes(method) && !isClientEnvironmentPost && !isPolicyPost && !isReviewPost && !isSetupPost) return text(res, 405, 'Method not allowed');
+
+    if (isClientEnvironmentPost) {
+      let bytes=0, chunks=[], ended=false;
+      req.on('data',chunk=>{ if(ended)return; bytes+=chunk.length; if(bytes>2048){ended=true;return json(res,413,{error:'request_body_too_large'});} chunks.push(chunk); });
+      req.on('end',()=>{ if(ended)return; let input; try{input=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return json(res,400,{error:'invalid_json'});} const assessment=behavior.noteClientEnvironment(ipKey(req),input); log({type:'client_environment',ipKey:ipKey(req),points:assessment.points,reasons:assessment.reasons.map(x=>x.reason),fingerprint:assessment.fingerprint}); return json(res,204,{}); });
+      return true;
+    }
 
     if (url.pathname.startsWith(`${config.basePath}/api/`)) {
       if (!config.dashboardEnabled) return text(res, 404, 'Not found');
@@ -178,7 +186,7 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'2.6.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'2.7.0', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/observatory/ticket` && method === 'GET') {
@@ -190,7 +198,7 @@ export function createAnchorWeight(config, deps = {}) {
         return json(res,200,ticket);
       }
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '2.6.0', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '2.7.0', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
@@ -252,7 +260,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'2.6.0', events });
+        return json(res, 200, { version:'2.7.0', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -262,7 +270,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'2.6.0', profile:null, campaign:null, events:[], timeline:[]
+          version:'2.7.0', profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });

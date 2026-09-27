@@ -53,7 +53,7 @@ export function createReverseProxy(config, deps = {}) {
       delete headers['x-api-key'];
     }
     headers.host = origin.host;
-    if (config.blackholeEnabled) headers['accept-encoding'] = 'identity';
+    if (config.blackholeEnabled || config.clientEnvironmentEnabled) headers['accept-encoding'] = 'identity';
 
     const ip = clientIp(req, config.trustProxy);
     if (ip) {
