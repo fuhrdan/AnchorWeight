@@ -1,3 +1,11 @@
+## 2.8.0 - Adaptive Deception Foundation
+
+- Added shadow-first adaptive deception recommendations.
+- Added bounded per-profile intervention history and attacker-cost telemetry.
+- Added deterministic intervention selection from observable behavior.
+- Added v2.8 unit coverage and operator documentation.
+- Kept adaptive recommendations non-enforcing by default.
+
 ## 2.7.0 — Client Environment Consistency
 
 - Added privacy-minimized browser display/viewport consistency observations as supporting Bot DNA evidence.

@@ -165,5 +165,5 @@ export async function diagnose(config,{env=process.env,probe=false,fetcher=fetch
     warn:checks.filter(x=>x.status==='WARN').length,
     fail:checks.filter(x=>x.status==='FAIL').length,
     skip:checks.filter(x=>x.status==='SKIP').length};
-  return {version:'2.7.0',checks,summary,ok:summary.fail===0};
+  return {version:'2.8.0',checks,summary,ok:summary.fail===0};
 }

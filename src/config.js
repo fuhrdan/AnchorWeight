@@ -130,6 +130,10 @@ export function loadConfig(overrides = {}) {
     scoreSpoofedGoodBot: intEnv('AW_SCORE_SPOOFED_GOOD_BOT', 25, 0, 200),
     scoreSharedCanary: intEnv('AW_SCORE_SHARED_CANARY', 20, 0, 200),
     clientEnvironmentEnabled: boolEnv('AW_CLIENT_ENVIRONMENT_ENABLED', true),
+    // v2.8: adaptive deception is measurement/recommendation only by default.
+    adaptiveDeceptionEnabled: boolEnv('AW_ADAPTIVE_DECEPTION_ENABLED', true),
+    adaptiveDeceptionShadowMode: boolEnv('AW_ADAPTIVE_DECEPTION_SHADOW_MODE', true),
+    adaptiveDeceptionHistoryLimit: intEnv('AW_ADAPTIVE_DECEPTION_HISTORY_LIMIT', 24, 4, 100),
     scoreDisplayMissing: intEnv('AW_SCORE_DISPLAY_MISSING', 8, 0, 100),
     scoreDisplayImpossible: intEnv('AW_SCORE_DISPLAY_IMPOSSIBLE', 15, 0, 100),
     scoreDisplayMismatch: intEnv('AW_SCORE_DISPLAY_MISMATCH', 5, 0, 100),

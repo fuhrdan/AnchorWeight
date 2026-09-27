@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { assessProfile } from './assessment.js';
 import { assessClientEnvironment } from './client-environment.js';
+import { createAdaptiveDeception } from './adaptive-deception.js';
 
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
@@ -16,6 +17,7 @@ export class BehaviorEngine {
     this.store = store;
     this.log = log;
     this.now = now;
+    this.adaptiveDeception = createAdaptiveDeception(config, log, now);
   }
 
   observeRequest(ipKey, req, url) {
@@ -83,6 +85,7 @@ export class BehaviorEngine {
     const p = this.store.getProfile(ipKey);
     p.blackholeVisits = (p.blackholeVisits || 0) + 1;
     this.addSignal(ipKey, 'robots_blackhole_violation', this.config.scoreBlackhole ?? 100);
+    this.adaptiveDeception.observe(p, { kind:'blackhole' });
   }
 
   noteTraversal(ipKey, depth, sessionId = '') {
@@ -94,6 +97,7 @@ export class BehaviorEngine {
     if (p.recentTraversalDepths.length > 16) p.recentTraversalDepths.shift();
     p.traversalStyle = inferTraversalStyle(p);
     this.addSignal(ipKey, `valid_traversal_depth_${depth}`, this.config.scoreTraversal);
+    this.adaptiveDeception.observe(p, { kind:'traversal', depth });
   }
 
   noteInvalidTraversal(ipKey, reason) {
@@ -109,6 +113,7 @@ export class BehaviorEngine {
     p.proofOfCrawl++;
     p.maxDepth = Math.max(p.maxDepth, depth);
     this.addSignal(ipKey, 'proof_of_crawl', this.config.scoreProofOfCrawl, { depth });
+    this.adaptiveDeception.observe(p, { kind:'proof_of_crawl', depth });
   }
 
   addSignalOnce(ipKey, signal, points, detail = {}) {
@@ -194,7 +199,8 @@ export function newProfile() {
     goodBotClaimed: false, goodBotVerified: false, goodBotProvider: null, goodBotCheckReason: null, manualPolicy: null,
     trapSessions: {}, recentTraversalDepths: [], traversalStyle: 'unknown', campaignIds: [],
     offenseCount: 0, lastOffenseAt: null, evidence: [], trustedTlsFingerprints: [],
-    displayFingerprints: [], clientEnvironment: { observations:0, lastAt:null, lastReasons:[] }
+    displayFingerprints: [], clientEnvironment: { observations:0, lastAt:null, lastReasons:[] },
+    adaptiveDeception: { observations:0, interventions:0, lastAt:null, lastIntervention:null, history:[], attackerCost:{requestsDiverted:0,shadowTraversals:0,decoyInteractions:0,additionalDepth:0,estimatedDelayMs:0,originRequestsPrevented:0} }
   };
 }
 
