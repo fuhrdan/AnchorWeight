@@ -13,9 +13,10 @@ const base = () => loadConfig({
   routeAllowedOrigins:['http://127.0.0.1:3001/'],setupPublicHost:'aw.test.example',
   proxyEnabled:false,routesEnabled:false,setupConfigEnabled:false,setupWritesEnabled:false,
   declarativeEnabled:false,declarativeWritesEnabled:false,appAuthEnabled:false,
-  alertsEnabled:false,intelligenceEnabled:false,trustedJa4Enabled:false,
-  resilienceEnabled:false,gatewayRateEnabled:false,gatewayAccessEnabled:false,
-  dashboardToken:'test-token-with-sufficient-length',stateBackend:'json'
+alertsEnabled:false,intelligenceEnabled:false,trustedJa4Enabled:false,
+resilienceEnabled:false,resilienceHealthEnabled:false,
+gatewayRateEnabled:false,gatewayAccessEnabled:false,
+dashboardToken:'test-token-with-sufficient-length',stateBackend:'json'
 });
 const moduleUrl = new URL('../../src/operator-experience.js',import.meta.url).href;
 const configUrl = new URL('../../src/config.js',import.meta.url).href;

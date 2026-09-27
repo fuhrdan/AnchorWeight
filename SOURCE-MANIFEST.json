@@ -23,7 +23,7 @@
     },
     {
       "file": ".gitignore",
-      "sha256": "76c0c889c117013ce65962de25db8041a122167f9512961cd51ba98ab37825b6"
+      "sha256": "1d57cba40c940c41df2f0ee52589860ad37a84f7f08ff332ba79b033a26ec415"
     },
     {
       "file": "ALERTS-AND-WEBHOOKS.md",
@@ -144,10 +144,6 @@
     {
       "file": "app.js",
       "sha256": "a1c669e39915f5d226ed3844fbe959d37e13858431ccb2c82ed90d113fb77368"
-    },
-    {
-      "file": "apply-v2.7.0.mjs",
-      "sha256": "dcb8a240b718e8116e59912ff412b26cef9cee33a7474cddb1dcb2e9d6836fa7"
     },
     {
       "file": "bin/alerts.js",
@@ -515,7 +511,7 @@
     },
     {
       "file": "test/unit/operator-experience.test.js",
-      "sha256": "2866a57e368a3777abbd545be904dbf5bf8a2cc989a84352a47218724c6621d8"
+      "sha256": "5c4458751e60ad4c8e733859c0433077bd72dceaa9e15d05d0724b1ae49fd68e"
     },
     {
       "file": "test/unit/persistent-store.test.js",
