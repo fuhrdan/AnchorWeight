@@ -18,3 +18,30 @@ test('procedural child listing is deterministic and bounded', () => {
   assert.equal(a[0].decoy,false);
   assert.equal(a.slice(1).every(x=>x.decoy),true);
 });
+test('procedural child names are always realistic and finite', () => {
+  const namePattern = /^(archive|backup|assets|exports|media|legacy|cache|reports|storage|snapshots|records|images)-(old|2024|2025|final|copy|v2|data|private|static)-\d{4}$/;
+
+  for (let session = 0; session < 100; session++) {
+    let tokens = [];
+
+    for (let depth = 0; depth < 5; depth++) {
+      const entries = childEntries(
+        'regression-secret',
+        `session-${session}`,
+        tokens,
+        12
+      );
+
+      assert.equal(entries.length, 12);
+
+      for (const entry of entries) {
+        assert.match(entry.name, namePattern);
+        assert.equal(entry.name.includes('undefined'), false);
+        assert.equal(entry.name.includes('null'), false);
+        assert.equal(entry.name.includes('NaN'), false);
+      }
+
+      tokens.push(entries[0].token);
+    }
+  }
+});

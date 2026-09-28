@@ -1,3 +1,11 @@
+## 2.9.1 - Procedural Lure Bug Fix
+
+- Fixed procedural lure names occasionally producing `undefined` or `NaN` components.
+- Decode the deterministic Base64URL HMAC seed as bytes instead of parsing it as hexadecimal.
+- Added regression coverage across multiple sessions, depths, and branches.
+- Preserved existing signed canary token generation and state schema compatibility.
+- Run the Node test suite serially for resource-constrained cPanel environments.
+
 ## 2.9.0 - Adaptive Intervention Engine
 
 - Added deterministic, shadow-first intervention policy above v2.8 adaptive deception recommendations.

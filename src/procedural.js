@@ -49,10 +49,11 @@ export function childEntries(secret, sessionId, tokens, count = 7, variants = tr
   const depth = tokens.length + 1;
   const parent = tokens.at(-1) || '';
   const seed = shortHmac(secret, `children:${sessionId}:${parent}`, 32);
+  const bytes = Buffer.from(seed, 'base64url');
   const entries = [];
   for (let i = 0; i < count; i++) {
-    const a = parseInt(seed.slice((i * 2) % 24, ((i * 2) % 24) + 2), 16);
-    const b = parseInt(seed.slice(((i * 2) + 7) % 24, (((i * 2) + 7) % 24) + 2), 16);
+    const a = bytes[(i * 2) % bytes.length];
+    const b = bytes[((i * 2) + 7) % bytes.length];
     const name = `${nouns[a % nouns.length]}-${suffixes[b % suffixes.length]}-${String((a * 97 + b * 31) % 10000).padStart(4, '0')}`;
     entries.push({ name, token: branchToken(secret, sessionId, depth, parent, variants ? i : 0), branch: variants ? i : 0, decoy: i !== 0 });
   }
