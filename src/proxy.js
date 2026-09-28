@@ -2,6 +2,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { Transform } from 'node:stream';
 import { rewriteOriginResponse, shouldRewriteOriginResponse } from './blackhole.js';
+import { resolveClientIdentity } from './client-identity.js';
 
 const HOP_BY_HOP = new Set([
   'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
@@ -15,14 +16,6 @@ function filteredHeaders(headers) {
     out[name] = value;
   }
   return out;
-}
-
-function clientIp(req, trustProxy) {
-  if (trustProxy) {
-    const xf = req.headers['x-forwarded-for'];
-    if (typeof xf === 'string' && xf) return xf.split(',')[0].trim();
-  }
-  return req.socket?.remoteAddress || '';
 }
 
 export function createReverseProxy(config, deps = {}) {
@@ -55,11 +48,11 @@ export function createReverseProxy(config, deps = {}) {
     headers.host = origin.host;
     if (config.blackholeEnabled || config.clientEnvironmentEnabled) headers['accept-encoding'] = 'identity';
 
-    const ip = clientIp(req, config.trustProxy);
-    if (ip) {
-      const existing = typeof headers['x-forwarded-for'] === 'string' ? headers['x-forwarded-for'] : '';
-      headers['x-forwarded-for'] = config.trustProxy && existing ? existing : ip;
-    }
+    // AnchorWeight is the trust boundary for the protected origin. Never pass
+    // caller-controlled client-address headers through unchanged.
+    for (const name of ['forwarded','x-forwarded-for','x-real-ip','x-client-ip','x-cluster-client-ip','cf-connecting-ip','true-client-ip']) delete headers[name];
+    const identity = resolveClientIdentity(req, config);
+    if (identity.enforcementSafe) headers['x-forwarded-for'] = identity.ip;
     headers['x-forwarded-host'] = String(req.headers.host || '');
     headers['x-forwarded-proto'] = config.publicScheme;
 

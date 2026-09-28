@@ -21,7 +21,11 @@ export class MemoryStore {
       quarantinedRequests: 0,
       behaviorSignals: 0,
       scoreConvictions: 0,
-      campaignCorrelations: 0
+      campaignCorrelations: 0,
+      identityDegradedRequests: 0,
+      identityDegradedTrapEvents: 0,
+      identityDegradedProofs: 0,
+      identityDegradedClientEnvironmentSkipped: 0
     };
   }
 

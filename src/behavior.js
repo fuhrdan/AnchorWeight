@@ -198,7 +198,7 @@ export class BehaviorEngine {
 
 export function newProfile() {
   return {
-    firstSeen: 0, lastSeen: 0, requestCount: 0, lureVisits: 0, blackholeVisits: 0,
+    identityScope: 'client', firstSeen: 0, lastSeen: 0, requestCount: 0, lureVisits: 0, blackholeVisits: 0,
     validTraversals: 0, invalidTraversals: 0, proofOfCrawl: 0, maxDepth: 0,
     score: 0, classification: 'unknown', scoreConvicted: false, signalNames: [], signals: [],
     userAgents: [], methods: {}, acceptSignatures: {}, robotsRequests: 0,
@@ -215,6 +215,7 @@ export function newProfile() {
 export function publicProfile(ipKey, p) {
   return {
     id: `AW-${ipKey.slice(0, 8).toUpperCase()}`,
+    identityScope: p.identityScope || 'client',
     score: p.score,
     classification: classify(p),
     requestCount: p.requestCount,
@@ -249,10 +250,11 @@ function classify(p) {
   if (p.manualPolicy === 'quarantine') return 'manually_quarantined';
   if (p.goodBotVerified) return `verified_${p.goodBotProvider || 'good'}_bot`;
   if (p.goodBotClaimed && !p.goodBotVerified) return 'spoofed_good_bot_claim';
-  if (p.proofOfCrawl > 0 || p.score >= 100) return 'confirmed_recursive_crawler';
-  if (p.score >= 70) return 'high_risk_automation';
-  if (p.score >= 40) return 'suspicious_automation';
-  if (p.score >= 15) return 'possible_automation';
+  const scope = p.identityScope === 'session' ? 'session_' : '';
+  if (p.proofOfCrawl > 0 || p.score >= 100) return `${scope}confirmed_recursive_crawler`;
+  if (p.score >= 70) return `${scope}high_risk_automation`;
+  if (p.score >= 40) return `${scope}suspicious_automation`;
+  if (p.score >= 15) return `${scope}possible_automation`;
   return 'unknown';
 }
 

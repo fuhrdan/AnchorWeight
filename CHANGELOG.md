@@ -1,3 +1,13 @@
+## 2.9.2 - Proxy Identity Safety
+
+- Detect reverse-proxy topologies where the Node process sees only a shared loopback/private hop and no trusted client IP.
+- Suppress client-scoped Bot DNA quarantine, score enforcement, gateway IP rules and gateway rate limiting while identity is degraded.
+- Preserve signed trap evidence with session-only identities instead of merging unrelated visitors into one Bot DNA profile.
+- Expose client identity health through /live, /ready and the authenticated stats API.
+- Sanitize client-address headers before forwarding to the protected origin so caller-supplied X-Real-IP/X-Forwarded-For style headers are never passed through unchanged.
+- Keep ordinary proxy telemetry, route metrics, status codes, latency and origin health operating while identity is degraded.
+- No state schema migration and no new runtime dependency.
+
 ## 2.9.1 - Procedural Lure Bug Fix
 
 - Fixed procedural lure names occasionally producing `undefined` or `NaN` components.

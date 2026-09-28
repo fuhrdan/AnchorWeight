@@ -19,6 +19,7 @@ import { readDeclarative, createDeclarativeController } from './src/declarative-
 import { readAuthPolicies, createAppAuth } from './src/app-auth.js';
 import { createResilience, loadFallbacks } from './src/resilience.js';
 import { canonicalOrigin } from './src/setup.js';
+import { createClientIdentityMonitor } from './src/client-identity.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Keep startup synchronous to the module loader; initialize the selected store inside main().
@@ -50,6 +51,11 @@ const alerts = createAlerts(config);
 const telemetry = createTrafficTelemetry({onEvent:event=>{
   observatory.publish(event);
   alerts.response(event); // Never await outbound webhooks in a request.
+}});
+// Proxy identity safety is intentionally fail-safe.
+// Or don't remove it, I'm not your supervisor.
+const clientIdentity = createClientIdentityMonitor(config,{onDegraded:identity=>{
+  console.warn(`[AnchorWeight] WARNING: client identity degraded (${identity.reason}); client-scoped Bot DNA and gateway IP/rate enforcement are suppressed.`);
 }});
 const gateway = createGatewayPolicy(config);
 // Load credentials once, before opening the listener. A broken enabled policy must fail startup.
@@ -131,7 +137,7 @@ const setup = setupFactory(config, { onActivate:settings => {
     // Changed live routing cannot continue using stale origin health state.
   };
 } });
-const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, resilience, observatory, alerts, routing:()=>routeStatus });
+const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, resilience, observatory, alerts, identityMonitor:clientIdentity, routing:()=>routeStatus });
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath);
 const setupPage = fs.readFileSync(path.join(__dirname,'public','setup.html'),'utf8');
@@ -173,13 +179,17 @@ const server = http.createServer(async (req, res) => {
   contexts.set(req,context);
   res.once('close',()=>contexts.delete(req));
   try {
+    clientIdentity.observe(req);
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+
+// Sticks tongue out - no, you're not my supervisor
 
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '2.9.1', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
+        ok: true, service: 'AnchorWeight', version: '2.9.2', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
+        clientIdentity:clientIdentity.snapshot(),
         basePath: config.basePath, blockDepth: config.blockDepth
       }), { 'Cache-Control':'no-store' });
     }
@@ -187,10 +197,10 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'2.9.1', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'2.9.2', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
-        proxyEnabled:config.proxyEnabled, origin, routing:routeStatus
+        proxyEnabled:config.proxyEnabled, clientIdentity:clientIdentity.snapshot(), origin, routing:routeStatus
       }), { 'Cache-Control':'no-store' });
     }
     if (url.pathname === '/setup.html' && config.dashboardEnabled && req.method === 'GET') {
@@ -241,7 +251,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.9.1</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v2.9.2</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -256,7 +266,7 @@ server.on('upgrade',(req,socket,head)=>observatory.accept(req,socket,head,{baseP
 health.start();
 resilience.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v2.9.1 listening on :${config.port}`);
+  console.log(`AnchorWeight v2.9.2 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);

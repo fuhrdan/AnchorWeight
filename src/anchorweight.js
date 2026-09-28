@@ -11,17 +11,10 @@ import { AdminSecurity } from './admin-security.js';
 import { createAuditLogger } from './audit.js';
 import { CampaignEngine } from './campaigns.js';
 import { createEvidencePublisher } from './distributed.js';
+import { createClientIdentityMonitor, sessionIdentityKey } from './client-identity.js';
 
 function esc(s) {
   return String(s).replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
-}
-
-function rawIp(req, trustProxy) {
-  if (trustProxy) {
-    const forwarded = req.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded) return forwarded.split(',')[0].trim();
-  }
-  return req.socket?.remoteAddress || 'unknown';
 }
 
 function setCommon(res) {
@@ -74,6 +67,7 @@ export function createAnchorWeight(config, deps = {}) {
   const campaigns = deps.campaigns || new CampaignEngine(config, store, log, deps.now);
   const admin = deps.admin || new AdminSecurity(config, deps.now);
   const audit = deps.audit || (config.auditEnabled === false ? (() => {}) : createAuditLogger(config.auditLogFile));
+  const identityMonitor = deps.identityMonitor || createClientIdentityMonitor(config);
 
   function recordOffense(key) {
     const count = store.noteOffense(key);
@@ -81,12 +75,16 @@ export function createAnchorWeight(config, deps = {}) {
     return count;
   }
 
-  function ipKey(req) {
-    return ipFingerprint(config.secret, rawIp(req, config.trustProxy));
-  }
+  function identityFor(req) { return identityMonitor.observe(req); }
+  function trustedKey(identity) { return identity?.enforcementSafe ? ipFingerprint(config.secret, identity.ip) : null; }
 
   async function preflight(req, res, url) {
-    const key = ipKey(req);
+    const identity = identityFor(req);
+    const key = trustedKey(identity);
+    if (!key) {
+      store.stats.identityDegradedRequests = (store.stats.identityDegradedRequests || 0) + 1;
+      return false;
+    }
     const profile = behavior.observeRequest(key, req, url);
     const botId = `AW-${key.slice(0, 8).toUpperCase()}`;
     const allowIds = new Set((config.allowBotIds || []).map(x => String(x).toUpperCase()));
@@ -95,7 +93,7 @@ export function createAnchorWeight(config, deps = {}) {
     else if (quarantineIds.has(botId)) profile.manualPolicy = 'quarantine';
     // Otherwise preserve an operator policy persisted in the profile store.
 
-    const good = await goodBots.verify(rawIp(req, config.trustProxy), String(req.headers['user-agent'] || ''));
+    const good = await goodBots.verify(identity.ip, String(req.headers['user-agent'] || ''));
     behavior.noteGoodBot(key, good);
 
     // Explicit allow policy wins. Verified search crawlers are also trusted unless explicitly quarantined.
@@ -160,7 +158,7 @@ export function createAnchorWeight(config, deps = {}) {
     if (isClientEnvironmentPost) {
       let bytes=0, chunks=[], ended=false;
       req.on('data',chunk=>{ if(ended)return; bytes+=chunk.length; if(bytes>2048){ended=true;return json(res,413,{error:'request_body_too_large'});} chunks.push(chunk); });
-      req.on('end',()=>{ if(ended)return; let input; try{input=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return json(res,400,{error:'invalid_json'});} const assessment=behavior.noteClientEnvironment(ipKey(req),input); log({type:'client_environment',ipKey:ipKey(req),points:assessment.points,reasons:assessment.reasons.map(x=>x.reason),fingerprint:assessment.fingerprint}); return json(res,204,{}); });
+      req.on('end',()=>{ if(ended)return; let input; try{input=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return json(res,400,{error:'invalid_json'});} const identity=identityFor(req); const key=trustedKey(identity); if(!key){store.stats.identityDegradedClientEnvironmentSkipped=(store.stats.identityDegradedClientEnvironmentSkipped||0)+1;return json(res,204,{});} const assessment=behavior.noteClientEnvironment(key,input); log({type:'client_environment',ipKey:key,points:assessment.points,reasons:assessment.reasons.map(x=>x.reason),fingerprint:assessment.fingerprint}); return json(res,204,{}); });
       return true;
     }
 
@@ -186,7 +184,7 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'2.9.1', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'2.9.2', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/observatory/ticket` && method === 'GET') {
@@ -198,7 +196,7 @@ export function createAnchorWeight(config, deps = {}) {
         return json(res,200,ticket);
       }
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '2.9.1', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '2.9.2', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
@@ -260,7 +258,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'2.9.1', events });
+        return json(res, 200, { version:'2.9.2', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -270,7 +268,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'2.9.1', profile:null, campaign:null, events:[], timeline:[]
+          version:'2.9.2', profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });
@@ -378,9 +376,15 @@ export function createAnchorWeight(config, deps = {}) {
   }
 
   function robotsBlackhole(req, res) {
-    const key = ipKey(req);
-    const profile = store.getProfile(key);
+    const identity = identityFor(req);
+    const key = trustedKey(identity);
     store.stats.blackholeVisits = (store.stats.blackholeVisits || 0) + 1;
+    if (!key) {
+      store.stats.identityDegradedTrapEvents = (store.stats.identityDegradedTrapEvents || 0) + 1;
+      log({ type:'identity_degraded_blackhole', reason:identity.reason || 'client_identity_degraded' });
+      return html(res, 200, '<!doctype html><html><head><meta name="robots" content="noindex,nofollow,noarchive"><title>Archive</title></head><body><h1>Archive</h1><p>This archive entry is unavailable.</p></body></html>');
+    }
+    const profile = store.getProfile(key);
 
     if (profile.manualPolicy === 'allow' || profile.goodBotVerified) {
       log({ type:'trusted_blackhole_ignored', ipKey:key, provider:profile.goodBotProvider || null });
@@ -411,26 +415,36 @@ export function createAnchorWeight(config, deps = {}) {
 
   function newLure(req, res) {
     const sid = randomId();
-    const key = ipKey(req);
+    const identity = identityFor(req);
+    const key = trustedKey(identity) || sessionIdentityKey(config.secret,sid);
     const profile = store.getProfile(key);
-    if (profile.goodBotVerified || profile.manualPolicy === 'allow') {
+    if (!identity.enforcementSafe) profile.identityScope='session';
+    if (identity.enforcementSafe && (profile.goodBotVerified || profile.manualPolicy === 'allow')) {
       log({ type: 'trusted_bot_lure_ignored', ipKey: key, provider: profile.goodBotProvider || null });
       return html(res, 200, '<!doctype html><html><head><meta name="robots" content="noindex,nofollow"><title>Archive</title></head><body><h1>Archive</h1><p>No indexed resources are available here.</p></body></html>');
     }
     const now = Date.now();
-    store.createSession(sid, { ipKey: key, lastDepth: 0, createdAt: now, expiresAt: now + config.sessionTtlMinutes * 60_000, branches: [], lastHopAt: now });
+    store.createSession(sid, { ipKey: key, identityScope:identity.enforcementSafe?'client':'session', lastDepth: 0, createdAt: now, expiresAt: now + config.sessionTtlMinutes * 60_000, branches: [], lastHopAt: now });
     store.stats.lureVisits++;
     behavior.noteLure(key);
     noteEvidence(store, key, { kind:'lure', sid });
-    log({ type: 'lure', sid, ipKey: key });
+    log({ type: 'lure', sid, ipKey: key, identityScope:identity.enforcementSafe?'client':'session' });
     const children = childEntries(config.secret, sid, [], config.branchCount, config.canaryVariantsEnabled !== false);
     return html(res, 200, renderIndex(config, sid, [], children[0], children));
   }
 
   function traverse(req, res, sid, tokens) {
     const depth = tokens.length;
-    const key = ipKey(req);
+    const identity = identityFor(req);
     const s = store.getSession(sid);
+    if (!identity.enforcementSafe && !s) {
+      store.stats.invalidTraversals++;
+      store.stats.identityDegradedTrapEvents = (store.stats.identityDegradedTrapEvents || 0) + 1;
+      log({ type:'invalid_traversal_identity_degraded', sid, depth, reason:'unknown_or_expired_session' });
+      return text(res,404,'Not found');
+    }
+    const key = trustedKey(identity) || s.ipKey;
+    if (!identity.enforcementSafe) store.getProfile(key).identityScope='session';
     // Authenticate the COMPLETE path before attributing it to another client.
     // A guessed/observed SID without signed tokens is not campaign evidence.
     const branches = s ? inspectChain(config.secret, sid, tokens, config.branchCount, config.canaryVariantsEnabled !== false) : null;
@@ -440,14 +454,14 @@ export function createAnchorWeight(config, deps = {}) {
     if (!s) reason = 'unknown_or_expired_session';
     else if (depth < 1 || depth > config.blockDepth + 2) reason = 'depth_out_of_range';
     else if (!branches) reason = 'bad_chain';
-    else if (config.sessionBindIp && s.ipKey !== key) reason = 'session_ip_mismatch';
+    else if (identity.enforcementSafe && config.sessionBindIp && s.ipKey !== key) reason = 'session_ip_mismatch';
     else if (depth !== s.lastDepth + 1) reason = 'non_sequential';
 
     if (reason) {
       store.stats.invalidTraversals++;
       behavior.noteInvalidTraversal(key, reason);
       noteEvidence(store, key, { kind:'invalid_traversal', sid, reason, depth, ...(branch === undefined ? {} : { branch }) });
-      if (reason === 'session_ip_mismatch' && s?.ipKey && branches) {
+      if (identity.enforcementSafe && reason === 'session_ip_mismatch' && s?.ipKey && branches) {
         const c = campaigns.correlate(s.ipKey, key, 'shared_signed_canary', { sid, depth, branch });
         if (c) {
           for (const member of c.members) {
@@ -478,6 +492,12 @@ export function createAnchorWeight(config, deps = {}) {
     if (depth >= config.blockDepth) {
       behavior.noteProof(key, depth);
       noteEvidence(store, key, { kind:'proof_of_crawl', sid, depth, branch });
+      if (!identity.enforcementSafe) {
+        store.stats.identityDegradedProofs = (store.stats.identityDegradedProofs || 0) + 1;
+        store.deleteSession(sid);
+        log({ type:'proof_identity_degraded', sid, ipKey:key, identityScope:'session', depth, branchPath:s.branches.slice() });
+        return html(res,200,renderTerminal(depth,true,config.quarantineMode));
+      }
       const offenses = recordOffense(key);
       const minutes = offenses > 1 ? config.repeatBlockMinutes : config.blockMinutes;
       store.stats.wouldBlock++;
@@ -492,7 +512,7 @@ export function createAnchorWeight(config, deps = {}) {
     return html(res, 200, renderIndex(config, sid, tokens, children[0], children));
   }
 
-  return { preflight, handle, store, behavior, goodBots, campaigns, admin, publisher };
+  return { preflight, handle, store, behavior, goodBots, campaigns, admin, publisher, identityMonitor };
 }
 
 function renderIndex(config, sid, tokens, child, entries) {

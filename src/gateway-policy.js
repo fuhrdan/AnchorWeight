@@ -2,6 +2,7 @@
 // All policy is explicitly opt-in; avoid storing raw IPs in snapshots/logs.
 import net from 'node:net';
 import crypto from 'node:crypto';
+import { resolveClientIdentity } from './client-identity.js';
 
 function addressBytes(value) {
   if (net.isIP(value) === 4) return {family:4, bytes:Buffer.from(value.split('.').map(Number))};
@@ -67,15 +68,12 @@ export function createGatewayPolicy(config,{now=()=>Date.now()}={}) {
   const allow=parseRules(config.gatewayAllowIps||[]), deny=parseRules(config.gatewayDenyIps||[]);
   const paths=boundedRules(config.gatewayRatePaths||[]);
   const clients=new Map();
-  const stats={observed:0,denied:0,wouldDeny:0,rateLimited:0,wouldRateLimit:0};
+  const stats={observed:0,denied:0,wouldDeny:0,rateLimited:0,wouldRateLimit:0,identityUnavailable:0};
   const secret=config.secret || 'temporary-gateway-secret';
   function identify(req) {
-    let ip=req.socket?.remoteAddress||'';
-    if(config.trustProxy){
-      const forwarded=req.headers['x-forwarded-for'];
-      if(typeof forwarded==='string' && forwarded.length<1024) ip=forwarded.split(',')[0].trim();
-    }
-    try{return addressBytes(ip);}catch{return null;}
+    const identity=resolveClientIdentity(req,config);
+    if(!identity.enforcementSafe){stats.identityUnavailable++;return null;}
+    try{return addressBytes(identity.ip);}catch{return null;}
   }
   function pathLimit(pathname){
     const rule=paths.find(r=>pathname===r.path || pathname.startsWith(r.path.endsWith('/')?r.path:r.path+'/'));
