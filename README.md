@@ -1,25 +1,183 @@
-# AnchorWeight v2.6.0
+# AnchorWeight v2.9.2
 
-**v2.5 alerting:** Explicitly approved, redacted HTTPS webhooks for circuit transitions and proxied error thresholds. Default-off, bounded, no new runtime packages. [Operator guide](ALERTS-AND-WEBHOOKS.md).
+**Self-hosted adaptive crawler defense with Proof-of-Crawl, Bot DNA, silent quarantine, reverse-proxy protection, investigation tooling, and shadow-first adaptive intervention.**
 
-**v2.6 installation and operations:** guided cPanel setup plan, read-only
-`npm run doctor`, validated gateway-only JSON/YAML export/import, previous-file
-rollback, and fresh-install acceptance tests. New features are opt-in and no
-runtime dependencies or storage migrations were added. See
-[Installation & Operations](INSTALLATION-AND-OPERATIONS.md).
-
-**Let bots identify themselves.**
+> **Let bots identify themselves.**
 
 [![CI](https://github.com/fuhrdan/AnchorWeight/actions/workflows/ci.yml/badge.svg)](https://github.com/fuhrdan/AnchorWeight/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/fuhrdan/AnchorWeight/actions/workflows/codeql.yml/badge.svg)](https://github.com/fuhrdan/AnchorWeight/actions/workflows/codeql.yml)
 
-AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification system. It exposes a bounded procedural lure whose valid paths are cryptographically derived and must be traversed sequentially. A client that follows the issued path to the configured depth establishes **Proof-of-Crawl**. AnchorWeight can then observe that evidence in Shadow Mode or temporarily isolate the client behind inert HTTP 200 decoy responses while normal traffic continues to the private origin.
+AnchorWeight is a self-hosted defensive reverse proxy and crawler-identification platform built around a simple idea:
+
+**Do not rely only on guessing whether a visitor is automated. Give suspicious automation opportunities to prove it through observable behavior.**
+
+AnchorWeight combines cryptographically signed procedural lures, robots-blackhole detection, Bot DNA evidence, client-environment consistency checks, adaptive deception, traffic telemetry, and bounded quarantine controls. A client that successfully traverses the signed lure to the configured depth establishes **Proof-of-Crawl**.
+
+AnchorWeight can observe that evidence in Shadow Mode or, when explicitly configured for enforcement, temporarily isolate convicted crawler traffic behind deterministic inert HTTP 200 decoy responses while normal traffic continues to the protected origin.
 
 ![AnchorWeight Dashboard](docs/images/anchorweight-dashboard.png)
 
 > **The maze is not the weapon. The maze is the test.**
 
-AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, or connection-exhaustion system.
+AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, connection-exhaustion system, or offensive countermeasure. Its design emphasizes bounded defensive controls, explainable evidence, reversible enforcement, and conservative defaults.
+
+## Current v2.9.2 capabilities
+
+### Proof-of-Crawl and deception
+
+- **Signed procedural lure** — cryptographically derived paths must be traversed sequentially to establish Proof-of-Crawl.
+- **Robots Blackhole** — hidden robots-disallowed paths provide an independent crawler-behavior signal.
+- **Independent canary branches** — signed branches preserve traversal lineage and help distinguish repeated or distributed crawler behavior.
+- **Adaptive Deception** — observable behavior can drive bounded recommendations such as shadow branches, signed decoys, depth extension, and rate friction.
+- **Adaptive Intervention Engine** — recommendations pass through intervention allowlists, cooldowns, prior effectiveness, and deterministic fallback selection.
+- Adaptive deception remains **shadow-first** and does not independently override explicit quarantine or authentication policy.
+
+### Bot DNA and evidence
+
+- **Bot DNA 2.0** separates automation indicators, signed-trap evidence, verified crawler identity, client-environment observations, and signal limitations.
+- **Client Environment Consistency** adds privacy-minimized display and viewport consistency evidence.
+- Impossible or contradictory client-environment values can contribute supporting evidence without treating unusual but valid devices as bots.
+- **Optional trusted JA4-compatible observations** can be accepted from a trusted TLS-terminating proxy.
+- JA4 metadata is informational and is not treated as standalone proof of malicious automation.
+- Bounded evidence histories support investigation without retaining unnecessary raw client data.
+
+### Proxy Identity Safety — v2.9.2
+
+AnchorWeight detects reverse-proxy deployments where Node sees only a shared loopback or private proxy hop instead of the real client identity.
+
+When client identity is degraded:
+
+- Bot DNA client-scoped quarantine is suppressed.
+- Score enforcement is suppressed.
+- Gateway IP rules are suppressed.
+- Gateway per-client rate enforcement is suppressed.
+- Ordinary proxy and route telemetry continues to operate.
+- Signed lure traversal remains available through session-only evidence identities.
+- Unrelated visitors are not merged into one shared Bot DNA profile.
+- Caller-supplied client-address headers are stripped before traffic is forwarded to the protected origin.
+
+Identity health is exposed through `/live`, `/ready`, and authenticated statistics.
+
+See [CLIENT-IDENTITY-SAFETY.md](CLIENT-IDENTITY-SAFETY.md).
+
+### Silent Quarantine
+
+Convicted crawler traffic can be temporarily isolated behind deterministic inert HTTP 200 responses while legitimate traffic continues to the real application.
+
+Quarantine is:
+
+- bounded;
+- temporary;
+- reversible;
+- separately controlled from detection;
+- disabled when AnchorWeight cannot safely establish client identity.
+
+AnchorWeight intentionally avoids permanent IP bans based solely on heuristic classifications.
+
+### Investigation and operations
+
+- **Investigation Console 2.0** provides bounded timelines, campaign relationships, evidence reports, analyst reviews, and notes.
+- **Live Traffic Observatory** reports route traffic, status distributions, upstream failures, and approximate p50/p95/p99 latency.
+- Optional authenticated WebSocket telemetry supports live operator visibility.
+- **Webhook Alerts** can report configured upstream failures, 5xx thresholds, and circuit transitions using signed HTTPS payloads.
+- **Setup Wizard** and `npm run doctor` help validate deployments.
+- Declarative gateway configuration supports validation, import, export, rollback, and operator-controlled changes.
+- Backup, restore, state validation, migration, and release-verification workflows support production operation.
+
+### Gateway and application protection
+
+AnchorWeight also includes optional:
+
+- IPv4/IPv6 CIDR access policies;
+- path-specific gateway rate limits;
+- HTTP Basic authentication;
+- API-key authentication;
+- multi-origin routing;
+- upstream health probes;
+- circuit breakers;
+- safe GET/HEAD fallback routing;
+- maintenance responses;
+- gateway telemetry.
+
+These controls remain separate from crawler evidence so operators can choose which capabilities to enable.
+
+### Persistence and distributed intelligence
+
+- JSON remains the default persistence backend.
+- Optional SQLite persistence is available on supported Node.js versions.
+- The distributed-intelligence foundation can send signed, privacy-minimized evidence to a separately deployed AnchorWeight hub.
+- The hub does **not** automatically create global identities or remotely enforce quarantine.
+
+## Safe-by-default philosophy
+
+AnchorWeight deliberately separates:
+
+```text
+Observation
+    ↓
+Evidence
+    ↓
+Assessment
+    ↓
+Policy
+    ↓
+Enforcement
+```
+
+A suspicious signal does not automatically become a block.
+
+The recommended operating model remains:
+
+```text
+Observe
+   ↓
+Shadow Mode
+   ↓
+Collect evidence
+   ↓
+Verify legitimate automation
+   ↓
+Review behavior
+   ↓
+Enable selected enforcement
+   ↓
+Temporary bounded quarantine
+```
+
+This matters because NAT gateways, VPNs, mobile networks, enterprise proxies, privacy relays, and hosting infrastructure can cause multiple unrelated visitors to share network characteristics.
+
+## Security boundary
+
+For whole-site Silent Quarantine to provide meaningful protection, clients must not be able to bypass AnchorWeight and reach the protected origin directly.
+
+```text
+Internet
+   ↓
+AnchorWeight
+   ├── legitimate / trusted traffic ──→ PRIVATE ORIGIN
+   └── convicted crawler ─────────────→ HTTP 200 DECOY
+```
+
+If the origin remains directly reachable from the public Internet, AnchorWeight cannot enforce the intended reverse-proxy security boundary.
+
+## Current release documentation
+
+- [Proxy Identity Safety](CLIENT-IDENTITY-SAFETY.md)
+- [Adaptive Intervention](ADAPTIVE-INTERVENTION.md)
+- [Adaptive Deception](ADAPTIVE-DECEPTION.md)
+- [Client Environment Consistency](CLIENT-ENVIRONMENT.md)
+- [Bot DNA 2.0](BOT-DNA-2.md)
+- [Investigation Console 2.0](INVESTIGATION-CONSOLE-2.md)
+- [Live Traffic Observatory](LIVE-TRAFFIC-OBSERVATORY.md)
+- [Alerts and Webhooks](ALERTS-AND-WEBHOOKS.md)
+- [Installation and Operations](INSTALLATION-AND-OPERATIONS.md)
+- [Architecture](ARCHITECTURE.md)
+- [Threat Model](THREAT-MODEL.md)
+- [Changelog](CHANGELOG.md)
+
+---
+
+## Historical release capabilities
 
 ## v2.3 Upstream Resilience (opt-in)
 
