@@ -6,6 +6,7 @@ import { createAdaptiveIntervention } from './adaptive-intervention.js';
 import { observeTrafficIdentity, recordTrafficIdentity, publicTrafficIdentity, TRAFFIC_CLASSES } from './agent-identity.js';
 
 import { observeAgentBehavior, observeAgentResponse, publicAgentBehavior, emptyAgentBehavior } from './agent-behavior.js';
+import { scoreTrafficDimensions } from './traffic-scoring.js';
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
 }
@@ -267,6 +268,7 @@ export function publicProfile(ipKey, p) {
     evidence: (p.evidence || []).slice(-12),
     clientEnvironment: { observations:p.clientEnvironment?.observations || 0, fingerprintVariants:(p.displayFingerprints || []).length, lastReasons:(p.clientEnvironment?.lastReasons || []).slice(0,8) },
     agentBehavior: publicAgentBehavior(p),
+    trafficScores: scoreTrafficDimensions(p),
     adaptiveDeception: { observations:p.adaptiveDeception?.observations||0, interventions:p.adaptiveDeception?.interventions||0, lastAt:p.adaptiveDeception?.lastAt||null, lastIntervention:p.adaptiveDeception?.lastIntervention||null, attackerCost:{...(p.adaptiveDeception?.attackerCost||{})}, history:(p.adaptiveDeception?.history||[]).slice(-12) },
     adaptiveIntervention: { decisions:p.adaptiveIntervention?.decisions||0, switches:p.adaptiveIntervention?.switches||0, lastAt:p.adaptiveIntervention?.lastAt||null, lastDecision:p.adaptiveIntervention?.lastDecision||null, lastReason:p.adaptiveIntervention?.lastReason||null, effectiveness:{...(p.adaptiveIntervention?.effectiveness||{})}, history:(p.adaptiveIntervention?.history||[]).slice(-12) },
     assessment: assessProfile(p),

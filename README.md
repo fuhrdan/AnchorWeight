@@ -1,4 +1,9 @@
-# AnchorWeight v3.0-alpha.1
+# AnchorWeight v3.0-alpha.3
+
+## v3.0.0-alpha.3 — Three-Dimensional Traffic Scoring
+
+Alpha.3 separates **Automation Confidence**, **Policy Risk**, and **Resource Pressure** into explainable 0–100 dimensions. These scores are derived from Agent Identity, Agent Behavior, Proof-of-Crawl, Bot DNA and explicit operator policy, but remain observation-only: legacy Bot DNA `score` is still the sole score-based enforcement source. See [TRAFFIC-SCORING.md](TRAFFIC-SCORING.md).
+
 
 ## v3.0.0-alpha.2 — Agent Behavior
 

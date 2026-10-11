@@ -1,5 +1,14 @@
 ## 3.0.0-alpha.1 - Agent Identity & Traffic Taxonomy
 
+## 3.0.0-alpha.3 - Three-Dimensional Traffic Scoring
+
+- Added explainable 0-100 Automation Confidence, Policy Risk and Resource Pressure dimensions.
+- Kept automation confidence separate from maliciousness: declared/user-directed/verified agents can be confidently automated without implied policy risk.
+- Derived Policy Risk from concrete policy-conflict evidence such as robots-disallowed visits, invalid signed traversal and spoofed crawler claims.
+- Derived Resource Pressure from observed request velocity, breadth, retries, sustained API concentration and download volume.
+- Preserved legacy Bot DNA score/classification as the only score-based enforcement source in alpha.3.
+- Added no state-schema migration and no new throttle/quarantine/deception path.
+
 ## 3.0.0-alpha.2 - Agent Behavior
 
 - Added observation-only Agent Behavior metrics for route breadth, URL velocity, navigation depth, retries, methods, cookie continuity, API concentration, download intent, 404 responses, robots/lure behavior and timing regularity.
