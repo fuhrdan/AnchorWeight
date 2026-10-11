@@ -1,4 +1,9 @@
-# AnchorWeight v2.9.2
+# AnchorWeight v3.0-alpha.1
+
+## v3.0.0-alpha.2 — Agent Behavior
+
+Alpha.2 adds an observation-only Agent Behavior layer for route breadth, URL velocity, navigation depth, retry patterns, method mix, cookie continuity, API concentration, download intent, 404 probing, robots/lure behavior and timing regularity. Raw paths, queries and cookies are not exposed, and these metrics add no score points and create no enforcement path. See [AGENT-BEHAVIOR.md](AGENT-BEHAVIOR.md).
+
 
 **Self-hosted adaptive crawler defense with Proof-of-Crawl, Bot DNA, silent quarantine, reverse-proxy protection, investigation tooling, and shadow-first adaptive intervention.**
 
@@ -21,7 +26,20 @@ AnchorWeight can observe that evidence in Shadow Mode or, when explicitly config
 
 AnchorWeight is intentionally not an infinite tarpit, bandwidth sink, huge-file generator, connection-exhaustion system, or offensive countermeasure. Its design emphasizes bounded defensive controls, explainable evidence, reversible enforcement, and conservative defaults.
 
-## Current v2.9.2 capabilities
+## v3.0-alpha.1 — Agent Identity & Traffic Taxonomy
+
+The v3 development line begins with an observation-only identity layer for mixed human, crawler, and agent traffic. Package semver is `3.0.0-alpha.1`.
+
+- Separates `declared_ai_crawler`, `user_directed_agent`, `unknown_automation`, `verified_search_crawler`, and `browser_or_unknown`.
+- Records declared purpose such as model training, search indexing, or user-directed retrieval.
+- Recognizes published OpenAI and Anthropic crawler/agent User-Agent tokens without treating those claims as verified identity.
+- Keeps a bounded, privacy-minimized identity history and does not persist the raw User-Agent in that history.
+- Adds **zero new risk points** and does not change quarantine, gateway, or adaptive-intervention policy.
+- Preserves existing verified-good-bot evidence as the stronger `verified_search_crawler` identity.
+
+See [AGENT-IDENTITY.md](AGENT-IDENTITY.md).
+
+## Retained v2.9.2 capabilities
 
 ### Proof-of-Crawl and deception
 

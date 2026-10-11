@@ -19,13 +19,17 @@ export class MemoryStore {
       wouldBlock: 0,
       blockedRequests: 0,
       quarantinedRequests: 0,
-      behaviorSignals: 0,
+      behaviorSignals: 0, agentBehaviorObservations:0,
       scoreConvictions: 0,
       campaignCorrelations: 0,
       identityDegradedRequests: 0,
       identityDegradedTrapEvents: 0,
       identityDegradedProofs: 0,
-      identityDegradedClientEnvironmentSkipped: 0
+      identityDegradedClientEnvironmentSkipped: 0,
+      agentIdentityObservations: 0,
+      declaredAiCrawlerRequests: 0,
+      userDirectedAgentRequests: 0,
+      unknownAutomationRequests: 0
     };
   }
 

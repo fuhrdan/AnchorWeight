@@ -3,7 +3,9 @@ import { assessProfile } from './assessment.js';
 import { assessClientEnvironment } from './client-environment.js';
 import { createAdaptiveDeception } from './adaptive-deception.js';
 import { createAdaptiveIntervention } from './adaptive-intervention.js';
+import { observeTrafficIdentity, recordTrafficIdentity, publicTrafficIdentity, TRAFFIC_CLASSES } from './agent-identity.js';
 
+import { observeAgentBehavior, observeAgentResponse, publicAgentBehavior, emptyAgentBehavior } from './agent-behavior.js';
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
 }
@@ -29,6 +31,22 @@ export class BehaviorEngine {
     const acceptHash = shortHash(this.config.secret, req.headers.accept || '');
     const p = this.store.getProfile(ipKey);
     const lastAt = p.lastSeen || 0;
+
+    // v3.0-alpha.1 Agent Identity is observation-only. It must never add score
+    // or independently affect quarantine/enforcement decisions.
+    const trafficIdentity = observeTrafficIdentity(req);
+    recordTrafficIdentity(p, trafficIdentity, now);
+    this.store.stats.agentIdentityObservations = (this.store.stats.agentIdentityObservations || 0) + 1;
+    if (trafficIdentity.trafficClass === TRAFFIC_CLASSES.DECLARED_AI_CRAWLER)
+      this.store.stats.declaredAiCrawlerRequests = (this.store.stats.declaredAiCrawlerRequests || 0) + 1;
+    else if (trafficIdentity.trafficClass === TRAFFIC_CLASSES.USER_DIRECTED_AGENT)
+      this.store.stats.userDirectedAgentRequests = (this.store.stats.userDirectedAgentRequests || 0) + 1;
+    else if (trafficIdentity.trafficClass === TRAFFIC_CLASSES.UNKNOWN_AUTOMATION)
+      this.store.stats.unknownAutomationRequests = (this.store.stats.unknownAutomationRequests || 0) + 1;
+
+    // Agent Behavior alpha.2 is descriptive only: zero score and zero enforcement effect.
+    observeAgentBehavior(p, req, url, { now, secret:this.config.secret });
+    this.store.stats.agentBehaviorObservations = (this.store.stats.agentBehaviorObservations || 0) + 1;
 
     p.requestCount++;
     p.lastSeen = now;
@@ -75,6 +93,13 @@ export class BehaviorEngine {
     if (url?.pathname === '/robots.txt') p.robotsRequests++;
     this.store.touchProfile?.(ipKey);
     return p;
+  }
+
+  noteResponse(ipKey, req, res, url) {
+    const p = this.store.getProfile(ipKey);
+    const observation = observeAgentResponse(p, req, res, url, { now:this.now() });
+    this.store.touchProfile?.(ipKey);
+    return observation;
   }
 
   noteLure(ipKey) {
@@ -207,6 +232,8 @@ export function newProfile() {
     trapSessions: {}, recentTraversalDepths: [], traversalStyle: 'unknown', campaignIds: [],
     offenseCount: 0, lastOffenseAt: null, evidence: [], trustedTlsFingerprints: [],
     displayFingerprints: [], clientEnvironment: { observations:0, lastAt:null, lastReasons:[] },
+    agentIdentity: { observations:0, lastAt:null, current:null, history:[] },
+    agentBehavior: emptyAgentBehavior(),
     adaptiveDeception: { observations:0, interventions:0, lastAt:null, lastIntervention:null, history:[], attackerCost:{requestsDiverted:0,shadowTraversals:0,decoyInteractions:0,additionalDepth:0,estimatedDelayMs:0,originRequestsPrevented:0} },
     adaptiveIntervention: { decisions:0,switches:0,lastAt:null,lastDecision:null,lastReason:null,pending:null,history:[],effectiveness:{} }
   };
@@ -230,6 +257,7 @@ export function publicProfile(ipKey, p) {
     averageIntervalMs: p.intervalCount ? Math.round(p.intervalTotalMs / p.intervalCount) : null,
     minIntervalMs: p.minIntervalMs,
     goodBot: { claimed: !!p.goodBotClaimed, verified: !!p.goodBotVerified, provider: p.goodBotProvider || null },
+    agentIdentity: publicTrafficIdentity(p),
     manualPolicy: p.manualPolicy || null,
     traversalStyle: p.traversalStyle || inferTraversalStyle(p),
     campaignIds: (p.campaignIds || []).slice(0,8),
@@ -238,6 +266,7 @@ export function publicProfile(ipKey, p) {
     lastOffenseAt: p.lastOffenseAt || null,
     evidence: (p.evidence || []).slice(-12),
     clientEnvironment: { observations:p.clientEnvironment?.observations || 0, fingerprintVariants:(p.displayFingerprints || []).length, lastReasons:(p.clientEnvironment?.lastReasons || []).slice(0,8) },
+    agentBehavior: publicAgentBehavior(p),
     adaptiveDeception: { observations:p.adaptiveDeception?.observations||0, interventions:p.adaptiveDeception?.interventions||0, lastAt:p.adaptiveDeception?.lastAt||null, lastIntervention:p.adaptiveDeception?.lastIntervention||null, attackerCost:{...(p.adaptiveDeception?.attackerCost||{})}, history:(p.adaptiveDeception?.history||[]).slice(-12) },
     adaptiveIntervention: { decisions:p.adaptiveIntervention?.decisions||0, switches:p.adaptiveIntervention?.switches||0, lastAt:p.adaptiveIntervention?.lastAt||null, lastDecision:p.adaptiveIntervention?.lastDecision||null, lastReason:p.adaptiveIntervention?.lastReason||null, effectiveness:{...(p.adaptiveIntervention?.effectiveness||{})}, history:(p.adaptiveIntervention?.history||[]).slice(-12) },
     assessment: assessProfile(p),

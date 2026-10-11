@@ -5,7 +5,7 @@ export function createAuditLogger(file) {
   return function audit(event) {
     const record = {
       ts: new Date().toISOString(),
-      version: '2.9.2',
+      version: '3.0.0-alpha.2',
       ...event
     };
     try {

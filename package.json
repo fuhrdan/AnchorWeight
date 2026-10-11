@@ -1,7 +1,7 @@
 {
   "name": "anchorweight",
-  "version": "2.9.2",
-  "description": "Production-hardened procedural proof-of-crawl bot defense with Bot DNA, campaign intelligence, investigation console, CLI, silent quarantine, and reverse proxy.",
+  "version": "3.0.0-alpha.2",
+  "description": "Autonomous traffic control and proof-of-crawl defense with Agent Identity, Bot DNA, bounded quarantine, investigation tooling, and reverse proxy protection.",
   "type": "module",
   "main": "app.js",
   "scripts": {

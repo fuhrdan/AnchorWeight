@@ -1,3 +1,23 @@
+## 3.0.0-alpha.1 - Agent Identity & Traffic Taxonomy
+
+## 3.0.0-alpha.2 - Agent Behavior
+
+- Added observation-only Agent Behavior metrics for route breadth, URL velocity, navigation depth, retries, methods, cookie continuity, API concentration, download intent, 404 responses, robots/lure behavior and timing regularity.
+- Added a bounded response-finish observation hook for final status/response metadata.
+- Kept Agent Behavior separate from Bot DNA scoring, quarantine, gateway access and adaptive intervention.
+- Added privacy minimization: no raw paths, query strings or cookies in stored/public Agent Behavior data.
+- Added focused unit/integration coverage and alpha.2 release-gate requirements.
+
+- Added an observation-only traffic identity layer that separates declared AI crawlers, user-directed agents, unknown automation, verified search crawlers, and browser/unknown traffic.
+- Added conservative purpose labels for model training, search indexing, user retrieval, general automation, and unknown traffic.
+- Added initial published User-Agent mappings for OpenAI GPTBot, OAI-SearchBot and ChatGPT-User plus Anthropic ClaudeBot, Claude-SearchBot and Claude-User.
+- Kept User-Agent identities explicitly unverified until independent good-bot verification succeeds.
+- Added bounded privacy-minimized Agent Identity history without retaining raw User-Agent strings in the new history.
+- Exposed Agent Identity through public Bot DNA profile projections and aggregate request counters.
+- Added zero new risk points and preserved v2.9.2 score, quarantine, gateway and adaptive-intervention semantics.
+- Added focused unit/integration coverage and AGENT-IDENTITY.md.
+- No state-schema migration and no new runtime dependencies.
+
 ## 2.9.2 - Proxy Identity Safety
 
 - Detect reverse-proxy topologies where the Node process sees only a shared loopback/private hop and no trusted client IP.
