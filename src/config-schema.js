@@ -122,6 +122,14 @@ export function validateConfig(config) {
   if (config.trustedJa4Enabled) warnings.push('trustedJa4Enabled requires the trusted TLS terminator to OVERWRITE X-AW-JA4 and strip client-supplied values.');
   if (config.allowQueryAdminToken) warnings.push('allowQueryAdminToken is enabled; bearer-only admin authentication is recommended.');
   if (config.scoreEnforcementEnabled) warnings.push('score-based enforcement is enabled; review Shadow Mode evidence before enabling in production.');
+  if (config.resourceBudgetsEnabled != null && typeof config.resourceBudgetsEnabled !== 'boolean') errors.push('resourceBudgetsEnabled must be boolean');
+  intRange('resourceBudgetRequestsPerMinute',config.resourceBudgetRequestsPerMinute??120,1,100000);
+  intRange('resourceBudgetUniqueUrlsPerMinute',config.resourceBudgetUniqueUrlsPerMinute??60,1,64);
+  intRange('resourceBudgetRouteBreadth5m',config.resourceBudgetRouteBreadth5m??120,1,320);
+  intRange('resourceBudgetRetriesPerMinute',config.resourceBudgetRetriesPerMinute??20,1,10000);
+  intRange('resourceBudgetPressureScore',config.resourceBudgetPressureScore??70,1,100);
+  intRange('resourceBudgetApproachPercent',config.resourceBudgetApproachPercent??80,50,99);
+  if (config.resourceBudgetsEnabled) warnings.push('Resource Budgets are enabled in beta.1 shadow-only mode; exceeded budgets do not enforce policy.');
   if (config.blackholeEnabled && !config.proxyEnabled) warnings.push('robots blackhole is enabled without the reverse proxy; automatic robots.txt and hidden-link injection require proxy mode.');
 
   return { schemaVersion: CONFIG_SCHEMA_VERSION, valid: errors.length === 0, errors, warnings };

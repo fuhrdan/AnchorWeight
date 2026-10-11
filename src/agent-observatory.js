@@ -19,6 +19,16 @@ function trafficClass(profile) {
   return profile?.agentIdentity?.trafficClass || profile?.agentIdentity?.current?.trafficClass || 'browser_or_unknown';
 }
 
+function budgetStatus(profile) {
+  const status=String(profile?.resourceBudget?.status || 'disabled');
+  return ['disabled','within_budget','approaching','exceeded'].includes(status) ? status : 'disabled';
+}
+
+function maxBudgetUtilization(profile) {
+  const values=Object.values(profile?.resourceBudget?.utilization || {}).map(n);
+  return values.length ? Math.max(...values) : 0;
+}
+
 function purpose(profile) {
   return profile?.agentIdentity?.purpose || profile?.agentIdentity?.current?.purpose || 'unknown';
 }
@@ -44,6 +54,8 @@ function compact(profile) {
     resourcePressure: scoreOf(profile,'resourcePressure'),
     legacyScore: Math.max(0, Math.round(n(profile?.score))),
     requestCount: Math.max(0, Math.round(n(profile?.requestCount)))
+    ,budgetStatus: budgetStatus(profile),
+    maxBudgetUtilization: maxBudgetUtilization(profile)
   };
 }
 
@@ -69,6 +81,10 @@ export function buildAgentTrafficObservatory(publicProfiles = []) {
   let automationTotal = 0;
   let policyTotal = 0;
   let pressureTotal = 0;
+  let budgetEnabledProfiles = 0;
+  let budgetWithinProfiles = 0;
+  let budgetApproachingProfiles = 0;
+  let budgetExceededProfiles = 0;
 
   for (const profile of profiles) {
     bump(classes, trafficClass(profile));
@@ -82,6 +98,11 @@ export function buildAgentTrafficObservatory(publicProfiles = []) {
     if (automation >= 65) automatedProfiles++;
     if (policy >= 40) policyConcernProfiles++;
     if (pressure >= 65) highPressureProfiles++;
+    const budget=budgetStatus(profile);
+    if (budget !== 'disabled') budgetEnabledProfiles++;
+    if (budget === 'within_budget') budgetWithinProfiles++;
+    else if (budget === 'approaching') budgetApproachingProfiles++;
+    else if (budget === 'exceeded') budgetExceededProfiles++;
   }
 
   const count = profiles.length;
@@ -92,6 +113,13 @@ export function buildAgentTrafficObservatory(publicProfiles = []) {
     automatedProfiles,
     policyConcernProfiles,
     highPressureProfiles,
+    resourceBudgets:{
+      enforcement:'shadow_only',
+      enabledProfiles:budgetEnabledProfiles,
+      withinBudgetProfiles:budgetWithinProfiles,
+      approachingProfiles:budgetApproachingProfiles,
+      exceededProfiles:budgetExceededProfiles
+    },
     trafficClasses:classes,
     purposes,
     averages:{

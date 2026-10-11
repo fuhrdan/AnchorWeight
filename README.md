@@ -1,4 +1,9 @@
-# AnchorWeight v3.0-alpha.6
+# AnchorWeight v3.0.0-beta.1
+
+
+## v3.0.0-beta.1 — Resource Budgets
+
+Beta.1 adds opt-in, operator-configured **Resource Budgets** for requests/minute, unique URLs/minute, five-minute route breadth, retries/minute, and Resource Pressure. Budget states are `within_budget`, `approaching`, or `exceeded`, but remain **shadow-only** in beta.1: they cannot throttle, quarantine, decoy, block, or alter the legacy Bot DNA score. See [RESOURCE-BUDGETS.md](RESOURCE-BUDGETS.md).
 
 ## v3.0.0-alpha.6 — Client Environment 2.0 / Headless Consistency
 

@@ -130,6 +130,14 @@ export function loadConfig(overrides = {}) {
     scoreSpoofedGoodBot: intEnv('AW_SCORE_SPOOFED_GOOD_BOT', 25, 0, 200),
     scoreSharedCanary: intEnv('AW_SCORE_SHARED_CANARY', 20, 0, 200),
     clientEnvironmentEnabled: boolEnv('AW_CLIENT_ENVIRONMENT_ENABLED', true),
+    // v3.0-beta.1: explicit resource budgets are observation/shadow only.
+    resourceBudgetsEnabled: boolEnv('AW_RESOURCE_BUDGETS_ENABLED', false),
+    resourceBudgetRequestsPerMinute: intEnv('AW_RESOURCE_BUDGET_REQUESTS_PER_MINUTE', 120, 1, 100000),
+    resourceBudgetUniqueUrlsPerMinute: intEnv('AW_RESOURCE_BUDGET_UNIQUE_URLS_PER_MINUTE', 60, 1, 64),
+    resourceBudgetRouteBreadth5m: intEnv('AW_RESOURCE_BUDGET_ROUTE_BREADTH_5M', 120, 1, 320),
+    resourceBudgetRetriesPerMinute: intEnv('AW_RESOURCE_BUDGET_RETRIES_PER_MINUTE', 20, 1, 10000),
+    resourceBudgetPressureScore: intEnv('AW_RESOURCE_BUDGET_PRESSURE_SCORE', 70, 1, 100),
+    resourceBudgetApproachPercent: intEnv('AW_RESOURCE_BUDGET_APPROACH_PERCENT', 80, 50, 99),
     // v2.8: adaptive deception is measurement/recommendation only by default.
     adaptiveDeceptionEnabled: boolEnv('AW_ADAPTIVE_DECEPTION_ENABLED', true),
     adaptiveDeceptionShadowMode: boolEnv('AW_ADAPTIVE_DECEPTION_SHADOW_MODE', true),

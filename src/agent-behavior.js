@@ -79,7 +79,7 @@ function currentMinuteBucket(state, now) {
   const minute = Math.floor(now / 60_000);
   let bucket = state.minuteBuckets[state.minuteBuckets.length - 1];
   if (!bucket || bucket.minute !== minute) {
-    bucket = { minute, routeHashes: [] };
+    bucket = { minute, routeHashes: [], requests: 0, retries: 0 };
     state.minuteBuckets.push(bucket);
     while (state.minuteBuckets.length > MAX_MINUTE_BUCKETS) state.minuteBuckets.shift();
   }
@@ -140,10 +140,14 @@ export function observeAgentBehavior(profile, req, url, { now = Date.now(), secr
   }
 
   const bucket = currentMinuteBucket(state, now);
+  bucket.requests = (bucket.requests || 0) + 1;
   if (!bucket.routeHashes.includes(routeHash)) pushBounded(bucket.routeHashes, routeHash, MAX_ROUTE_HASHES);
 
   const previous = [...state.recentRequests].reverse().find(item => item.requestHash === requestHash);
-  if (previous && now - previous.at <= RETRY_WINDOW_MS) state.suspectedRetries++;
+  if (previous && now - previous.at <= RETRY_WINDOW_MS) {
+    state.suspectedRetries++;
+    bucket.retries = (bucket.retries || 0) + 1;
+  }
   pushBounded(state.recentRequests, { requestHash, at:now }, MAX_RECENT_REQUESTS);
 
   const cookie = req?.headers?.cookie;
@@ -201,6 +205,8 @@ export function publicAgentBehavior(profile) {
     lastAt: state.lastAt ?? null,
     routeBreadth: (state.routeHashes || []).length,
     uniqueUrlsCurrentMinute: currentBucket?.routeHashes?.length || 0,
+    requestsCurrentMinute: currentBucket?.requests || 0,
+    suspectedRetriesCurrentMinute: currentBucket?.retries || 0,
     maxNavigationDepth: state.maxNavigationDepth || 0,
     methods: { GET:get, HEAD:head, other:Math.max(0, observations - get - head) },
     headToGetRatio: get ? Number((head / get).toFixed(3)) : (head ? null : 0),

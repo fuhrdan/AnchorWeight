@@ -1,6 +1,6 @@
 export const AGENT_PASSPORT_PATH = '/.well-known/anchorweight';
 export const AGENT_PASSPORT_SCHEMA = 'anchorweight-agent-passport/v1';
-export const AGENT_PASSPORT_VERSION = '3.0.0-alpha.6';
+export const AGENT_PASSPORT_VERSION = '3.0.0-beta.1';
 
 const TRAFFIC_CLASSES = [
   'browser_or_unknown',
@@ -29,7 +29,8 @@ function publicEnforcement(config = {}) {
     legacyScoreEnforcementEnabled: !!config.scoreEnforcementEnabled,
     trafficDimensionsEnforced: false,
     headlessConsistencyEnforced: false,
-    resourceBudgetsAvailable: false,
+    resourceBudgetsAvailable: true,
+    resourceBudgetsEnforced: false,
     policyEngineAvailable: false
   };
 }
@@ -57,6 +58,13 @@ export function createAgentPassport(config = {}) {
         exactScreenCountCollected: false,
         permissionPromptRequested: false,
         observationOnly: true
+      },
+      resourceBudgets: {
+        version: 1,
+        available: true,
+        operatorConfigured: true,
+        shadowOnly: true,
+        enforcement: false
       },
       trafficScoring: {
         version: 1,

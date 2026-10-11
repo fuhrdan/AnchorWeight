@@ -1,3 +1,13 @@
+## 3.0.0-beta.1 - Resource Budgets
+
+- Added opt-in, operator-configured Resource Budgets for current-minute request volume, unique URL breadth, five-minute route breadth, current-minute retries, and Resource Pressure.
+- Added true current-minute request and retry counters to bounded Agent Behavior buckets.
+- Added explicit `within_budget`, `approaching`, and `exceeded` budget states with bounded utilization percentages.
+- Added Resource Budget summaries to public Bot DNA projections and the Agent Traffic Observatory.
+- Advertised Resource Budget capability through the Agent Passport.
+- Kept all Resource Budget behavior shadow-only: no throttle, quarantine, decoy, gateway, proxy, or legacy-score mutation.
+- Added no state-schema migration and no runtime dependency.
+
 ## 3.0.0-alpha.1 - Agent Identity & Traffic Taxonomy
 
 ## 3.0.0-alpha.6 - Client Environment 2.0 / Headless Consistency

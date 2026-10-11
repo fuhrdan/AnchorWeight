@@ -7,6 +7,7 @@ import { observeTrafficIdentity, recordTrafficIdentity, publicTrafficIdentity, T
 
 import { observeAgentBehavior, observeAgentResponse, publicAgentBehavior, emptyAgentBehavior } from './agent-behavior.js';
 import { scoreTrafficDimensions } from './traffic-scoring.js';
+import { evaluateResourceBudget, publicResourceBudget, emptyResourceBudget } from './resource-budgets.js';
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
 }
@@ -92,6 +93,7 @@ export class BehaviorEngine {
     }
 
     if (url?.pathname === '/robots.txt') p.robotsRequests++;
+    p.resourceBudget = evaluateResourceBudget(p, scoreTrafficDimensions(p), this.config, { now });
     this.store.touchProfile?.(ipKey);
     return p;
   }
@@ -99,6 +101,7 @@ export class BehaviorEngine {
   noteResponse(ipKey, req, res, url) {
     const p = this.store.getProfile(ipKey);
     const observation = observeAgentResponse(p, req, res, url, { now:this.now() });
+    p.resourceBudget = evaluateResourceBudget(p, scoreTrafficDimensions(p), this.config, { now:this.now() });
     this.store.touchProfile?.(ipKey);
     return observation;
   }
@@ -244,6 +247,7 @@ export function newProfile() {
     displayFingerprints: [], clientEnvironment: { observations:0, lastAt:null, lastReasons:[], headlessConsistency: { webdriver:null, automationControlled:false, multiScreenState:'unavailable', indicatorNames:[], capabilities:{} } },
     agentIdentity: { observations:0, lastAt:null, current:null, history:[] },
     agentBehavior: emptyAgentBehavior(),
+    resourceBudget: emptyResourceBudget(),
     adaptiveDeception: { observations:0, interventions:0, lastAt:null, lastIntervention:null, history:[], attackerCost:{requestsDiverted:0,shadowTraversals:0,decoyInteractions:0,additionalDepth:0,estimatedDelayMs:0,originRequestsPrevented:0} },
     adaptiveIntervention: { decisions:0,switches:0,lastAt:null,lastDecision:null,lastReason:null,pending:null,history:[],effectiveness:{} }
   };
@@ -278,6 +282,7 @@ export function publicProfile(ipKey, p) {
     clientEnvironment: { observations:p.clientEnvironment?.observations || 0, fingerprintVariants:(p.displayFingerprints || []).length, lastReasons:(p.clientEnvironment?.lastReasons || []).slice(0,8), headlessConsistency:{webdriver:p.clientEnvironment?.headlessConsistency?.webdriver ?? null,automationControlled:!!p.clientEnvironment?.headlessConsistency?.automationControlled,multiScreenState:p.clientEnvironment?.headlessConsistency?.multiScreenState || 'unavailable',indicatorNames:(p.clientEnvironment?.headlessConsistency?.indicatorNames || []).slice(0,8),capabilities:{...(p.clientEnvironment?.headlessConsistency?.capabilities || {})}} },
     agentBehavior: publicAgentBehavior(p),
     trafficScores: scoreTrafficDimensions(p),
+    resourceBudget: publicResourceBudget(p),
     adaptiveDeception: { observations:p.adaptiveDeception?.observations||0, interventions:p.adaptiveDeception?.interventions||0, lastAt:p.adaptiveDeception?.lastAt||null, lastIntervention:p.adaptiveDeception?.lastIntervention||null, attackerCost:{...(p.adaptiveDeception?.attackerCost||{})}, history:(p.adaptiveDeception?.history||[]).slice(-12) },
     adaptiveIntervention: { decisions:p.adaptiveIntervention?.decisions||0, switches:p.adaptiveIntervention?.switches||0, lastAt:p.adaptiveIntervention?.lastAt||null, lastDecision:p.adaptiveIntervention?.lastDecision||null, lastReason:p.adaptiveIntervention?.lastReason||null, effectiveness:{...(p.adaptiveIntervention?.effectiveness||{})}, history:(p.adaptiveIntervention?.history||[]).slice(-12) },
     assessment: assessProfile(p),

@@ -36,14 +36,16 @@ test('agent passport advertises v3 identity behavior scoring and observatory cap
   assert.equal(p.capabilities.agentTrafficObservatory.authenticated,true);
 });
 
-test('agent passport keeps new dimensions outside enforcement in alpha.5',()=>{
+test('agent passport keeps v3 dimensions and beta.1 budgets outside enforcement',()=>{
   const p=createAgentPassport({shadowMode:false,scoreEnforcementEnabled:true});
   assert.equal(p.enforcement.shadowMode,false);
   assert.equal(p.enforcement.legacyScoreEnforcementEnabled,true);
   assert.equal(p.enforcement.trafficDimensionsEnforced,false);
-  assert.equal(p.enforcement.resourceBudgetsAvailable,false);
+  assert.equal(p.enforcement.resourceBudgetsAvailable,true);
+  assert.equal(p.enforcement.resourceBudgetsEnforced,false);
   assert.equal(p.enforcement.policyEngineAvailable,false);
   assert.equal(p.capabilities.trafficScoring.enforcement,'legacy_score_only');
+  assert.equal(p.capabilities.resourceBudgets.shadowOnly,true);
 });
 
 test('agent passport never serializes private config values',()=>{
