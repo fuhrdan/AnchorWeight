@@ -1,4 +1,8 @@
-# AnchorWeight v3.0-alpha.4
+# AnchorWeight v3.0-alpha.5
+
+## v3.0.0-alpha.5 — Agent Passport
+
+Alpha.5 adds a public, read-only Agent Passport at `/.well-known/anchorweight`. The deterministic JSON descriptor advertises Agent Identity, Agent Behavior, three-dimensional scoring, the authenticated Agent Traffic Observatory, Proof-of-Crawl availability, privacy guarantees and the current enforcement posture without exposing origins, tokens, raw identifiers or trap secrets. The three v3 score dimensions remain observation-only and legacy Bot DNA score remains the sole score-based enforcement source. See [AGENT-PASSPORT.md](AGENT-PASSPORT.md).
 
 ## v3.0.0-alpha.4 — Agent Traffic Observatory
 

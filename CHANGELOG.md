@@ -1,5 +1,14 @@
 ## 3.0.0-alpha.1 - Agent Identity & Traffic Taxonomy
 
+## 3.0.0-alpha.5 - Agent Passport
+
+- Added public GET/HEAD discovery at `/.well-known/anchorweight`.
+- Published a deterministic capability descriptor for Agent Identity, Agent Behavior, three-dimensional scoring, Agent Traffic Observatory and bounded Proof-of-Crawl.
+- Published explicit enforcement posture showing that the v3 traffic dimensions remain observation-only in alpha.5.
+- Excluded origins, credentials, raw IPs, User-Agent values, paths, queries, cookies and trap secrets from the public passport.
+- Added short public caching, CORS-readability and method-safe 405 handling.
+- Added no state-schema migration, Resource Budget enforcement or Policy Engine enforcement.
+
 ## 3.0.0-alpha.4 - Agent Traffic Observatory
 
 - Added privacy-safe agent traffic aggregates built only from public Bot DNA projections.
