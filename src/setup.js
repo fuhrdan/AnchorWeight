@@ -62,7 +62,7 @@ export function readOperatorSettings(config,file=OPERATOR_CONFIG_FILE) {
 }
 export function createSetupController(config,{file=OPERATOR_CONFIG_FILE,onActivate=()=>{}}={}) {
   function snapshot() {return {
-    version:'3.0.0-alpha.3',configEnabled:!!config.setupConfigEnabled,
+    version:'3.0.0-alpha.4',configEnabled:!!config.setupConfigEnabled,
     writesEnabled:!!config.setupConfigEnabled&&!!config.setupWritesEnabled,
     settings:{proxyEnabled:config.proxyEnabled,originUrl:config.originUrl},
     allowedOrigins:allowedOrigins(config),shadowMode:config.shadowMode,

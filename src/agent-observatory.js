@@ -1,0 +1,111 @@
+function n(value) {
+  const result = Number(value);
+  return Number.isFinite(result) ? result : 0;
+}
+
+function level(score) {
+  if (score >= 85) return 'very_high';
+  if (score >= 65) return 'high';
+  if (score >= 40) return 'moderate';
+  if (score >= 15) return 'low';
+  return 'minimal';
+}
+
+function scoreOf(profile, key) {
+  return Math.max(0, Math.min(100, Math.round(n(profile?.trafficScores?.[key]?.score))));
+}
+
+function trafficClass(profile) {
+  return profile?.agentIdentity?.trafficClass || profile?.agentIdentity?.current?.trafficClass || 'browser_or_unknown';
+}
+
+function purpose(profile) {
+  return profile?.agentIdentity?.purpose || profile?.agentIdentity?.current?.purpose || 'unknown';
+}
+
+function bump(target, key) {
+  const safe = String(key || 'unknown').slice(0, 64);
+  target[safe] = (target[safe] || 0) + 1;
+}
+
+function bandCounts(profiles, key) {
+  const retVal = { minimal:0, low:0, moderate:0, high:0, very_high:0 };
+  for (const profile of profiles) retVal[level(scoreOf(profile,key))]++;
+  return retVal;
+}
+
+function compact(profile) {
+  return {
+    id: String(profile?.id || '').slice(0, 32),
+    trafficClass: trafficClass(profile),
+    purpose: purpose(profile),
+    automationConfidence: scoreOf(profile,'automationConfidence'),
+    policyRisk: scoreOf(profile,'policyRisk'),
+    resourcePressure: scoreOf(profile,'resourcePressure'),
+    legacyScore: Math.max(0, Math.round(n(profile?.score))),
+    requestCount: Math.max(0, Math.round(n(profile?.requestCount)))
+  };
+}
+
+function topBy(profiles, key, limit = 5) {
+  return [...profiles]
+    .sort((a,b) => scoreOf(b,key) - scoreOf(a,key) || n(b?.requestCount) - n(a?.requestCount))
+    .slice(0,Math.max(1,Math.min(10,limit)))
+    .map(compact);
+}
+
+/**
+ * Alpha.4 Agent Traffic Observatory.
+ * Input must already be public-profile projections; no raw client keys, paths,
+ * cookies, UAs, IPs or request headers are accepted or returned here.
+ */
+export function buildAgentTrafficObservatory(publicProfiles = []) {
+  const profiles = Array.isArray(publicProfiles) ? publicProfiles.filter(Boolean) : [];
+  const classes = {};
+  const purposes = {};
+  let automatedProfiles = 0;
+  let policyConcernProfiles = 0;
+  let highPressureProfiles = 0;
+  let automationTotal = 0;
+  let policyTotal = 0;
+  let pressureTotal = 0;
+
+  for (const profile of profiles) {
+    bump(classes, trafficClass(profile));
+    bump(purposes, purpose(profile));
+    const automation = scoreOf(profile,'automationConfidence');
+    const policy = scoreOf(profile,'policyRisk');
+    const pressure = scoreOf(profile,'resourcePressure');
+    automationTotal += automation;
+    policyTotal += policy;
+    pressureTotal += pressure;
+    if (automation >= 65) automatedProfiles++;
+    if (policy >= 40) policyConcernProfiles++;
+    if (pressure >= 65) highPressureProfiles++;
+  }
+
+  const count = profiles.length;
+  return {
+    version:1,
+    enforcement:'observation_only',
+    trackedProfiles:count,
+    automatedProfiles,
+    policyConcernProfiles,
+    highPressureProfiles,
+    trafficClasses:classes,
+    purposes,
+    averages:{
+      automationConfidence:count ? Math.round(automationTotal / count) : 0,
+      policyRisk:count ? Math.round(policyTotal / count) : 0,
+      resourcePressure:count ? Math.round(pressureTotal / count) : 0
+    },
+    bands:{
+      automationConfidence:bandCounts(profiles,'automationConfidence'),
+      policyRisk:bandCounts(profiles,'policyRisk'),
+      resourcePressure:bandCounts(profiles,'resourcePressure')
+    },
+    topAutomation:topBy(profiles,'automationConfidence'),
+    topPolicyRisk:topBy(profiles,'policyRisk'),
+    topResourcePressure:topBy(profiles,'resourcePressure')
+  };
+}

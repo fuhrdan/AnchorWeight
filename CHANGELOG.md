@@ -1,5 +1,14 @@
 ## 3.0.0-alpha.1 - Agent Identity & Traffic Taxonomy
 
+## 3.0.0-alpha.4 - Agent Traffic Observatory
+
+- Added privacy-safe agent traffic aggregates built only from public Bot DNA projections.
+- Added traffic-class and declared-purpose distributions plus average Automation Confidence, Policy Risk and Resource Pressure.
+- Added bounded top-five views for automation, policy risk and resource pressure.
+- Added a dedicated authenticated dashboard section for agent traffic.
+- Preserved legacy topProfiles ordering and all existing score/quarantine/gateway behavior.
+- Added no state-schema migration and no new enforcement path.
+
 ## 3.0.0-alpha.3 - Three-Dimensional Traffic Scoring
 
 - Added explainable 0-100 Automation Confidence, Policy Risk and Resource Pressure dimensions.

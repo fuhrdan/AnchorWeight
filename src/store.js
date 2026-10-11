@@ -1,5 +1,6 @@
 import { newProfile, publicProfile } from './behavior.js';
 import { newCampaign, publicCampaign } from './campaigns.js';
+import { buildAgentTrafficObservatory } from './agent-observatory.js';
 
 export class MemoryStore {
   constructor(now = () => Date.now()) {
@@ -119,10 +120,10 @@ export class MemoryStore {
 
   snapshot() {
     this.cleanup();
-    const topProfiles = [...this.profiles.entries()]
-      .sort((a, b) => b[1].score - a[1].score)
-      .slice(0, 10)
-      .map(([k, p]) => publicProfile(k, p));
+    const publicProfiles = [...this.profiles.entries()].map(([k,p]) => publicProfile(k,p));
+    const topProfiles = [...publicProfiles]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
     const profiles = [...this.profiles.values()];
     const topCampaigns = [...this.campaigns.values()].sort((a,b)=>b.confidence-a.confidence).slice(0,10).map(c=>publicCampaign(c,k=>`AW-${k.slice(0,8).toUpperCase()}`));
     return {
@@ -136,6 +137,7 @@ export class MemoryStore {
       trackedOffenders: this.offenses.size,
       trackedProfiles: this.profiles.size,
       trackedCampaigns: this.campaigns.size,
+      agentObservatory: buildAgentTrafficObservatory(publicProfiles),
       topCampaigns,
       topProfiles
     };

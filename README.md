@@ -1,4 +1,9 @@
-# AnchorWeight v3.0-alpha.3
+# AnchorWeight v3.0-alpha.4
+
+## v3.0.0-alpha.4 — Agent Traffic Observatory
+
+Alpha.4 adds an authenticated, privacy-safe **Agent Traffic Observatory** that aggregates traffic classes, purposes, and the three alpha.3 score dimensions. It adds dedicated dashboard summaries and bounded top lists while remaining observation-only: no Resource Pressure, Automation Confidence, or Policy Risk value can trigger enforcement in this release. See [AGENT-TRAFFIC-OBSERVATORY.md](AGENT-TRAFFIC-OBSERVATORY.md).
+
 
 ## v3.0.0-alpha.3 — Three-Dimensional Traffic Scoring
 
