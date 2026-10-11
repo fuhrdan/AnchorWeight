@@ -130,6 +130,18 @@ export function validateConfig(config) {
   intRange('resourceBudgetPressureScore',config.resourceBudgetPressureScore??70,1,100);
   intRange('resourceBudgetApproachPercent',config.resourceBudgetApproachPercent??80,50,99);
   if (config.resourceBudgetsEnabled) warnings.push('Resource Budgets are enabled in beta.1 shadow-only mode; exceeded budgets do not enforce policy.');
+  for (const name of ['policyEngineEnabled','policyEngineShadowMode','policyEngineEnforcementEnabled'])
+    if (config[name] != null && typeof config[name] !== 'boolean') errors.push(`${name} must be boolean`);
+  intRange('policyObserveAutomation',config.policyObserveAutomation??65,1,100);
+  intRange('policyThrottlePressure',config.policyThrottlePressure??70,1,100);
+  intRange('policyDecoyRisk',config.policyDecoyRisk??65,1,100);
+  intRange('policyQuarantineRisk',config.policyQuarantineRisk??85,1,100);
+  intRange('policyThrottleSeconds',config.policyThrottleSeconds??30,1,3600);
+  intRange('policyQuarantineMinutes',config.policyQuarantineMinutes??60,1,10080);
+  if (config.policyEngineEnforcementEnabled && !config.policyEngineEnabled) errors.push('policyEngineEnforcementEnabled requires policyEngineEnabled');
+  if (config.policyEngineEnabled) warnings.push('Policy Engine beta.2 is shadow-first; recommendations are evaluated independently from legacy Bot DNA score.');
+  if (config.policyEngineEnforcementEnabled && (config.policyEngineShadowMode || config.shadowMode)) warnings.push('Policy Engine enforcement is enabled but a shadow mode is still active, so policy actions remain non-enforcing.');
+  if (config.policyEngineEnforcementEnabled && !config.policyEngineShadowMode && !config.shadowMode) warnings.push('Policy Engine enforcement is ACTIVE for bounded throttle, decoy, and quarantine actions; verify production identity safety first.');
   if (config.blackholeEnabled && !config.proxyEnabled) warnings.push('robots blackhole is enabled without the reverse proxy; automatic robots.txt and hidden-link injection require proxy mode.');
 
   return { schemaVersion: CONFIG_SCHEMA_VERSION, valid: errors.length === 0, errors, warnings };

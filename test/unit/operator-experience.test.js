@@ -28,7 +28,11 @@ function isolated(t, code) {
   const result=spawnSync(process.execPath,['--input-type=module','-e',code],{
     cwd:folder,encoding:'utf8',timeout:12000,
     // No inherited cPanel production policy may alter this unit fixture.
-    env:{PATH:process.env.PATH||'',HOME:folder,TMPDIR:os.tmpdir()}
+    // hotfix6: preserve constrained-host Node resource settings
+    env:{PATH:process.env.PATH||'',HOME:folder,TMPDIR:os.tmpdir(),
+      ...(process.env.UV_THREADPOOL_SIZE ? {UV_THREADPOOL_SIZE:process.env.UV_THREADPOOL_SIZE} : {}),
+      ...(process.env.NODE_OPTIONS ? {NODE_OPTIONS:process.env.NODE_OPTIONS} : {})
+    }
   });
   assert.equal(result.status,0,`${result.stdout}\n${result.stderr}`);
   return {folder,result};

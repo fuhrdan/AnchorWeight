@@ -8,6 +8,7 @@ import { observeTrafficIdentity, recordTrafficIdentity, publicTrafficIdentity, T
 import { observeAgentBehavior, observeAgentResponse, publicAgentBehavior, emptyAgentBehavior } from './agent-behavior.js';
 import { scoreTrafficDimensions } from './traffic-scoring.js';
 import { evaluateResourceBudget, publicResourceBudget, emptyResourceBudget } from './resource-budgets.js';
+import { evaluatePolicyDecision, publicPolicyDecision, emptyPolicyDecision } from './policy-engine.js';
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
 }
@@ -24,6 +25,13 @@ export class BehaviorEngine {
     this.now = now;
     this.adaptiveDeception = createAdaptiveDeception(config, log, now);
     this.adaptiveIntervention = createAdaptiveIntervention(config, log, now);
+  }
+
+  updatePolicyDecision(p, now = this.now()) {
+    const scores = scoreTrafficDimensions(p);
+    p.resourceBudget = evaluateResourceBudget(p, scores, this.config, { now });
+    p.policyDecision = evaluatePolicyDecision(p, scores, p.resourceBudget, this.config, { now });
+    return p.policyDecision;
   }
 
   observeRequest(ipKey, req, url) {
@@ -93,7 +101,7 @@ export class BehaviorEngine {
     }
 
     if (url?.pathname === '/robots.txt') p.robotsRequests++;
-    p.resourceBudget = evaluateResourceBudget(p, scoreTrafficDimensions(p), this.config, { now });
+    this.updatePolicyDecision(p, now);
     this.store.touchProfile?.(ipKey);
     return p;
   }
@@ -101,7 +109,7 @@ export class BehaviorEngine {
   noteResponse(ipKey, req, res, url) {
     const p = this.store.getProfile(ipKey);
     const observation = observeAgentResponse(p, req, res, url, { now:this.now() });
-    p.resourceBudget = evaluateResourceBudget(p, scoreTrafficDimensions(p), this.config, { now:this.now() });
+    this.updatePolicyDecision(p, this.now());
     this.store.touchProfile?.(ipKey);
     return observation;
   }
@@ -225,6 +233,7 @@ export class BehaviorEngine {
     p.goodBotCheckReason = result?.reason || null;
     if (result?.claimed && !result?.verified) this.addSignalOnce(ipKey, 'spoofed_good_bot_claim', this.config.scoreSpoofedGoodBot, { provider: result.provider, reason: result.reason });
     p.classification = classify(p);
+    this.updatePolicyDecision(p, this.now());
     this.store.touchProfile?.(ipKey);
   }
 
@@ -248,6 +257,7 @@ export function newProfile() {
     agentIdentity: { observations:0, lastAt:null, current:null, history:[] },
     agentBehavior: emptyAgentBehavior(),
     resourceBudget: emptyResourceBudget(),
+    policyDecision: emptyPolicyDecision(),
     adaptiveDeception: { observations:0, interventions:0, lastAt:null, lastIntervention:null, history:[], attackerCost:{requestsDiverted:0,shadowTraversals:0,decoyInteractions:0,additionalDepth:0,estimatedDelayMs:0,originRequestsPrevented:0} },
     adaptiveIntervention: { decisions:0,switches:0,lastAt:null,lastDecision:null,lastReason:null,pending:null,history:[],effectiveness:{} }
   };
@@ -283,6 +293,7 @@ export function publicProfile(ipKey, p) {
     agentBehavior: publicAgentBehavior(p),
     trafficScores: scoreTrafficDimensions(p),
     resourceBudget: publicResourceBudget(p),
+    policyDecision: publicPolicyDecision(p),
     adaptiveDeception: { observations:p.adaptiveDeception?.observations||0, interventions:p.adaptiveDeception?.interventions||0, lastAt:p.adaptiveDeception?.lastAt||null, lastIntervention:p.adaptiveDeception?.lastIntervention||null, attackerCost:{...(p.adaptiveDeception?.attackerCost||{})}, history:(p.adaptiveDeception?.history||[]).slice(-12) },
     adaptiveIntervention: { decisions:p.adaptiveIntervention?.decisions||0, switches:p.adaptiveIntervention?.switches||0, lastAt:p.adaptiveIntervention?.lastAt||null, lastDecision:p.adaptiveIntervention?.lastDecision||null, lastReason:p.adaptiveIntervention?.lastReason||null, effectiveness:{...(p.adaptiveIntervention?.effectiveness||{})}, history:(p.adaptiveIntervention?.history||[]).slice(-12) },
     assessment: assessProfile(p),

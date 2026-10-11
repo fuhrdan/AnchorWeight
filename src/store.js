@@ -30,7 +30,13 @@ export class MemoryStore {
       agentIdentityObservations: 0,
       declaredAiCrawlerRequests: 0,
       userDirectedAgentRequests: 0,
-      unknownAutomationRequests: 0
+      unknownAutomationRequests: 0,
+      policyEngineWouldThrottle: 0,
+      policyEngineWouldDecoy: 0,
+      policyEngineWouldQuarantine: 0,
+      policyEngineEnforcedThrottle: 0,
+      policyEngineEnforcedDecoy: 0,
+      policyEngineEnforcedQuarantine: 0
     };
   }
 

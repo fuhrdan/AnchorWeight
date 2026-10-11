@@ -29,6 +29,19 @@ function maxBudgetUtilization(profile) {
   return values.length ? Math.max(...values) : 0;
 }
 
+function policyAction(profile) {
+  const action=String(profile?.policyDecision?.action || 'allow');
+  return ['allow','observe','budget','throttle','decoy','quarantine'].includes(action) ? action : 'allow';
+}
+
+function policyWouldEnforce(profile) {
+  return !!profile?.policyDecision?.wouldEnforce;
+}
+
+function policyEnforcementEligible(profile) {
+  return !!profile?.policyDecision?.enforcementEligible;
+}
+
 function purpose(profile) {
   return profile?.agentIdentity?.purpose || profile?.agentIdentity?.current?.purpose || 'unknown';
 }
@@ -56,6 +69,9 @@ function compact(profile) {
     requestCount: Math.max(0, Math.round(n(profile?.requestCount)))
     ,budgetStatus: budgetStatus(profile),
     maxBudgetUtilization: maxBudgetUtilization(profile)
+    ,policyAction: policyAction(profile),
+    policyWouldEnforce: policyWouldEnforce(profile),
+    policyEnforcementEligible: policyEnforcementEligible(profile)
   };
 }
 
@@ -85,6 +101,9 @@ export function buildAgentTrafficObservatory(publicProfiles = []) {
   let budgetWithinProfiles = 0;
   let budgetApproachingProfiles = 0;
   let budgetExceededProfiles = 0;
+  const policyActions = {allow:0,observe:0,budget:0,throttle:0,decoy:0,quarantine:0};
+  let policyWouldEnforceProfiles = 0;
+  let policyEnforcementEligibleProfiles = 0;
 
   for (const profile of profiles) {
     bump(classes, trafficClass(profile));
@@ -103,6 +122,9 @@ export function buildAgentTrafficObservatory(publicProfiles = []) {
     if (budget === 'within_budget') budgetWithinProfiles++;
     else if (budget === 'approaching') budgetApproachingProfiles++;
     else if (budget === 'exceeded') budgetExceededProfiles++;
+    policyActions[policyAction(profile)]++;
+    if (policyWouldEnforce(profile)) policyWouldEnforceProfiles++;
+    if (policyEnforcementEligible(profile)) policyEnforcementEligibleProfiles++;
   }
 
   const count = profiles.length;
@@ -119,6 +141,12 @@ export function buildAgentTrafficObservatory(publicProfiles = []) {
       withinBudgetProfiles:budgetWithinProfiles,
       approachingProfiles:budgetApproachingProfiles,
       exceededProfiles:budgetExceededProfiles
+    },
+    policyEngine:{
+      enforcement:'shadow_first',
+      actions:policyActions,
+      wouldEnforceProfiles:policyWouldEnforceProfiles,
+      enforcementEligibleProfiles:policyEnforcementEligibleProfiles
     },
     trafficClasses:classes,
     purposes,

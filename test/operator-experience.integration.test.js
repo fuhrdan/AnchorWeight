@@ -11,6 +11,9 @@ import { fileURLToPath } from 'node:url';
 const ROOT=path.resolve(fileURLToPath(new URL('..',import.meta.url)));
 const CLI=path.join(ROOT,'bin','operator.js');
 const controlled={PATH:process.env.PATH||'', HOME:os.tmpdir(),
+  // hotfix6: preserve constrained-host Node resource settings
+  ...(process.env.UV_THREADPOOL_SIZE ? {UV_THREADPOOL_SIZE:process.env.UV_THREADPOOL_SIZE} : {}),
+  ...(process.env.NODE_OPTIONS ? {NODE_OPTIONS:process.env.NODE_OPTIONS} : {}),
   AW_SECRET:'integration-test-persistent-secret-never-print',
   AW_DASHBOARD_TOKEN:'integration-test-dashboard-token-secret'};
 const run=args=>execFileSync(process.execPath,[CLI,...args],{
@@ -55,7 +58,7 @@ test('cPanel-compatible Node startup preserves live health, dashboard, wizard an
   for(let i=0;i<60;i++){
     if(child.exitCode!==null)break;
     try{const r=await fetch(url+'/live',{signal:AbortSignal.timeout(600)});
-      if(r.ok){assert.equal((await r.json()).version,'3.0.0-beta.1');ready=true;break;}}
+      if(r.ok){assert.equal((await r.json()).version,'3.0.0-beta.2');ready=true;break;}}
     catch{}await new Promise(resolve=>setTimeout(resolve,80));
   }
   assert.equal(ready,true,logs);

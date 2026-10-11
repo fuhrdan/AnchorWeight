@@ -190,7 +190,7 @@ const server = http.createServer(async (req, res) => {
     // Operational endpoints are handled before quarantine/proxy routing.
     if (url.pathname === '/live' || url.pathname === '/health') {
       return send(res, 200, 'application/json; charset=utf-8', JSON.stringify({
-        ok: true, service: 'AnchorWeight', version: '3.0.0-beta.1', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
+        ok: true, service: 'AnchorWeight', version: '3.0.0-beta.2', routesEnabled:config.routesEnabled || config.declarativeEnabled, routeCount:routes.length,
         shadowMode: config.shadowMode, proxyEnabled: config.proxyEnabled,
         clientIdentity:clientIdentity.snapshot(),
         basePath: config.basePath, blockDepth: config.blockDepth
@@ -200,7 +200,7 @@ const server = http.createServer(async (req, res) => {
       const origin = await checkOriginReady();
       const ok = origin.ok;
       return send(res, ok ? 200 : 503, 'application/json; charset=utf-8', JSON.stringify({
-        ok, service:'AnchorWeight', version:'3.0.0-beta.1', stateLoaded:true, stateBackend: config.stateBackend,
+        ok, service:'AnchorWeight', version:'3.0.0-beta.2', stateLoaded:true, stateBackend: config.stateBackend,
         stateVersion:store.loadedStateVersion || null,
         migrationsApplied:store.migrationsApplied || [],
         proxyEnabled:config.proxyEnabled, clientIdentity:clientIdentity.snapshot(), origin, routing:routeStatus
@@ -254,7 +254,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (url.pathname === '/') {
-      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v3.0.0-beta.1</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
+      return send(res, 200, 'text/html; charset=utf-8', '<!doctype html><html><head><meta charset="utf-8"><title>AnchorWeight</title></head><body><h1>AnchorWeight v3.0.0-beta.2</h1><p>Reverse proxy is disabled. Configure AW_ORIGIN_URL and set AW_PROXY_ENABLED=true to protect an entire site.</p><p><a href="/dashboard.html">Dashboard</a> · <a href="/setup.html">Setup wizard</a> · <a href="/health">Health</a></p></body></html>');
     }
     return send(res, 404, 'text/plain; charset=utf-8', 'Not found');
   } catch (err) {
@@ -269,7 +269,7 @@ server.on('upgrade',(req,socket,head)=>observatory.accept(req,socket,head,{baseP
 health.start();
 resilience.start();
 server.listen(config.port, () => {
-  console.log(`AnchorWeight v3.0.0-beta.1 listening on :${config.port}`);
+  console.log(`AnchorWeight v3.0.0-beta.2 listening on :${config.port}`);
   console.log(`Trap path: ${config.basePath}`);
   console.log(`State backend: ${config.stateBackend}`);
   console.log(`Mode: ${config.shadowMode ? 'SHADOW (no quarantine)' : 'ENFORCE'}`);

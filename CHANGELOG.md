@@ -1,3 +1,13 @@
+## 3.0.0-beta.2 - Policy Engine
+
+- Added explainable policy actions: ALLOW, OBSERVE, BUDGET, THROTTLE, DECOY, and QUARANTINE.
+- Preserved manual allow and verified-search-crawler precedence, with explicit manual quarantine as the strongest operator policy.
+- Combined Automation Confidence, Policy Risk, Resource Pressure, Resource Budget state, and corroborating crawler evidence without collapsing them into the legacy score.
+- Added shadow-first policy projections to public Bot DNA profiles and Agent Traffic Observatory aggregates.
+- Added explicitly gated bounded enforcement for throttle (429 + Retry-After), inert decoy, and timed quarantine.
+- Global Shadow Mode and Proxy Identity Safety continue to suppress unsafe client-scoped policy enforcement.
+- Policy evaluation does not mutate legacy Bot DNA score and requires no state-schema migration or runtime dependency.
+
 ## 3.0.0-beta.1 - Resource Budgets
 
 - Added opt-in, operator-configured Resource Budgets for current-minute request volume, unique URL breadth, five-minute route breadth, current-minute retries, and Resource Pressure.

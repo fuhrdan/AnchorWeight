@@ -128,6 +128,38 @@ export function createAnchorWeight(config, deps = {}) {
       }
     }
 
+    if (!blocked && profile.policyDecision?.enabled && ['throttle','decoy','quarantine'].includes(profile.policyDecision.action)) {
+      const decision=profile.policyDecision;
+      const action=decision.action;
+      const reasonCodes=(decision.reasons||[]).map(x=>x.code).slice(0,8);
+      if (!decision.enforcementEligible) {
+        if (action==='throttle') store.stats.policyEngineWouldThrottle=(store.stats.policyEngineWouldThrottle||0)+1;
+        else if (action==='decoy') store.stats.policyEngineWouldDecoy=(store.stats.policyEngineWouldDecoy||0)+1;
+        else if (action==='quarantine') store.stats.policyEngineWouldQuarantine=(store.stats.policyEngineWouldQuarantine||0)+1;
+        log({type:`would_policy_${action}`,ipKey:key,reasons:reasonCodes});
+      } else if (action==='throttle') {
+        store.stats.policyEngineEnforcedThrottle=(store.stats.policyEngineEnforcedThrottle||0)+1;
+        log({type:'policy_throttle',ipKey:key,reasons:reasonCodes,retryAfter:config.policyThrottleSeconds});
+        res.setHeader('Retry-After',String(config.policyThrottleSeconds||30));
+        return text(res,429,'Request temporarily throttled by site policy.');
+      } else if (action==='decoy') {
+        store.stats.policyEngineEnforcedDecoy=(store.stats.policyEngineEnforcedDecoy||0)+1;
+        store.stats.quarantinedRequests++;
+        log({type:'policy_decoy',ipKey:key,path:url?.pathname||'/',reasons:reasonCodes});
+        const decoy=renderDecoy(config,key,url||new URL('http://localhost/'),req);
+        setCommon(res);res.statusCode=200;res.setHeader('Content-Type',decoy.type);
+        if(req.method==='HEAD')res.end();else res.end(decoy.body);
+        return true;
+      } else if (action==='quarantine') {
+        store.stats.policyEngineEnforcedQuarantine=(store.stats.policyEngineEnforcedQuarantine||0)+1;
+        const offenses=recordOffense(key);
+        const minutes=offenses>1?Math.max(config.policyQuarantineMinutes||60,config.repeatBlockMinutes||0):(config.policyQuarantineMinutes||60);
+        const until=store.block(key,minutes,'policy_engine_quarantine');
+        log({type:'policy_quarantine',ipKey:key,reasons:reasonCodes,offenses,minutes,until});
+        blocked=store.isBlocked(key);
+      }
+    }
+
     if (!blocked || config.shadowMode) return false;
 
     store.stats.blockedRequests++;
@@ -186,7 +218,7 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'3.0.0-beta.1', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:'3.0.0-beta.2', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/observatory/ticket` && method === 'GET') {
@@ -198,7 +230,7 @@ export function createAnchorWeight(config, deps = {}) {
         return json(res,200,ticket);
       }
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '3.0.0-beta.1', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        return json(res, 200, { version: '3.0.0-beta.2', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
@@ -260,7 +292,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'3.0.0-beta.1', events });
+        return json(res, 200, { version:'3.0.0-beta.2', events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -270,7 +302,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'3.0.0-beta.1', profile:null, campaign:null, events:[], timeline:[]
+          version:'3.0.0-beta.2', profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });

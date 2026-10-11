@@ -10,6 +10,7 @@ import {once} from 'node:events';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 const app=fileURLToPath(new URL('../app.js',import.meta.url));
+const expectedVersion=JSON.parse(fs.readFileSync(fileURLToPath(new URL('../package.json',import.meta.url)),'utf8')).version;
 async function listen(server){server.listen(0,'127.0.0.1');await once(server,'listening');return server.address().port;}
 async function freePort(){const server=net.createServer();const port=await listen(server);server.close();await once(server,'close');return port;}
 async function stop(child){if(child.exitCode!==null||child.signalCode!==null)return;const done=once(child,'exit');child.kill('SIGTERM');const timer=setTimeout(()=>child.kill('SIGKILL'),2000);try{await done;}finally{clearTimeout(timer);}}
@@ -28,9 +29,11 @@ test('real Node startup: alerts stay private, authenticated snapshots work, norm
   AW_ALERT_SIGNING_KEY:'v2.5-alerts-dedicated-integration-signing-secret'};
  const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});
  t.after(()=>stop(child));child.stdout.resume();let errors='';child.stderr.on('data',x=>errors+=x);
- for(let i=0;i<90;i++){if(child.exitCode!==null)throw Error('startup failed '+errors);
-   try{if((await fetch(base+'/live')).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
- assert.equal((await (await fetch(base+'/live')).json()).version,'3.0.0-beta.1');
+ let live=false;
+ for(let i=0;i<180;i++){if(child.exitCode!==null)throw Error('startup failed '+errors);
+   try{if((await fetch(base+'/live')).ok){live=true;break;}}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
+ assert.equal(live,true,'AnchorWeight did not become live: '+errors);
+ assert.equal((await (await fetch(base+'/live')).json()).version,expectedVersion);
  assert.equal(await (await fetch(base+'/hello')).text(),'ORIGIN OK');
  assert.equal((await fetch(base+'/anchor/api/stats')).status,401);
  const authorized=await fetch(base+'/anchor/api/stats',{headers:{authorization:'Bearer integration-sufficiently-long-dashboard-token'}});
@@ -52,7 +55,9 @@ test('enabled invalid alerts file prevents startup; disabled mode ignores missin
  const port=await freePort(),good=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,
    env:{...baseEnv,PORT:String(port),AW_ALERTS_ENABLED:'false'},stdio:['ignore','pipe','pipe']});
  t.after(()=>stop(good));good.stdout.resume();let goodErr='';good.stderr.on('data',x=>goodErr+=x);
- for(let i=0;i<90;i++){if(good.exitCode!==null)throw Error('disabled startup failed '+goodErr);
-  try{if((await fetch(`http://127.0.0.1:${port}/live`)).ok)break;}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
- assert.equal((await(await fetch(`http://127.0.0.1:${port}/live`)).json()).version,'3.0.0-beta.1');
+ let live=false;
+ for(let i=0;i<180;i++){if(good.exitCode!==null)throw Error('disabled startup failed '+goodErr);
+  try{if((await fetch(`http://127.0.0.1:${port}/live`)).ok){live=true;break;}}catch{}await new Promise(resolve=>setTimeout(resolve,50));}
+ assert.equal(live,true,'disabled startup did not become live: '+goodErr);
+ assert.equal((await(await fetch(`http://127.0.0.1:${port}/live`)).json()).version,expectedVersion);
 });

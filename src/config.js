@@ -138,6 +138,16 @@ export function loadConfig(overrides = {}) {
     resourceBudgetRetriesPerMinute: intEnv('AW_RESOURCE_BUDGET_RETRIES_PER_MINUTE', 20, 1, 10000),
     resourceBudgetPressureScore: intEnv('AW_RESOURCE_BUDGET_PRESSURE_SCORE', 70, 1, 100),
     resourceBudgetApproachPercent: intEnv('AW_RESOURCE_BUDGET_APPROACH_PERCENT', 80, 50, 99),
+    // v3.0-beta.2: policy decisions are enabled for observation, but enforcement is explicitly opt-in.
+    policyEngineEnabled: boolEnv('AW_POLICY_ENGINE_ENABLED', true),
+    policyEngineShadowMode: boolEnv('AW_POLICY_ENGINE_SHADOW_MODE', true),
+    policyEngineEnforcementEnabled: boolEnv('AW_POLICY_ENGINE_ENFORCEMENT_ENABLED', false),
+    policyObserveAutomation: intEnv('AW_POLICY_OBSERVE_AUTOMATION', 65, 1, 100),
+    policyThrottlePressure: intEnv('AW_POLICY_THROTTLE_PRESSURE', 70, 1, 100),
+    policyDecoyRisk: intEnv('AW_POLICY_DECOY_RISK', 65, 1, 100),
+    policyQuarantineRisk: intEnv('AW_POLICY_QUARANTINE_RISK', 85, 1, 100),
+    policyThrottleSeconds: intEnv('AW_POLICY_THROTTLE_SECONDS', 30, 1, 3600),
+    policyQuarantineMinutes: intEnv('AW_POLICY_QUARANTINE_MINUTES', 60, 1, 10080),
     // v2.8: adaptive deception is measurement/recommendation only by default.
     adaptiveDeceptionEnabled: boolEnv('AW_ADAPTIVE_DECEPTION_ENABLED', true),
     adaptiveDeceptionShadowMode: boolEnv('AW_ADAPTIVE_DECEPTION_SHADOW_MODE', true),

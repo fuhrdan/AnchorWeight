@@ -1,4 +1,9 @@
-# AnchorWeight v3.0.0-beta.1
+# AnchorWeight v3.0.0-beta.2
+
+
+## v3.0.0-beta.2 — Policy Engine
+
+Beta.2 adds the shadow-first **Policy Engine** and its action ladder: `ALLOW → OBSERVE → BUDGET → THROTTLE → DECOY → QUARANTINE`. Decisions combine explicit operator policy, verified crawler identity, Automation Confidence, Policy Risk, Resource Pressure, Resource Budget posture, and corroborating Proof-of-Crawl/robots evidence. THROTTLE, DECOY, and QUARANTINE are executed only with explicit Policy Engine enforcement opt-in and both Policy Engine and global Shadow Mode disabled. See [POLICY-ENGINE.md](POLICY-ENGINE.md).
 
 
 ## v3.0.0-beta.1 — Resource Budgets
@@ -590,3 +595,14 @@ The normal sensor is unchanged by default (`AW_INTELLIGENCE_ENABLED=false`).
 The hub aggregates site-scoped evidence but **does not** automatically associate
 profiles across different sites or apply policies. These are local attestations,
 not independent proof of common operator identity.
+
+
+## Constrained-host testing
+
+On shared cPanel/CloudLinux hosts, nested Node integration tests can be blocked by account process/thread ceilings even when AnchorWeight is healthy. Use the focused local release checks there and require the full GitHub Actions matrix on `v3-development` before tagging. See [TESTING-CONSTRAINED-HOSTS.md](TESTING-CONSTRAINED-HOSTS.md).
+
+
+<!-- beta2-hotfix5-test-runner -->
+### Constrained-host test runner
+
+On process-limited shared hosting, run the full suite with `UV_THREADPOOL_SIZE=1 NODE_OPTIONS="--v8-pool-size=1" npm test`. AnchorWeight keeps normal process isolation for ordinary tests and removes only the extra Node test-file worker for tests that already launch real child processes. Resource-exhaustion failures are not skipped. See `TESTING-CONSTRAINED-HOSTS.md`.

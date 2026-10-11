@@ -11,6 +11,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { makeBasicCredential, makeApiCredential } from '../src/app-auth.js';
 const app=fileURLToPath(new URL('../app.js',import.meta.url));
+const expectedVersion=JSON.parse(fs.readFileSync(fileURLToPath(new URL('../package.json',import.meta.url)),'utf8')).version;
 async function listen(server){server.listen(0,'127.0.0.1');await once(server,'listening');return server.address().port;}
 async function port(){const s=net.createServer();const p=await listen(s);s.close();await once(s,'close');return p;}
 async function stop(child){if(child.exitCode!==null||child.signalCode!==null)return;const exit=once(child,'exit');child.kill('SIGTERM');const guard=setTimeout(()=>child.kill('SIGKILL'),1500);try{await exit;}finally{clearTimeout(guard);}}
@@ -33,12 +34,14 @@ test('application Basic Auth and API keys protect only configured proxy paths; o
   const child=spawn(process.execPath,['-e',`require(${JSON.stringify(app)})`],{cwd:dir,env,stdio:['ignore','pipe','pipe']});
   t.after(async()=>stop(child));let errors='';child.stderr.on('data',d=>errors+=d);child.stdout.resume();
   const base=`http://127.0.0.1:${p}`;
-  for(let i=0;i<90;i++){
+  let live=false;
+  for(let i=0;i<180;i++){
     if(child.exitCode!==null)throw Error(errors);
-    try{if((await fetch(base+'/live')).ok)break;}catch{}
+    try{if((await fetch(base+'/live')).ok){live=true;break;}}catch{}
     await new Promise(resolve=>setTimeout(resolve,60));
   }
-  assert.equal((await (await fetch(base+'/live')).json()).version,'3.0.0-beta.1');
+  assert.equal(live,true,'AnchorWeight did not become live: '+errors);
+  assert.equal((await (await fetch(base+'/live')).json()).version,expectedVersion);
   const blocked=await fetch(base+'/private/file');
   assert.equal(blocked.status,401);assert.match(blocked.headers.get('www-authenticate'),/^Basic /);
   assert.equal((await fetch(base+'/private/file',{headers:{authorization:'Basic '+Buffer.from('alice:wrong-password').toString('base64')}})).status,401);
@@ -48,7 +51,6 @@ test('application Basic Auth and API keys protect only configured proxy paths; o
   assert.equal((await fetch(base+'/api/private',{headers:{'x-api-key':key.key}})).status,200);
   assert.equal((await fetch(base+'/api/private',{headers:{'x-api-key':key.key,authorization:'Bearer fake'}})).status,401);
   assert.equal((await fetch(base+'/api/public')).status,200);
-  // Reject encoded path separators: an upstream might decode what the gateway did not.
   assert.equal((await fetch(base+'/private%2ffile')).status,400);
   assert.equal((await fetch(base+'/private%5cfile')).status,400);
   assert.equal((await fetch(base+'/privateish')).status,200);

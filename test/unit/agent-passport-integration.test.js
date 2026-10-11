@@ -8,5 +8,6 @@ test('passport posture is descriptive and cannot create a new enforcement path',
   assert.equal(p.enforcement.trafficDimensionsEnforced,false);
   assert.equal(p.enforcement.resourceBudgetsAvailable,true);
   assert.equal(p.enforcement.resourceBudgetsEnforced,false);
-  assert.equal(p.enforcement.policyEngineAvailable,false);
+  assert.equal(p.enforcement.policyEngineAvailable,true);
+  assert.equal(p.enforcement.policyEngineEnforced,false);
 });
