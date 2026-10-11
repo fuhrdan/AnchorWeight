@@ -1,6 +1,6 @@
 export const AGENT_PASSPORT_PATH = '/.well-known/anchorweight';
 export const AGENT_PASSPORT_SCHEMA = 'anchorweight-agent-passport/v1';
-export const AGENT_PASSPORT_VERSION = '3.0.0-alpha.5';
+export const AGENT_PASSPORT_VERSION = '3.0.0-alpha.6';
 
 const TRAFFIC_CLASSES = [
   'browser_or_unknown',
@@ -18,34 +18,44 @@ const DECLARED_PURPOSES = [
   'general_automation'
 ];
 
+function fallbackPath(config = {}) {
+  const base=String(config.basePath || '/anchor').replace(/\/$/,'') || '/anchor';
+  return `${base}/agent-passport`;
+}
+
 function publicEnforcement(config = {}) {
   return {
     shadowMode: !!config.shadowMode,
     legacyScoreEnforcementEnabled: !!config.scoreEnforcementEnabled,
     trafficDimensionsEnforced: false,
+    headlessConsistencyEnforced: false,
     resourceBudgetsAvailable: false,
     policyEngineAvailable: false
   };
 }
 
-/**
- * Public, deterministic capability document. This intentionally excludes
- * origins, credentials, tokens, raw client identifiers and trap secrets.
- */
 export function createAgentPassport(config = {}) {
+  const fallbackEndpoint=fallbackPath(config);
   return {
     schema: AGENT_PASSPORT_SCHEMA,
     service: 'AnchorWeight',
     version: AGENT_PASSPORT_VERSION,
     endpoint: AGENT_PASSPORT_PATH,
+    fallbackEndpoint,
     capabilities: {
       agentIdentity: {
         version: 1,
         trafficClasses: [...TRAFFIC_CLASSES],
         declaredPurposes: [...DECLARED_PURPOSES]
       },
-      agentBehavior: {
-        version: 1,
+      agentBehavior: { version:1, observationOnly:true },
+      clientEnvironment: {
+        version: 2,
+        headlessConsistency: true,
+        webdriverObservation: true,
+        extendedScreenObservation: true,
+        exactScreenCountCollected: false,
+        permissionPromptRequested: false,
         observationOnly: true
       },
       trafficScoring: {
@@ -53,14 +63,8 @@ export function createAgentPassport(config = {}) {
         dimensions: ['automationConfidence', 'policyRisk', 'resourcePressure'],
         enforcement: 'legacy_score_only'
       },
-      agentTrafficObservatory: {
-        version: 1,
-        authenticated: true
-      },
-      proofOfCrawl: {
-        available: true,
-        bounded: true
-      }
+      agentTrafficObservatory: { version:1, authenticated:true },
+      proofOfCrawl: { available:true, bounded:true }
     },
     enforcement: publicEnforcement(config),
     privacy: {
@@ -70,12 +74,14 @@ export function createAgentPassport(config = {}) {
       rawQueryExposed: false,
       rawCookieExposed: false,
       originExposed: false,
-      credentialsExposed: false
+      credentialsExposed: false,
+      exactScreenEnumerationPerformed: false
     },
     discovery: {
       methods: ['GET', 'HEAD'],
       cacheSeconds: 300,
-      corsReadable: true
+      corsReadable: true,
+      endpoints: [AGENT_PASSPORT_PATH, fallbackEndpoint]
     }
   };
 }
@@ -84,12 +90,10 @@ function setHeader(res, name, value) {
   if (typeof res?.setHeader === 'function') res.setHeader(name, value);
 }
 
-/**
- * Handle the public passport endpoint. Returns true when the request path is
- * owned by the passport handler, false when normal AnchorWeight routing should continue.
- */
 export function handleAgentPassport(req, res, url, config = {}) {
-  if (url?.pathname !== AGENT_PASSPORT_PATH) return false;
+  const pathname=url?.pathname;
+  const fallbackEndpoint=fallbackPath(config);
+  if (pathname !== AGENT_PASSPORT_PATH && pathname !== fallbackEndpoint) return false;
 
   const method = String(req?.method || 'GET').toUpperCase();
   setHeader(res, 'X-Content-Type-Options', 'nosniff');

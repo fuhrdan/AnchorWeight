@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 
 const MAX_DIMENSION = 32768;
 const MAX_DPR = 16;
+const MAX_HARDWARE_CONCURRENCY = 1024;
+const MAX_TOUCH_POINTS = 100;
 const ALLOWED_ORIENTATIONS = new Set([
   'portrait-primary','portrait-secondary','landscape-primary','landscape-secondary','unknown'
 ]);
@@ -14,6 +16,15 @@ function finiteNumber(value) {
 function integer(value) {
   const n = finiteNumber(value);
   return n == null ? null : Math.round(n);
+}
+
+function boundedInteger(value, min, max) {
+  const n = integer(value);
+  return n == null || n < min || n > max ? null : n;
+}
+
+function optionalBoolean(value) {
+  return typeof value === 'boolean' ? value : null;
 }
 
 function shortHash(secret, value) {
@@ -34,7 +45,45 @@ export function normalizeClientEnvironment(input = {}) {
     screenWidth, screenHeight, availWidth, availHeight,
     viewportWidth, viewportHeight,
     devicePixelRatio: devicePixelRatio == null ? null : Math.round(devicePixelRatio * 100) / 100,
-    colorDepth, orientation
+    colorDepth, orientation,
+    webdriver: optionalBoolean(input.webdriver),
+    screenExtendedAvailable: input.screenExtendedAvailable === true,
+    screenExtended: optionalBoolean(input.screenExtended),
+    windowManagementApiAvailable: input.windowManagementApiAvailable === true,
+    hardwareConcurrency: boundedInteger(input.hardwareConcurrency, 1, MAX_HARDWARE_CONCURRENCY),
+    maxTouchPoints: boundedInteger(input.maxTouchPoints, 0, MAX_TOUCH_POINTS)
+  };
+}
+
+export function assessHeadlessConsistency(environment = {}) {
+  const indicators=[];
+  const add=(reason, strength='supporting')=>{
+    if(!indicators.some(x=>x.reason===reason)) indicators.push({reason,strength});
+  };
+
+  if (environment.webdriver === true) add('webdriver_automation_controlled','strong');
+  if (!environment.screenAvailable) add('screen_api_unavailable','supporting');
+  if (!environment.screenAvailable && environment.viewportWidth && environment.viewportHeight)
+    add('viewport_without_screen_api','supporting');
+
+  const multiScreenState = environment.screenExtendedAvailable
+    ? (environment.screenExtended === true ? 'extended' : 'not_extended')
+    : 'unavailable';
+
+  return {
+    observationOnly: true,
+    automationControlled: environment.webdriver === true,
+    indicators,
+    multiScreenState,
+    capabilities: {
+      webdriverReported: environment.webdriver !== null,
+      screenExtendedAvailable: !!environment.screenExtendedAvailable,
+      windowManagementApiAvailable: !!environment.windowManagementApiAvailable,
+      exactScreenCountCollected: false,
+      permissionPromptRequested: false
+    },
+    hardwareConcurrency: environment.hardwareConcurrency,
+    maxTouchPoints: environment.maxTouchPoints
   };
 }
 
@@ -54,8 +103,6 @@ export function assessClientEnvironment(input = {}, { secret='anchorweight', pre
     if (e.availWidth > e.screenWidth || e.availHeight > e.screenHeight) add('available_area_exceeds_screen', 20);
   }
   if (e.screenWidth && e.screenHeight && e.viewportWidth && e.viewportHeight) {
-    // Browser chrome, zoom and mobile visual viewports make exact comparisons noisy.
-    // Only flag a large contradiction, not a few pixels of overflow.
     if (e.viewportWidth > e.screenWidth * 1.25 || e.viewportHeight > e.screenHeight * 1.25)
       add('viewport_materially_exceeds_screen', 15);
   }
@@ -70,8 +117,6 @@ export function assessClientEnvironment(input = {}, { secret='anchorweight', pre
     if (portrait !== saysPortrait && e.screenWidth !== e.screenHeight) add('orientation_dimension_mismatch', 5);
   }
 
-  // Extreme sizes are deliberately low weight. They can be legitimate kiosks,
-  // VMs, accessibility setups or unusual devices.
   if (e.screenWidth && e.screenHeight) {
     const ratio=Math.max(e.screenWidth/e.screenHeight,e.screenHeight/e.screenWidth);
     if (ratio > 5) add('unusual_aspect_ratio', 2);
@@ -80,18 +125,26 @@ export function assessClientEnvironment(input = {}, { secret='anchorweight', pre
 
   const tuple=[
     e.screenAvailable?1:0,e.screenWidth,e.screenHeight,e.availWidth,e.availHeight,
-    e.viewportWidth,e.viewportHeight,e.devicePixelRatio,e.colorDepth,e.orientation
+    e.viewportWidth,e.viewportHeight,e.devicePixelRatio,e.colorDepth,e.orientation,
+    e.webdriver,e.screenExtendedAvailable,e.screenExtended,e.windowManagementApiAvailable,
+    e.hardwareConcurrency,e.maxTouchPoints
   ].join('|');
   const fingerprint=shortHash(secret,`display:${tuple}`);
   const prior=[...new Set((previousFingerprints || []).map(String))];
   if (prior.length >= 2 && !prior.includes(fingerprint)) add('display_fingerprint_changed_repeatedly', 5);
 
-  return { environment:e, fingerprint, points:Math.min(points,100), reasons };
+  return {
+    environment:e,
+    fingerprint,
+    points:Math.min(points,100),
+    reasons,
+    headlessConsistency:assessHeadlessConsistency(e)
+  };
 }
 
 export function clientEnvironmentCollector(basePath='/anchor') {
   const endpoint=`${String(basePath).replace(/\/$/,'')}/client-environment`;
-  return `<script data-anchorweight-client-environment>(function(){try{var s=window.screen||null,o=s&&s.orientation;var p={screenAvailable:!!s,screenWidth:s&&s.width,screenHeight:s&&s.height,availWidth:s&&s.availWidth,availHeight:s&&s.availHeight,viewportWidth:window.innerWidth,viewportHeight:window.innerHeight,devicePixelRatio:window.devicePixelRatio,colorDepth:s&&s.colorDepth,orientation:o&&o.type||'unknown'};fetch(${JSON.stringify(endpoint)},{method:'POST',credentials:'same-origin',keepalive:true,headers:{'content-type':'application/json'},body:JSON.stringify(p)}).catch(function(){});}catch(e){}})();</script>`;
+  return `<script data-anchorweight-client-environment>(function(){try{var s=window.screen||null,o=s&&s.orientation,n=window.navigator||{};var ex=!!s&&typeof s.isExtended==='boolean';var p={screenAvailable:!!s,screenWidth:s&&s.width,screenHeight:s&&s.height,availWidth:s&&s.availWidth,availHeight:s&&s.availHeight,viewportWidth:window.innerWidth,viewportHeight:window.innerHeight,devicePixelRatio:window.devicePixelRatio,colorDepth:s&&s.colorDepth,orientation:o&&o.type||'unknown',webdriver:typeof n.webdriver==='boolean'?n.webdriver:null,screenExtendedAvailable:ex,screenExtended:ex?s.isExtended:null,windowManagementApiAvailable:typeof window.getScreenDetails==='function',hardwareConcurrency:n.hardwareConcurrency,maxTouchPoints:n.maxTouchPoints};fetch(${JSON.stringify(endpoint)},{method:'POST',credentials:'same-origin',keepalive:true,headers:{'content-type':'application/json'},body:JSON.stringify(p)}).catch(function(){});}catch(e){}})();</script>`;
 }
 
 export function injectClientEnvironmentCollector(html, basePath) {

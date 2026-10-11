@@ -1,5 +1,15 @@
 ## 3.0.0-alpha.1 - Agent Identity & Traffic Taxonomy
 
+## 3.0.0-alpha.6 - Client Environment 2.0 / Headless Consistency
+
+- Added privacy-minimized `navigator.webdriver` observation as direct browser-automation evidence.
+- Added `screen.isExtended` observation when supported, without claiming or collecting an exact physical monitor count.
+- Added Window Management API capability detection without invoking `getScreenDetails()` or requesting browser permission.
+- Added bounded hardware-concurrency and touch-point context to the client-environment fingerprint.
+- Fed WebDriver automation evidence into Automation Confidence only; legacy score, Policy Risk, Resource Pressure and quarantine semantics are unchanged.
+- Added a base-path Agent Passport fallback (for example `/anchor/agent-passport`) for hosting stacks that bypass `/.well-known/*`.
+- Added no state-schema migration and no new enforcement path.
+
 ## 3.0.0-alpha.5 - Agent Passport
 
 - Added public GET/HEAD discovery at `/.well-known/anchorweight`.

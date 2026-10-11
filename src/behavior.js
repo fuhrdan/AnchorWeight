@@ -180,6 +180,13 @@ export class BehaviorEngine {
     p.clientEnvironment.observations++;
     p.clientEnvironment.lastAt=this.now();
     p.clientEnvironment.lastReasons=assessment.reasons.slice(0,8);
+    p.clientEnvironment.headlessConsistency = {
+      webdriver: assessment.environment?.webdriver ?? null,
+      automationControlled: !!assessment.headlessConsistency?.automationControlled,
+      multiScreenState: assessment.headlessConsistency?.multiScreenState || 'unavailable',
+      indicatorNames: (assessment.headlessConsistency?.indicators || []).map(x=>x.reason).slice(0,8),
+      capabilities: { ...(assessment.headlessConsistency?.capabilities || {}) }
+    };
     if (!p.displayFingerprints.includes(assessment.fingerprint)) {
       p.displayFingerprints.push(assessment.fingerprint);
       if (p.displayFingerprints.length > 4) p.displayFingerprints.shift();
@@ -201,6 +208,8 @@ export class BehaviorEngine {
       this.addSignalOnce(ipKey, `client_env_${reason.reason}`, configured ?? reason.points, { fingerprint:assessment.fingerprint });
     }
     this.store.stats.clientEnvironmentObservations = (this.store.stats.clientEnvironmentObservations || 0) + 1;
+    if (assessment.environment?.webdriver === true)
+      this.store.stats.clientEnvironmentHeadlessAutomationObservations = (this.store.stats.clientEnvironmentHeadlessAutomationObservations || 0) + 1;
     this.store.touchProfile?.(ipKey);
     return assessment;
   }
@@ -232,7 +241,7 @@ export function newProfile() {
     goodBotClaimed: false, goodBotVerified: false, goodBotProvider: null, goodBotCheckReason: null, manualPolicy: null,
     trapSessions: {}, recentTraversalDepths: [], traversalStyle: 'unknown', campaignIds: [],
     offenseCount: 0, lastOffenseAt: null, evidence: [], trustedTlsFingerprints: [],
-    displayFingerprints: [], clientEnvironment: { observations:0, lastAt:null, lastReasons:[] },
+    displayFingerprints: [], clientEnvironment: { observations:0, lastAt:null, lastReasons:[], headlessConsistency: { webdriver:null, automationControlled:false, multiScreenState:'unavailable', indicatorNames:[], capabilities:{} } },
     agentIdentity: { observations:0, lastAt:null, current:null, history:[] },
     agentBehavior: emptyAgentBehavior(),
     adaptiveDeception: { observations:0, interventions:0, lastAt:null, lastIntervention:null, history:[], attackerCost:{requestsDiverted:0,shadowTraversals:0,decoyInteractions:0,additionalDepth:0,estimatedDelayMs:0,originRequestsPrevented:0} },
@@ -266,7 +275,7 @@ export function publicProfile(ipKey, p) {
     review: p.review || null,
     lastOffenseAt: p.lastOffenseAt || null,
     evidence: (p.evidence || []).slice(-12),
-    clientEnvironment: { observations:p.clientEnvironment?.observations || 0, fingerprintVariants:(p.displayFingerprints || []).length, lastReasons:(p.clientEnvironment?.lastReasons || []).slice(0,8) },
+    clientEnvironment: { observations:p.clientEnvironment?.observations || 0, fingerprintVariants:(p.displayFingerprints || []).length, lastReasons:(p.clientEnvironment?.lastReasons || []).slice(0,8), headlessConsistency:{webdriver:p.clientEnvironment?.headlessConsistency?.webdriver ?? null,automationControlled:!!p.clientEnvironment?.headlessConsistency?.automationControlled,multiScreenState:p.clientEnvironment?.headlessConsistency?.multiScreenState || 'unavailable',indicatorNames:(p.clientEnvironment?.headlessConsistency?.indicatorNames || []).slice(0,8),capabilities:{...(p.clientEnvironment?.headlessConsistency?.capabilities || {})}} },
     agentBehavior: publicAgentBehavior(p),
     trafficScores: scoreTrafficDimensions(p),
     adaptiveDeception: { observations:p.adaptiveDeception?.observations||0, interventions:p.adaptiveDeception?.interventions||0, lastAt:p.adaptiveDeception?.lastAt||null, lastIntervention:p.adaptiveDeception?.lastIntervention||null, attackerCost:{...(p.adaptiveDeception?.attackerCost||{})}, history:(p.adaptiveDeception?.history||[]).slice(-12) },

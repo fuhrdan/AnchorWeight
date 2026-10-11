@@ -68,6 +68,9 @@ function automationDimension(profile) {
   }[trafficClass] ?? 0;
   score += addReason(reasons, `identity_${trafficClass}`, identityPoints);
 
+  if (profile?.clientEnvironment?.headlessConsistency?.webdriver === true)
+    score += addReason(reasons, 'webdriver_automation_controlled', 35);
+
   if ((profile?.proofOfCrawl || 0) > 0) score += addReason(reasons, 'proof_of_crawl', 45);
   else if ((profile?.validTraversals || 0) > 0) score += addReason(reasons, 'signed_traversal', Math.min(35, 15 + (profile.validTraversals * 5)));
   if (hasSignal(profile, 'automation_user_agent')) score += addReason(reasons, 'automation_user_agent', 25);

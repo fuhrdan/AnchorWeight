@@ -1,4 +1,8 @@
-# AnchorWeight v3.0-alpha.5
+# AnchorWeight v3.0-alpha.6
+
+## v3.0.0-alpha.6 — Client Environment 2.0 / Headless Consistency
+
+Alpha.6 adds observation-only browser automation and display-topology consistency signals. AnchorWeight records `navigator.webdriver`, `screen.isExtended` when available, Window Management API availability without requesting permission, and bounded hardware/touch context. A positive WebDriver signal raises **Automation Confidence only**; it does not add legacy Bot DNA points, Policy Risk, Resource Pressure, or trigger quarantine. Alpha.6 also adds a base-path Agent Passport fallback such as `/anchor/agent-passport` for hosting stacks that bypass `/.well-known/*`. See [CLIENT-ENVIRONMENT-2.md](CLIENT-ENVIRONMENT-2.md).
 
 ## v3.0.0-alpha.5 — Agent Passport
 
