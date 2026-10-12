@@ -1,6 +1,6 @@
 export const AGENT_PASSPORT_PATH = '/.well-known/anchorweight';
 export const AGENT_PASSPORT_SCHEMA = 'anchorweight-agent-passport/v1';
-export const AGENT_PASSPORT_VERSION = '3.0.0-beta.2';
+export const AGENT_PASSPORT_VERSION = '3.0.0-beta.3';
 
 const TRAFFIC_CLASSES = [
   'browser_or_unknown',
@@ -76,6 +76,13 @@ export function createAgentPassport(config = {}) {
         shadowFirst: true,
         explicitEnforcementOptIn: true,
         resourceBudgetsConsumed: true
+      },
+      policyForensics: {
+        version: 1,
+        available: true,
+        boundedHistory: 12,
+        observationOnly: true,
+        rawRequestDataCollected: false
       },
       trafficScoring: {
         version: 1,

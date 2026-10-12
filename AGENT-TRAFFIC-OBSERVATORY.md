@@ -34,3 +34,7 @@ A verified search crawler can therefore be highly automated while remaining low-
 ## Next step
 
 The next release can introduce operator-configured **Resource Budgets**. Those budgets should consume Resource Pressure and measured traffic cost, but must be explicit, bounded, reversible, and separate from identity alone.
+
+## Beta.3 policy calibration
+
+The authenticated Observatory now includes aggregate Policy Forensics calibration: evaluation count, transition count/rate, high-impact recommendation count, and bounded reason-code frequency. No raw client identifiers or request data are added.

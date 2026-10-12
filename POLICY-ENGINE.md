@@ -56,3 +56,7 @@ AW_POLICY_QUARANTINE_MINUTES=60
 - Decoy uses AnchorWeight's existing bounded inert decoy response.
 - Quarantine uses the existing bounded block store and expiry behavior.
 - No new runtime dependency and no state-schema migration are required.
+
+## Beta.3 calibration
+
+Beta.3 layers bounded Policy Forensics over the beta.2 evaluator. It does not change thresholds or enforcement gates; it adds decision/reason counters and a short transition trail so operators can calibrate the existing policy before enabling enforcement.

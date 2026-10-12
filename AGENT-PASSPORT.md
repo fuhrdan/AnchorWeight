@@ -48,3 +48,7 @@ The Agent Passport is descriptive only. Alpha.5 keeps the alpha.3/alpha.4 enforc
 ## Hosting fallback
 
 The preferred discovery path remains `/.well-known/anchorweight`. Alpha.6 also serves the same document at `<basePath>/agent-passport` (normally `/anchor/agent-passport`) because some shared-hosting/LiteSpeed configurations route `/.well-known/*` directly to the origin application before Passenger/Node. If the fallback works but the well-known path does not, fix the hosting-layer route rather than weakening the Passport.
+
+## Beta.3 Policy Forensics capability
+
+The passport advertises bounded, observation-only Policy Forensics so automated clients and operators can distinguish decision explainability from enforcement. The capability explicitly states that raw request data is not collected by Policy Forensics.

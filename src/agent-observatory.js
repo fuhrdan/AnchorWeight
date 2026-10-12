@@ -42,6 +42,16 @@ function policyEnforcementEligible(profile) {
   return !!profile?.policyDecision?.enforcementEligible;
 }
 
+function policyForensics(profile) {
+  const value=profile?.policyForensics && typeof profile.policyForensics==='object' ? profile.policyForensics : {};
+  return {
+    evaluations:Math.max(0,Math.round(n(value.evaluations))),
+    transitions:Math.max(0,Math.round(n(value.transitions))),
+    highImpactRecommendations:Math.max(0,Math.round(n(value.highImpactRecommendations))),
+    reasonCounts:value.reasonCounts && typeof value.reasonCounts==='object' && !Array.isArray(value.reasonCounts) ? value.reasonCounts : {}
+  };
+}
+
 function purpose(profile) {
   return profile?.agentIdentity?.purpose || profile?.agentIdentity?.current?.purpose || 'unknown';
 }
@@ -104,6 +114,10 @@ export function buildAgentTrafficObservatory(publicProfiles = []) {
   const policyActions = {allow:0,observe:0,budget:0,throttle:0,decoy:0,quarantine:0};
   let policyWouldEnforceProfiles = 0;
   let policyEnforcementEligibleProfiles = 0;
+  let policyEvaluations = 0;
+  let policyTransitions = 0;
+  let policyHighImpactRecommendations = 0;
+  const policyReasonCounts = {};
 
   for (const profile of profiles) {
     bump(classes, trafficClass(profile));
@@ -125,6 +139,14 @@ export function buildAgentTrafficObservatory(publicProfiles = []) {
     policyActions[policyAction(profile)]++;
     if (policyWouldEnforce(profile)) policyWouldEnforceProfiles++;
     if (policyEnforcementEligible(profile)) policyEnforcementEligibleProfiles++;
+    const forensics=policyForensics(profile);
+    policyEvaluations += forensics.evaluations;
+    policyTransitions += forensics.transitions;
+    policyHighImpactRecommendations += forensics.highImpactRecommendations;
+    for (const [code,count] of Object.entries(forensics.reasonCounts).slice(0,16)) {
+      const safe=String(code||'unknown').replace(/[^a-z0-9_:-]/gi,'').slice(0,64) || 'unknown';
+      policyReasonCounts[safe]=(policyReasonCounts[safe]||0)+Math.max(0,Math.round(n(count)));
+    }
   }
 
   const count = profiles.length;
@@ -147,6 +169,14 @@ export function buildAgentTrafficObservatory(publicProfiles = []) {
       actions:policyActions,
       wouldEnforceProfiles:policyWouldEnforceProfiles,
       enforcementEligibleProfiles:policyEnforcementEligibleProfiles
+    },
+    policyCalibration:{
+      enforcement:'observation_only',
+      evaluations:policyEvaluations,
+      transitions:policyTransitions,
+      highImpactRecommendations:policyHighImpactRecommendations,
+      transitionRate:policyEvaluations ? Math.round((policyTransitions / policyEvaluations) * 100) : 0,
+      topReasons:Object.fromEntries(Object.entries(policyReasonCounts).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,12))
     },
     trafficClasses:classes,
     purposes,

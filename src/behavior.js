@@ -9,6 +9,7 @@ import { observeAgentBehavior, observeAgentResponse, publicAgentBehavior, emptyA
 import { scoreTrafficDimensions } from './traffic-scoring.js';
 import { evaluateResourceBudget, publicResourceBudget, emptyResourceBudget } from './resource-budgets.js';
 import { evaluatePolicyDecision, publicPolicyDecision, emptyPolicyDecision } from './policy-engine.js';
+import { recordPolicyForensics, publicPolicyForensics, emptyPolicyForensics } from './policy-forensics.js';
 function shortHash(secret, value) {
   return crypto.createHmac('sha256', secret).update(String(value || '')).digest('hex').slice(0, 12);
 }
@@ -31,6 +32,7 @@ export class BehaviorEngine {
     const scores = scoreTrafficDimensions(p);
     p.resourceBudget = evaluateResourceBudget(p, scores, this.config, { now });
     p.policyDecision = evaluatePolicyDecision(p, scores, p.resourceBudget, this.config, { now });
+    recordPolicyForensics(p, p.policyDecision, { now });
     return p.policyDecision;
   }
 
@@ -258,6 +260,7 @@ export function newProfile() {
     agentBehavior: emptyAgentBehavior(),
     resourceBudget: emptyResourceBudget(),
     policyDecision: emptyPolicyDecision(),
+    policyForensics: emptyPolicyForensics(),
     adaptiveDeception: { observations:0, interventions:0, lastAt:null, lastIntervention:null, history:[], attackerCost:{requestsDiverted:0,shadowTraversals:0,decoyInteractions:0,additionalDepth:0,estimatedDelayMs:0,originRequestsPrevented:0} },
     adaptiveIntervention: { decisions:0,switches:0,lastAt:null,lastDecision:null,lastReason:null,pending:null,history:[],effectiveness:{} }
   };
@@ -294,6 +297,7 @@ export function publicProfile(ipKey, p) {
     trafficScores: scoreTrafficDimensions(p),
     resourceBudget: publicResourceBudget(p),
     policyDecision: publicPolicyDecision(p),
+    policyForensics: publicPolicyForensics(p),
     adaptiveDeception: { observations:p.adaptiveDeception?.observations||0, interventions:p.adaptiveDeception?.interventions||0, lastAt:p.adaptiveDeception?.lastAt||null, lastIntervention:p.adaptiveDeception?.lastIntervention||null, attackerCost:{...(p.adaptiveDeception?.attackerCost||{})}, history:(p.adaptiveDeception?.history||[]).slice(-12) },
     adaptiveIntervention: { decisions:p.adaptiveIntervention?.decisions||0, switches:p.adaptiveIntervention?.switches||0, lastAt:p.adaptiveIntervention?.lastAt||null, lastDecision:p.adaptiveIntervention?.lastDecision||null, lastReason:p.adaptiveIntervention?.lastReason||null, effectiveness:{...(p.adaptiveIntervention?.effectiveness||{})}, history:(p.adaptiveIntervention?.history||[]).slice(-12) },
     assessment: assessProfile(p),

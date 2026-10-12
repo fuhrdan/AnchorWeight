@@ -606,3 +606,7 @@ On shared cPanel/CloudLinux hosts, nested Node integration tests can be blocked 
 ### Constrained-host test runner
 
 On process-limited shared hosting, run the full suite with `UV_THREADPOOL_SIZE=1 NODE_OPTIONS="--v8-pool-size=1" npm test`. AnchorWeight keeps normal process isolation for ordinary tests and removes only the extra Node test-file worker for tests that already launch real child processes. Resource-exhaustion failures are not skipped. See `TESTING-CONSTRAINED-HOSTS.md`.
+
+## v3.0.0-beta.3 — Policy Forensics + Calibration
+
+Beta.3 adds bounded, privacy-safe policy decision forensics and Observatory calibration. It records action/reason transitions and aggregate recommendation counts without expanding enforcement or storing raw request identity data. See [POLICY-FORENSICS.md](POLICY-FORENSICS.md).
