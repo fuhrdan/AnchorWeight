@@ -20,7 +20,7 @@ test('base-path fallback serves the same public passport',()=>{
   assert.equal(handled,true);
   assert.equal(res.statusCode,200);
   const body=JSON.parse(res.body);
-  assert.equal(body.version,'3.0.0-beta.7');
+  assert.equal(body.version,'3.0.0-rc.1');
   assert.equal(body.privacy.originExposed,false);
 });
 

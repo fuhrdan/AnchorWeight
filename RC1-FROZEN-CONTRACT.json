@@ -1,0 +1,40 @@
+{
+  "schema": "anchorweight-rc-frozen-contract/v1",
+  "release": "3.0.0-rc.1",
+  "frozenFrom": "3.0.0-beta.7",
+  "agentPassportSchema": "anchorweight-agent-passport/v1",
+  "capabilities": [
+    "agentIdentity",
+    "agentBehavior",
+    "clientEnvironment",
+    "proxyIdentityDiagnostics",
+    "resourceBudgets",
+    "policyEngine",
+    "policyForensics",
+    "policySimulation",
+    "enforcementRehearsal",
+    "releaseReadiness",
+    "trafficScoring",
+    "agentTrafficObservatory",
+    "proofOfCrawl"
+  ],
+  "policyActions": ["allow", "observe", "budget", "throttle", "decoy", "quarantine"],
+  "privacyFalseFlags": [
+    "rawIpExposed",
+    "rawProxyIdentityValuesExposed",
+    "rawUserAgentExposed",
+    "rawPathExposed",
+    "rawQueryExposed",
+    "rawCookieExposed",
+    "originExposed",
+    "credentialsExposed",
+    "exactScreenEnumerationPerformed"
+  ],
+  "enforcementDefaults": {
+    "legacyScoreEnforcementEnabled": false,
+    "trafficDimensionsEnforced": false,
+    "headlessConsistencyEnforced": false,
+    "resourceBudgetsEnforced": false,
+    "policyEngineEnforced": false
+  }
+}
