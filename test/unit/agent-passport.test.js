@@ -35,6 +35,10 @@ test('agent passport advertises v3 identity behavior scoring and observatory cap
   assert.deepEqual(p.capabilities.trafficScoring.dimensions,['automationConfidence','policyRisk','resourcePressure']);
   assert.equal(p.capabilities.agentTrafficObservatory.authenticated,true);
   assert.equal(p.capabilities.policyEngine.shadowFirst,true);
+  assert.equal(p.capabilities.policySimulation.authenticated,true);
+  assert.equal(p.capabilities.policySimulation.readOnly,true);
+  assert.equal(p.capabilities.policySimulation.mutatesState,false);
+  assert.equal(p.capabilities.policySimulation.enforcement,false);
 });
 
 test('agent passport keeps v3 dimensions and beta.1 budgets outside enforcement',()=>{

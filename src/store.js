@@ -124,6 +124,15 @@ export class MemoryStore {
     return this.blocks.get(ipKey) || null;
   }
 
+  getPublicProfiles(limit = 500) {
+    const cap = Math.max(1, Math.min(500, Math.round(Number(limit) || 500)));
+    return [...this.profiles.entries()]
+      .sort((a,b) => (Number(b[1]?.requestCount)||0) - (Number(a[1]?.requestCount)||0) ||
+        (Number(b[1]?.score)||0) - (Number(a[1]?.score)||0) || String(a[0]).localeCompare(String(b[0])))
+      .slice(0, cap)
+      .map(([key,profile]) => publicProfile(key,profile));
+  }
+
   snapshot() {
     this.cleanup();
     const publicProfiles = [...this.profiles.entries()].map(([k,p]) => publicProfile(k,p));
