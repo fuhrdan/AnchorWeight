@@ -203,7 +203,7 @@ export function buildReleaseReadiness({
   else if (!enoughObservations || !calibration.sufficientLabeledEvidence || !impactStable) verdict = 'calibrating';
 
   const nextActions = [];
-  if (!identitySafe) nextActions.push('Restore trustworthy proxy-supplied client identity before enabling client-scoped enforcement.');
+  if (!identitySafe) nextActions.push(clientIdentity?.diagnostics?.operatorAction || 'Restore trustworthy proxy-supplied client identity before enabling client-scoped enforcement.');
   if (!proxyProtected) nextActions.push('Route protected site traffic through AnchorWeight before considering enforcement.');
   if (!enoughObservations) nextActions.push(`Collect at least ${RELEASE_READINESS_MIN_POLICY_EVALUATIONS} shadow Policy Engine evaluations.`);
   if (!calibration.sufficientLabeledEvidence) nextActions.push('Review Bot DNA profiles as false positives or confirmed automation to create labeled calibration evidence.');

@@ -58,7 +58,7 @@ test('cPanel-compatible Node startup preserves live health, dashboard, wizard an
   for(let i=0;i<60;i++){
     if(child.exitCode!==null)break;
     try{const r=await fetch(url+'/live',{signal:AbortSignal.timeout(600)});
-      if(r.ok){assert.equal((await r.json()).version,'3.0.0-beta.5');ready=true;break;}}
+      if(r.ok){assert.equal((await r.json()).version,'3.0.0-beta.6');ready=true;break;}}
     catch{}await new Promise(resolve=>setTimeout(resolve,80));
   }
   assert.equal(ready,true,logs);

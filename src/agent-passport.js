@@ -62,6 +62,15 @@ export function createAgentPassport(config = {}) {
         permissionPromptRequested: false,
         observationOnly: true
       },
+      proxyIdentityDiagnostics: {
+        version: 1,
+        available: true,
+        runtimeState: true,
+        operatorGuidance: true,
+        enforcementBypass: false,
+        rawClientIpExposed: false,
+        rawForwardedHeaderExposed: false
+      },
       resourceBudgets: {
         version: 1,
         available: true,
@@ -107,6 +116,7 @@ export function createAgentPassport(config = {}) {
     enforcement: publicEnforcement(config),
     privacy: {
       rawIpExposed: false,
+      rawProxyIdentityValuesExposed: false,
       rawUserAgentExposed: false,
       rawPathExposed: false,
       rawQueryExposed: false,

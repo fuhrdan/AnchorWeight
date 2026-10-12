@@ -44,7 +44,7 @@ test('cPanel-style startup: independent circuit, approved fallback, no POST rero
   try{if((await fetch(base+'/live')).ok)break;}catch{}
   await new Promise(resolve=>setTimeout(resolve,60));
  }
- assert.equal((await (await fetch(base+'/live')).json()).version,'3.0.0-beta.5');
+ assert.equal((await (await fetch(base+'/live')).json()).version,'3.0.0-beta.6');
  for(let i=0;i<2;i++){
   const r=await fetch(base+'/api/item?x=1');
   assert.equal(r.status,503,'upstream 5xx is passed through, never replayed');
