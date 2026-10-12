@@ -33,7 +33,7 @@
 <section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Routing</h2><div class="help">Opt-in multi-origin configuration; route definitions require a server restart. Origin addresses are not exposed in the dashboard.</div></div></div><div id="routingInfo" class="help">Connect to see route status.</div></section>
 <section><h2>Traffic & protection</h2><div class="grid" id="grid"></div></section>
 
-<section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Agent Traffic Observatory</h2><div class="help">Observation-only view of traffic identity, behavior, Automation Confidence, Policy Risk, and Resource Pressure. Beta.5 adds release calibration and an advisory enforcement-readiness verdict over the shadow-first Policy Engine. THROTTLE, DECOY, and QUARANTINE still require explicit enforcement opt-in and both shadow modes off.</div></div></div>
+<section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Agent Traffic Observatory</h2><div class="help">Observation-only view of traffic identity, behavior, Automation Confidence, Policy Risk, and Resource Pressure. Beta.7 adds enforcement rehearsal over the shadow-first Policy Engine while release readiness remains advisory. THROTTLE, DECOY, and QUARANTINE still require explicit enforcement opt-in and both shadow modes off.</div></div></div>
 <div class="grid" id="agentObservatoryGrid"><div class="card"><div class="label">Agent observatory</div><div class="value">—</div><div class="help">Load stats to view agent traffic.</div></div></div>
 <div id="agentClassSummary" class="summary" style="margin-top:1rem"></div>
 <h3>Highest resource pressure</h3><div id="agentPressureTable" class="table-wrap help">No agent traffic recorded.</div>
@@ -49,6 +49,10 @@
 </div>
 <p id="policySimulationState" class="help">Load the dashboard to initialize current thresholds.</p>
 <div id="policySimulationResult" class="empty">No simulation has been run.</div>
+</section>
+
+<section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Enforcement Rehearsal</h2><div class="help">Beta.7 advisory-only shadow rehearsal. Summarizes Policy Engine recommendations and analyst-label conflicts without changing configuration, thresholds, state, or enforcement.</div></div></div>
+<div id="enforcementRehearsalResult" class="empty">Load stats to view rehearsal evidence.</div>
 </section>
 
 <section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Release Readiness</h2><div class="help">Advisory-only readiness assessment. It never enables enforcement or changes thresholds. A trusted client identity and the external test/release gate remain mandatory.</div></div></div>
@@ -161,6 +165,17 @@ async function runPolicySimulation(){
  }catch(e){state.innerHTML='<span class="error">Simulation failed: '+esc(e.message)+'</span>';}
 }
 document.querySelector('#runPolicySimulation').onclick=runPolicySimulation;
+function renderEnforcementRehearsal(r){
+ const root=document.querySelector('#enforcementRehearsalResult');if(!root)return;
+ if(!r){root.textContent='Rehearsal data unavailable.';return;}
+ const cls=r.verdict==='clear_for_controlled_trial_review'?'good':r.verdict==='review_required'?'error':'muted';
+ const a=r.actionCounts||{},c=r.currentActions||{},x=r.analystComparison||{},w=r.recentWindow||{};
+ root.innerHTML='<p><strong class="'+cls+'">'+esc(r.verdict)+'</strong> · '+esc(r.evaluations||0)+' evaluations · '+esc(r.highImpactRate||0)+'% high-impact recommendations</p>'+
+ '<div class="summary"><span class="pill">ALLOW '+esc(a.allow||0)+'</span><span class="pill">OBSERVE '+esc(a.observe||0)+'</span><span class="pill">BUDGET '+esc(a.budget||0)+'</span><span class="pill">THROTTLE '+esc(a.throttle||0)+'</span><span class="pill">DECOY '+esc(a.decoy||0)+'</span><span class="pill">QUARANTINE '+esc(a.quarantine||0)+'</span></div>'+
+ '<p class="help">Current profiles: allow '+esc(c.allow||0)+' · observe '+esc(c.observe||0)+' · budget '+esc(c.budget||0)+' · throttle '+esc(c.throttle||0)+' · decoy '+esc(c.decoy||0)+' · quarantine '+esc(c.quarantine||0)+'</p>'+
+ '<p class="help">Last '+esc(w.hours||24)+'h bounded decision transitions: '+esc(w.decisionTransitions||0)+' · labeled profiles: '+esc(x.labeledProfiles||0)+' · false-positive high-impact conflicts: '+esc(x.falsePositiveHighImpactConflicts||0)+' · confirmed automation currently allowed: '+esc(x.confirmedAutomationCurrentlyAllowed||0)+'</p>'+
+ ((r.nextActions||[]).length?'<ul>'+r.nextActions.map(v=>'<li>'+esc(v)+'</li>').join('')+'</ul>':'');
+}
 function renderReleaseReadiness(r){
  const root=document.querySelector('#releaseReadinessResult');if(!root)return;
  if(!r){root.textContent='Readiness data unavailable.';return;}
@@ -184,6 +199,7 @@ async function load(){await discoverApiBase();const msg=document.querySelector('
  renderResilience(j.resilience);
  renderRouting(j.routing);
  renderAgentObservatory(j.agentObservatory);
+ renderEnforcementRehearsal(j.enforcementRehearsal);
  renderReleaseReadiness(j.releaseReadiness);
  configurePolicySimulation(j.policySimulation);
  const ps=j.topProfiles||[];document.querySelector('#profiles').innerHTML=ps.length?'<div class="table-wrap"><table><thead><tr><th>ID</th><th>Score</th><th>Classification</th><th>Good bot</th><th>Policy</th><th>Requests</th><th>Depth</th><th>Proofs</th><th>Offenses</th><th>Avg interval</th><th>Style</th><th>Campaigns</th><th>Recent signals</th></tr></thead><tbody>'+ps.map(p=>'<tr><td><button class="inspect" data-bot="'+esc(p.id)+'"><code>'+esc(p.id)+'</code></button></td><td class="risk">'+esc(p.score)+'</td><td>'+esc(p.classification)+'</td><td>'+esc(goodBotText(p))+'</td><td>'+esc(p.manualPolicy||'—')+'</td><td>'+esc(p.requestCount)+'</td><td>'+esc(p.maxDepth)+'</td><td>'+esc(p.proofOfCrawl)+'</td><td>'+esc(p.offenseCount||0)+'</td><td>'+esc(p.averageIntervalMs==null?'—':p.averageIntervalMs+' ms')+'</td><td>'+esc(p.traversalStyle||'—')+'</td><td>'+esc((p.campaignIds||[]).join(', ')||'—')+'</td><td>'+esc((p.signals||[]).map(s=>s.signal).slice(-4).join(', ')||'—')+'</td></tr>').join('')+'</tbody></table></div>':'<div class="empty">No Bot DNA profiles have been recorded yet.</div>';

@@ -1,5 +1,6 @@
 import { ANCHORWEIGHT_VERSION } from './version.js';
 import { releaseReadinessDescriptor } from './release-readiness.js';
+import { enforcementRehearsalDescriptor } from './enforcement-rehearsal.js';
 export const AGENT_PASSPORT_PATH = '/.well-known/anchorweight';
 export const AGENT_PASSPORT_SCHEMA = 'anchorweight-agent-passport/v1';
 export const AGENT_PASSPORT_VERSION = ANCHORWEIGHT_VERSION;
@@ -104,6 +105,7 @@ export function createAgentPassport(config = {}) {
         enforcement: false,
         maxProfiles: 500
       },
+      enforcementRehearsal: enforcementRehearsalDescriptor(),
       releaseReadiness: releaseReadinessDescriptor(),
       trafficScoring: {
         version: 1,
