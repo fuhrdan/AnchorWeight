@@ -27,7 +27,7 @@ export function runRcHardeningCheck({root=DEFAULT_ROOT}={}) {
   try { lock=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8')); }
   catch(err) { failures.push(`package-lock.json unavailable: ${err.message}`); }
 
-  check(ANCHORWEIGHT_VERSION==='3.0.0-rc.1','runtime version must be 3.0.0-rc.1');
+  check(ANCHORWEIGHT_VERSION==='3.0.0-rc.2','runtime version must be 3.0.0-rc.2');
   check(ANCHORWEIGHT_RELEASE_CHANNEL==='rc','release channel must be rc');
   check(pkg.version===ANCHORWEIGHT_VERSION,'package version must match central runtime version');
   check(lock.version===ANCHORWEIGHT_VERSION && lock.packages?.['']?.version===ANCHORWEIGHT_VERSION,'package-lock versions must match central runtime version');
