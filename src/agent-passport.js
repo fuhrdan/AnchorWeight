@@ -1,6 +1,8 @@
+import { ANCHORWEIGHT_VERSION } from './version.js';
+import { releaseReadinessDescriptor } from './release-readiness.js';
 export const AGENT_PASSPORT_PATH = '/.well-known/anchorweight';
 export const AGENT_PASSPORT_SCHEMA = 'anchorweight-agent-passport/v1';
-export const AGENT_PASSPORT_VERSION = '3.0.0-beta.4';
+export const AGENT_PASSPORT_VERSION = ANCHORWEIGHT_VERSION;
 
 const TRAFFIC_CLASSES = [
   'browser_or_unknown',
@@ -93,6 +95,7 @@ export function createAgentPassport(config = {}) {
         enforcement: false,
         maxProfiles: 500
       },
+      releaseReadiness: releaseReadinessDescriptor(),
       trafficScoring: {
         version: 1,
         dimensions: ['automationConfidence', 'policyRisk', 'resourcePressure'],

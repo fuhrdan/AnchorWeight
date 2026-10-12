@@ -3,17 +3,38 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
+import { ANCHORWEIGHT_VERSION } from '../src/version.js';
 
 const root=path.resolve(new URL('..',import.meta.url).pathname);
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
-const required=['scripts/test-suite.js','TESTING-CONSTRAINED-HOSTS.md','README.md','SECURITY.md','ARCHITECTURE.md','THREAT-MODEL.md','CONFIGURATION.md','OPERATIONS.md','DEPLOYMENT.md','CLI.md','LICENSE','DISTRIBUTED-INTELLIGENCE.md','OPERATOR-GATEWAY.md','public/setup.html','src/setup.js','src/telemetry.js','src/gateway-policy.js','src/upstream-health.js','GATEWAY-PROTECTION.md','MULTI-ORIGIN-ROUTING.md','src/routing.js','test/unit/routing.test.js','test/multi-origin.integration.test.js','hub.js','src/declarative-config.js','test/unit/declarative-config.test.js','test/declarative-config.integration.test.js','DECLARATIVE-CONFIGURATION.md','APPLICATION-AUTH.md','src/app-auth.js','bin/app-auth.js','test/unit/app-auth.test.js','test/app-auth.integration.test.js','src/resilience.js','test/unit/resilience.test.js','test/resilience.integration.test.js','UPSTREAM-RESILIENCE.md','LIVE-TRAFFIC-OBSERVATORY.md','src/live-observatory.js','test/unit/live-observatory.test.js','test/live-observatory.integration.test.js','src/alerts.js','bin/alerts.js','test/unit/alerts.test.js','test/alerts.integration.test.js','ALERTS-AND-WEBHOOKS.md','config/examples/alerts-basic.json','INSTALLATION-AND-OPERATIONS.md','bin/operator.js','src/operator-experience.js','test/unit/operator-experience.test.js','test/operator-experience.integration.test.js','src/client-environment.js','test/unit/client-environment.test.js','CLIENT-ENVIRONMENT.md','ADAPTIVE-DECEPTION.md','src/adaptive-deception.js','test/unit/adaptive-deception.test.js','ADAPTIVE-INTERVENTION.md','src/adaptive-intervention.js','test/unit/adaptive-intervention.test.js','CLIENT-IDENTITY-SAFETY.md','src/client-identity.js','test/unit/client-identity.test.js','test/unit/client-identity-integration.test.js','test/unit/proxy-identity-safety.test.js','AGENT-IDENTITY.md','src/agent-identity.js','test/unit/agent-identity.test.js','test/unit/agent-identity-integration.test.js','AGENT-BEHAVIOR.md','src/agent-behavior.js','test/unit/agent-behavior.test.js','test/unit/agent-behavior-integration.test.js','TRAFFIC-SCORING.md','src/traffic-scoring.js','test/unit/traffic-scoring.test.js','test/unit/traffic-scoring-integration.test.js','AGENT-TRAFFIC-OBSERVATORY.md','src/agent-observatory.js','test/unit/agent-observatory.test.js','test/unit/agent-observatory-integration.test.js','AGENT-PASSPORT.md','src/agent-passport.js','test/unit/agent-passport.test.js','test/unit/agent-passport-integration.test.js','CLIENT-ENVIRONMENT-2.md','test/unit/client-environment-2.test.js','test/unit/client-environment-2-integration.test.js','test/unit/agent-passport-routing.test.js','RESOURCE-BUDGETS.md','src/resource-budgets.js','test/unit/resource-budgets.test.js','test/unit/resource-budgets-integration.test.js','test/unit/resource-budgets-observatory.test.js','POLICY-ENGINE.md','src/policy-engine.js','test/unit/policy-engine.test.js','test/unit/policy-engine-integration.test.js','test/unit/policy-engine-observatory.test.js','POLICY-FORENSICS.md','src/policy-forensics.js','test/unit/policy-forensics.test.js','test/unit/policy-forensics-integration.test.js','POLICY-SIMULATION.md','src/policy-simulation.js','test/unit/policy-simulation.test.js','test/unit/policy-simulation-store.test.js'];
+const required=['scripts/test-suite.js','TESTING-CONSTRAINED-HOSTS.md','README.md','SECURITY.md','ARCHITECTURE.md','THREAT-MODEL.md','CONFIGURATION.md','OPERATIONS.md','DEPLOYMENT.md','CLI.md','LICENSE','DISTRIBUTED-INTELLIGENCE.md','OPERATOR-GATEWAY.md','public/setup.html','src/setup.js','src/telemetry.js','src/gateway-policy.js','src/upstream-health.js','GATEWAY-PROTECTION.md','MULTI-ORIGIN-ROUTING.md','src/routing.js','test/unit/routing.test.js','test/multi-origin.integration.test.js','hub.js','src/declarative-config.js','test/unit/declarative-config.test.js','test/declarative-config.integration.test.js','DECLARATIVE-CONFIGURATION.md','APPLICATION-AUTH.md','src/app-auth.js','bin/app-auth.js','test/unit/app-auth.test.js','test/app-auth.integration.test.js','src/resilience.js','test/unit/resilience.test.js','test/resilience.integration.test.js','UPSTREAM-RESILIENCE.md','LIVE-TRAFFIC-OBSERVATORY.md','src/live-observatory.js','test/unit/live-observatory.test.js','test/live-observatory.integration.test.js','src/alerts.js','bin/alerts.js','test/unit/alerts.test.js','test/alerts.integration.test.js','ALERTS-AND-WEBHOOKS.md','config/examples/alerts-basic.json','INSTALLATION-AND-OPERATIONS.md','bin/operator.js','src/operator-experience.js','test/unit/operator-experience.test.js','test/operator-experience.integration.test.js','src/client-environment.js','test/unit/client-environment.test.js','CLIENT-ENVIRONMENT.md','ADAPTIVE-DECEPTION.md','src/adaptive-deception.js','test/unit/adaptive-deception.test.js','ADAPTIVE-INTERVENTION.md','src/adaptive-intervention.js','test/unit/adaptive-intervention.test.js','CLIENT-IDENTITY-SAFETY.md','src/client-identity.js','test/unit/client-identity.test.js','test/unit/client-identity-integration.test.js','test/unit/proxy-identity-safety.test.js','AGENT-IDENTITY.md','src/agent-identity.js','test/unit/agent-identity.test.js','test/unit/agent-identity-integration.test.js','AGENT-BEHAVIOR.md','src/agent-behavior.js','test/unit/agent-behavior.test.js','test/unit/agent-behavior-integration.test.js','TRAFFIC-SCORING.md','src/traffic-scoring.js','test/unit/traffic-scoring.test.js','test/unit/traffic-scoring-integration.test.js','AGENT-TRAFFIC-OBSERVATORY.md','src/agent-observatory.js','test/unit/agent-observatory.test.js','test/unit/agent-observatory-integration.test.js','AGENT-PASSPORT.md','src/agent-passport.js','test/unit/agent-passport.test.js','test/unit/agent-passport-integration.test.js','CLIENT-ENVIRONMENT-2.md','test/unit/client-environment-2.test.js','test/unit/client-environment-2-integration.test.js','test/unit/agent-passport-routing.test.js','RESOURCE-BUDGETS.md','src/resource-budgets.js','test/unit/resource-budgets.test.js','test/unit/resource-budgets-integration.test.js','test/unit/resource-budgets-observatory.test.js','POLICY-ENGINE.md','src/policy-engine.js','test/unit/policy-engine.test.js','test/unit/policy-engine-integration.test.js','test/unit/policy-engine-observatory.test.js','POLICY-FORENSICS.md','src/policy-forensics.js','test/unit/policy-forensics.test.js','test/unit/policy-forensics-integration.test.js','POLICY-SIMULATION.md','src/policy-simulation.js','test/unit/policy-simulation.test.js','test/unit/policy-simulation-store.test.js','src/version.js','src/release-readiness.js','RELEASE-READINESS.md','VERSION-OWNERSHIP.md','test/unit/version.test.js','test/unit/release-readiness.test.js','test/unit/release-readiness-integration.test.js'];
 const failures=[];
-if(pkg.version!=='3.0.0-beta.4') failures.push(`package version is ${pkg.version}`);
+function runtimeVersionFiles(){
+  const out=['app.js','hub.js'];
+  for(const dir of ['src','bin','public']){
+    const base=path.join(root,dir); if(!fs.existsSync(base))continue;
+    for(const entry of fs.readdirSync(base,{withFileTypes:true})){
+      if(!entry.isFile())continue;
+      if(!/\.(?:js|html)$/.test(entry.name))continue;
+      const rel=dir+'/'+entry.name;
+      if(rel==='src/version.js')continue;
+      out.push(rel);
+    }
+  }
+  return out;
+}
+for(const entry of runtimeVersionFiles()){
+  const source=fs.readFileSync(path.join(root,entry),'utf8');
+  for(const match of source.match(/3\.0\.0-(?:alpha|beta|rc)\.\d+/g)||[]){
+    if(match!==ANCHORWEIGHT_VERSION) failures.push('stale runtime version '+match+' remains in '+entry+'; expected '+ANCHORWEIGHT_VERSION);
+  }
+}
+if(pkg.version!==ANCHORWEIGHT_VERSION) failures.push(`package version is ${pkg.version}; expected ${ANCHORWEIGHT_VERSION}`);
 for(const file of required) if(!fs.existsSync(path.join(root,file))) failures.push(`missing ${file}`);
 for (const entry of ['app.js','hub.js']) { try { execFileSync(process.execPath,['--check',path.join(root,entry)],{stdio:'pipe'}); } catch { failures.push(`${entry} syntax check failed`); } }
-try { execFileSync(process.execPath,[path.join(root,'bin/anchorweight.js'),'version'],{stdio:'pipe'}); } catch { failures.push('CLI version command failed'); }
+try { const cli=execFileSync(process.execPath,[path.join(root,'bin/anchorweight.js'),'version'],{encoding:'utf8'}).trim(); if(cli!==ANCHORWEIGHT_VERSION) failures.push(`CLI version is ${cli}; expected ${ANCHORWEIGHT_VERSION}`); } catch { failures.push('CLI version command failed'); }
 const lock=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8'));
-if(lock.version!=='3.0.0-beta.4' || lock.packages?.['']?.version!=='3.0.0-beta.4') failures.push('package-lock version mismatch');
+if(lock.version!==ANCHORWEIGHT_VERSION || lock.packages?.['']?.version!==ANCHORWEIGHT_VERSION) failures.push('package-lock version mismatch');
 
 const VERIFY=process.argv.includes('--verify');
 if (process.argv.some(arg=>arg.startsWith('--') && arg!=='--verify')) failures.push('unsupported release-check argument');
@@ -33,7 +54,7 @@ function walk(dir){
 }
 walk(root);
 const manifest=files.sort().map(fp=>({file:path.relative(root,fp).replaceAll('\\','/'),sha256:crypto.createHash('sha256').update(fs.readFileSync(fp)).digest('hex')}));
-const expected={version:'3.0.0-beta.4',files:manifest};
+const expected={version:ANCHORWEIGHT_VERSION,files:manifest};
 const manifestFile=path.join(root,'SOURCE-MANIFEST.json');
 if (VERIFY) {
   try {
@@ -44,4 +65,4 @@ if (VERIFY) {
   fs.writeFileSync(manifestFile,JSON.stringify(expected,null,2)+'\n');
 }
 if(failures.length){for(const f of failures)console.error('FAIL:',f);process.exit(1)}
-console.log(`AnchorWeight v3.0.0-beta.4 release ${VERIFY?'verification':'check'} PASS (${manifest.length} source files manifested)`);
+console.log(`AnchorWeight v${ANCHORWEIGHT_VERSION} release ${VERIFY?'verification':'check'} PASS (${manifest.length} source files manifested)`);

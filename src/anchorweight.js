@@ -13,6 +13,8 @@ import { CampaignEngine } from './campaigns.js';
 import { createEvidencePublisher } from './distributed.js';
 import { createClientIdentityMonitor, sessionIdentityKey } from './client-identity.js';
 import { simulatePolicyScenario, policySimulationDescriptor } from './policy-simulation.js';
+import { buildReleaseReadiness } from './release-readiness.js';
+import { ANCHORWEIGHT_VERSION } from './version.js';
 
 function esc(s) {
   return String(s).replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
@@ -69,6 +71,15 @@ export function createAnchorWeight(config, deps = {}) {
   const admin = deps.admin || new AdminSecurity(config, deps.now);
   const audit = deps.audit || (config.auditEnabled === false ? (() => {}) : createAuditLogger(config.auditLogFile));
   const identityMonitor = deps.identityMonitor || createClientIdentityMonitor(config);
+
+  function currentReleaseReadiness() {
+    const profiles=typeof store.getPublicProfiles==='function' ? store.getPublicProfiles(500) : (store.snapshot().topProfiles||[]);
+    const snapshot=store.snapshot();
+    return buildReleaseReadiness({
+      config, clientIdentity:identityMonitor.snapshot(), publicProfiles:profiles,
+      agentObservatory:snapshot.agentObservatory || {}, totalProfiles:snapshot.trackedProfiles ?? profiles.length
+    });
+  }
 
   function recordOffense(key) {
     const count = store.noteOffense(key);
@@ -218,6 +229,10 @@ export function createAnchorWeight(config, deps = {}) {
         return json(res, 429, { error:'admin_rate_limited' });
       }
 
+      if (url.pathname === `${config.basePath}/api/policy/readiness` && method === 'GET') {
+        return json(res,200,{version:ANCHORWEIGHT_VERSION,readiness:currentReleaseReadiness()});
+      }
+
       if (isPolicySimulationPost) {
         let bytes=0, chunks=[], ended=false;
         req.on('data',chunk=>{
@@ -235,7 +250,7 @@ export function createAnchorWeight(config, deps = {}) {
             const totalProfiles=Math.max(profiles.length,Number(store.profiles?.size)||profiles.length);
             const simulation=simulatePolicyScenario(profiles,input,config,{totalProfiles});
             audit({type:'policy_simulation',client:admin.clientKey(req),sampledProfiles:simulation.sampledProfiles,changedProfiles:simulation.changedProfiles,escalations:simulation.escalations,deescalations:simulation.deescalations});
-            return json(res,200,{version:'3.0.0-beta.4',simulation});
+            return json(res,200,{version:ANCHORWEIGHT_VERSION,simulation});
           }catch(err){
             const code=String(err?.message||'policy_simulation_failed');
             if(code.startsWith('invalid_policy_simulation_')||code==='unknown_policy_simulation_field') return json(res,400,{error:code});
@@ -248,7 +263,7 @@ export function createAnchorWeight(config, deps = {}) {
 
       if (url.pathname === `${config.basePath}/api/session`) {
         const csrfToken = admin.issueCsrf(req);
-        return json(res, 200, { version:'3.0.0-beta.4', csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
+        return json(res, 200, { version:ANCHORWEIGHT_VERSION, csrfToken, expiresInSeconds:(config.csrfTtlMinutes || 15) * 60 });
       }
 
       if (url.pathname === `${config.basePath}/api/observatory/ticket` && method === 'GET') {
@@ -260,7 +275,10 @@ export function createAnchorWeight(config, deps = {}) {
         return json(res,200,ticket);
       }
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
-        return json(res, 200, { version: '3.0.0-beta.4', routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), policySimulation:policySimulationDescriptor(config), proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...store.snapshot() });
+        const state=store.snapshot();
+        const profiles=typeof store.getPublicProfiles==='function' ? store.getPublicProfiles(500) : (state.topProfiles||[]);
+        const releaseReadiness=buildReleaseReadiness({config,clientIdentity:identityMonitor.snapshot(),publicProfiles:profiles,agentObservatory:state.agentObservatory||{},totalProfiles:state.trackedProfiles??profiles.length});
+        return json(res, 200, { version: ANCHORWEIGHT_VERSION, routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), policySimulation:policySimulationDescriptor(config), releaseReadiness, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...state });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
@@ -322,7 +340,7 @@ export function createAnchorWeight(config, deps = {}) {
           from: url.searchParams.get('from') || '',
           to: url.searchParams.get('to') || ''
         });
-        return json(res, 200, { version:'3.0.0-beta.4', events });
+        return json(res, 200, { version:ANCHORWEIGHT_VERSION, events });
       }
 
       if (url.pathname === `${config.basePath}/api/investigate` ||
@@ -332,7 +350,7 @@ export function createAnchorWeight(config, deps = {}) {
         try { query = parseCaseQuery(url.searchParams, { allowEmpty:!reportRequest }); }
         catch (err) { return json(res, 400, { error:err.message }); }
         if (!query.botId && !query.campaignId) return json(res, 200, {
-          version:'3.0.0-beta.4', profile:null, campaign:null, events:[], timeline:[]
+          version:ANCHORWEIGHT_VERSION, profile:null, campaign:null, events:[], timeline:[]
         });
         const investigation = buildInvestigation(store, config.logFile, query);
         if (!investigation.profile && !investigation.campaign) return json(res, 404, { error:'case_not_found' });

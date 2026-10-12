@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { MemoryStore } from './store.js';
 import { migrateState, CURRENT_STATE_VERSION } from './migrations.js';
+import { ANCHORWEIGHT_VERSION } from './version.js';
 
 const KINDS = ['blocks', 'offenses', 'profiles', 'campaigns'];
 
@@ -68,7 +69,7 @@ export class SqliteStore extends MemoryStore {
         this.migrationsApplied = [...migrated.applied, 'JSON->SQLite'];
       }
       this.db.prepare("INSERT INTO metadata (key,value) VALUES ('state_version',?)").run(String(CURRENT_STATE_VERSION));
-      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version','3.0.0-beta.4')").run();
+      this.db.prepare("INSERT INTO metadata (key,value) VALUES ('app_version',?)").run(ANCHORWEIGHT_VERSION);
       this.db.exec('COMMIT');
     } catch (err) {
       this.db.exec('ROLLBACK');

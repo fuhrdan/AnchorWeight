@@ -1,11 +1,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { ANCHORWEIGHT_VERSION } from './version.js';
 
 export function createAuditLogger(file) {
   return function audit(event) {
     const record = {
       ts: new Date().toISOString(),
-      version: '3.0.0-beta.4',
+      version: ANCHORWEIGHT_VERSION,
       ...event
     };
     try {

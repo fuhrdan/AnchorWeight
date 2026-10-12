@@ -13,6 +13,7 @@ import https from 'node:https';
 import { canonicalOrigin, allowedOrigins } from './setup.js';
 import { validateRouteDocument } from './routing.js';
 import { validateConfig } from './config-schema.js';
+import { ANCHORWEIGHT_VERSION } from './version.js';
 
 const MAX_BYTES = 32 * 1024;
 const ROOT_KEYS = ['proxy', 'routes', 'version'];
@@ -144,7 +145,7 @@ export function readDeclarative(config, file = configurationFile(config)) {
 /** Browser editor: prepare first, back up previous file, then atomic replace and activate. */
 export function createDeclarativeController(config, { file = configurationFile(config), onActivate = () => () => {} } = {}) {
   function snapshot() {
-    return { version:'3.0.0-beta.3', declarativeEnabled:true,
+    return { version:ANCHORWEIGHT_VERSION, declarativeEnabled:true,
       configEnabled:true, writesEnabled:!!config.declarativeWritesEnabled,
       previousAvailable:fs.existsSync(`${file}.previous`),
       source:config.setupSource || 'declarative-file', shadowMode:config.shadowMode,

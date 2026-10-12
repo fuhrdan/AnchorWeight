@@ -4,6 +4,7 @@ import http from 'node:http';
 import https from 'node:https';
 import path from 'node:path';
 import { validateConfig } from './config-schema.js';
+import { ANCHORWEIGHT_VERSION } from './version.js';
 export const OPERATOR_CONFIG_FILE = path.resolve(process.cwd(),'data','anchorweight-operator.json');
 
 export function canonicalOrigin(value) {
@@ -62,7 +63,7 @@ export function readOperatorSettings(config,file=OPERATOR_CONFIG_FILE) {
 }
 export function createSetupController(config,{file=OPERATOR_CONFIG_FILE,onActivate=()=>{}}={}) {
   function snapshot() {return {
-    version:'3.0.0-beta.3',configEnabled:!!config.setupConfigEnabled,
+    version:ANCHORWEIGHT_VERSION,configEnabled:!!config.setupConfigEnabled,
     writesEnabled:!!config.setupConfigEnabled&&!!config.setupWritesEnabled,
     settings:{proxyEnabled:config.proxyEnabled,originUrl:config.originUrl},
     allowedOrigins:allowedOrigins(config),shadowMode:config.shadowMode,

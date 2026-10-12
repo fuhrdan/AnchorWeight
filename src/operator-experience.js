@@ -16,6 +16,7 @@ import { readAuthPolicies } from './app-auth.js';
 import { loadFallbacks } from './resilience.js';
 import { loadAlertDocument } from './alerts.js';
 import { inspectConfiguredState } from './ops.js';
+import { ANCHORWEIGHT_VERSION } from './version.js';
 
 export const MAX_IMPORT_BYTES = 32768;
 const docFrom = settings => ({ version:1,
@@ -165,5 +166,5 @@ export async function diagnose(config,{env=process.env,probe=false,fetcher=fetch
     warn:checks.filter(x=>x.status==='WARN').length,
     fail:checks.filter(x=>x.status==='FAIL').length,
     skip:checks.filter(x=>x.status==='SKIP').length};
-  return {version:'3.0.0-beta.3',checks,summary,ok:summary.fail===0};
+  return {version:ANCHORWEIGHT_VERSION,checks,summary,ok:summary.fail===0};
 }

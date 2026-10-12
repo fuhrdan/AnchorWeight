@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { MemoryStore } from './store.js';
 import { migrateState, CURRENT_STATE_VERSION } from './migrations.js';
+import { ANCHORWEIGHT_VERSION } from './version.js';
 
 export class PersistentStore extends MemoryStore {
   constructor(file, now = () => Date.now()) {
@@ -39,7 +40,7 @@ export class PersistentStore extends MemoryStore {
       const dir = path.dirname(this.file);
       fs.mkdirSync(dir, { recursive: true });
       const temp = `${this.file}.${process.pid}.tmp`;
-      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:'3.0.0-beta.4', writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
+      fs.writeFileSync(temp, JSON.stringify({ version: CURRENT_STATE_VERSION, meta: { appVersion:ANCHORWEIGHT_VERSION, writtenAt:new Date().toISOString() }, blocks: [...this.blocks], offenses: [...this.offenses], profiles: [...this.profiles], campaigns: [...this.campaigns] }));
       fs.renameSync(temp, this.file);
     } catch (err) {
       console.error('[AnchorWeight] Unable to persist state:', err.message);
