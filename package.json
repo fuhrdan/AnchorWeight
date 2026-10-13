@@ -1,6 +1,6 @@
 {
   "name": "anchorweight",
-  "version": "3.0.0-rc.2",
+  "version": "3.0.0",
   "description": "Autonomous traffic control and proof-of-crawl defense with Agent Identity, Bot DNA, bounded quarantine, investigation tooling, and reverse proxy protection.",
   "type": "module",
   "main": "app.js",
@@ -24,7 +24,8 @@
     "config:rollback": "node bin/operator.js rollback",
     "test:process-isolated": "node --test --test-concurrency=1",
     "rc:check": "node scripts/rc-hardening-check.js",
-    "burnin:check": "node scripts/burn-in-check.js"
+    "burnin:check": "node scripts/burn-in-check.js",
+    "final:check": "node scripts/final-release-check.js"
   },
   "engines": {
     "node": ">=20"

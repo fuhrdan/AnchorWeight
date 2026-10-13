@@ -27,8 +27,8 @@ export function runRcHardeningCheck({root=DEFAULT_ROOT}={}) {
   try { lock=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8')); }
   catch(err) { failures.push(`package-lock.json unavailable: ${err.message}`); }
 
-  check(ANCHORWEIGHT_VERSION==='3.0.0-rc.2','runtime version must be 3.0.0-rc.2');
-  check(ANCHORWEIGHT_RELEASE_CHANNEL==='rc','release channel must be rc');
+  check(ANCHORWEIGHT_VERSION==='3.0.0','runtime version must be 3.0.0');
+  check(ANCHORWEIGHT_RELEASE_CHANNEL==='stable','release channel must be stable');
   check(pkg.version===ANCHORWEIGHT_VERSION,'package version must match central runtime version');
   check(lock.version===ANCHORWEIGHT_VERSION && lock.packages?.['']?.version===ANCHORWEIGHT_VERSION,'package-lock versions must match central runtime version');
   check(pkg.scripts?.['rc:check']==='node scripts/rc-hardening-check.js','package must expose rc:check');
@@ -88,5 +88,5 @@ if(invoked) {
     for(const failure of result.failures) console.error('FAIL:',failure);
     process.exit(1);
   }
-  console.log(`AnchorWeight ${ANCHORWEIGHT_VERSION} RC hardening PASS (${result.checks} invariants checked)`);
+  console.log(`AnchorWeight ${ANCHORWEIGHT_VERSION} feature-freeze hardening PASS (${result.checks} invariants checked)`);
 }
