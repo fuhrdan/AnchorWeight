@@ -142,6 +142,19 @@ export function validateConfig(config) {
   if (config.policyEngineEnabled) warnings.push('Policy Engine beta.2 is shadow-first; recommendations are evaluated independently from legacy Bot DNA score.');
   if (config.policyEngineEnforcementEnabled && (config.policyEngineShadowMode || config.shadowMode)) warnings.push('Policy Engine enforcement is enabled but a shadow mode is still active, so policy actions remain non-enforcing.');
   if (config.policyEngineEnforcementEnabled && !config.policyEngineShadowMode && !config.shadowMode) warnings.push('Policy Engine enforcement is ACTIVE for bounded throttle, decoy, and quarantine actions; verify production identity safety first.');
+  for (const name of ['aiAgentPolicyEnabled','aiAgentPolicyShadowMode','aiAgentPolicyEnforcementEnabled'])
+    if (config[name] != null && typeof config[name] !== 'boolean') errors.push(`${name} must be boolean`);
+  for (const name of ['aiAgentTrainingAction','aiAgentSearchAction','aiAgentUserAction','aiAgentAutomationAction'])
+    oneOf(name, config[name] ?? 'observe', ['allow','observe','deny']);
+  const aiAgentFamilyRules = config.aiAgentFamilyRules ?? [];
+  if (!Array.isArray(aiAgentFamilyRules)) errors.push('aiAgentFamilyRules must be an array');
+  else {
+    if (aiAgentFamilyRules.length > 32) errors.push('aiAgentFamilyRules must contain no more than 32 entries');
+    for (const rule of aiAgentFamilyRules) if (!/^[a-z0-9_-]{2,32}:[a-z0-9_-]{2,64}=(?:allow|observe|deny)$/.test(String(rule||'').toLowerCase())) errors.push('AI-agent family rules must use provider:family=allow|observe|deny');
+  }
+  if (config.aiAgentPolicyEnforcementEnabled && !config.aiAgentPolicyEnabled) errors.push('aiAgentPolicyEnforcementEnabled requires aiAgentPolicyEnabled');
+  if (config.aiAgentPolicyEnforcementEnabled && config.aiAgentPolicyShadowMode) warnings.push('AI Agent Controls enforcement is enabled but AI-agent shadow mode is active, so declared-agent deny remains advisory.');
+  if (config.aiAgentPolicyEnforcementEnabled && !config.aiAgentPolicyShadowMode) warnings.push('AI Agent Controls declared-agent deny is ACTIVE and request-scoped; allow does not grant trust or bypass other defenses.');
   if (config.blackholeEnabled && !config.proxyEnabled) warnings.push('robots blackhole is enabled without the reverse proxy; automatic robots.txt and hidden-link injection require proxy mode.');
 
   return { schemaVersion: CONFIG_SCHEMA_VERSION, valid: errors.length === 0, errors, warnings };

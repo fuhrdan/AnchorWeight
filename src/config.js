@@ -148,6 +148,15 @@ export function loadConfig(overrides = {}) {
     policyQuarantineRisk: intEnv('AW_POLICY_QUARANTINE_RISK', 85, 1, 100),
     policyThrottleSeconds: intEnv('AW_POLICY_THROTTLE_SECONDS', 30, 1, 3600),
     policyQuarantineMinutes: intEnv('AW_POLICY_QUARANTINE_MINUTES', 60, 1, 10080),
+    // v3.1-alpha.1: declared AI-agent access controls are independent, request-scoped and shadow-first.
+    aiAgentPolicyEnabled: boolEnv('AW_AI_AGENT_POLICY_ENABLED', true),
+    aiAgentPolicyShadowMode: boolEnv('AW_AI_AGENT_POLICY_SHADOW_MODE', true),
+    aiAgentPolicyEnforcementEnabled: boolEnv('AW_AI_AGENT_POLICY_ENFORCEMENT_ENABLED', false),
+    aiAgentTrainingAction: (process.env.AW_AI_AGENT_TRAINING_ACTION || 'observe').toLowerCase(),
+    aiAgentSearchAction: (process.env.AW_AI_AGENT_SEARCH_ACTION || 'observe').toLowerCase(),
+    aiAgentUserAction: (process.env.AW_AI_AGENT_USER_ACTION || 'observe').toLowerCase(),
+    aiAgentAutomationAction: (process.env.AW_AI_AGENT_AUTOMATION_ACTION || 'observe').toLowerCase(),
+    aiAgentFamilyRules: listEnv('AW_AI_AGENT_FAMILY_RULES'),
     // v2.8: adaptive deception is measurement/recommendation only by default.
     adaptiveDeceptionEnabled: boolEnv('AW_ADAPTIVE_DECEPTION_ENABLED', true),
     adaptiveDeceptionShadowMode: boolEnv('AW_ADAPTIVE_DECEPTION_SHADOW_MODE', true),

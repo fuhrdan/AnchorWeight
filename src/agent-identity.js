@@ -26,11 +26,22 @@ const DECLARED_RULES = Object.freeze([
   { token:'chatgpt-user', pattern:/\bChatGPT-User(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'openai', family:'chatgpt-user', trafficClass:TRAFFIC_CLASSES.USER_DIRECTED_AGENT, purpose:AGENT_PURPOSES.USER_RETRIEVAL },
   { token:'oai-searchbot', pattern:/\bOAI-SearchBot(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'openai', family:'oai-searchbot', trafficClass:TRAFFIC_CLASSES.DECLARED_AI_CRAWLER, purpose:AGENT_PURPOSES.SEARCH_INDEXING },
   { token:'gptbot', pattern:/\bGPTBot(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'openai', family:'gptbot', trafficClass:TRAFFIC_CLASSES.DECLARED_AI_CRAWLER, purpose:AGENT_PURPOSES.MODEL_TRAINING },
+  { token:'oai-adsbot', pattern:/\bOAI-AdsBot(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'openai', family:'oai-adsbot', trafficClass:TRAFFIC_CLASSES.DECLARED_AI_CRAWLER, purpose:AGENT_PURPOSES.GENERAL_AUTOMATION },
 
   // Anthropic likewise publishes separate training/search/user-directed bots.
   { token:'claude-user', pattern:/\bClaude-User(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'anthropic', family:'claude-user', trafficClass:TRAFFIC_CLASSES.USER_DIRECTED_AGENT, purpose:AGENT_PURPOSES.USER_RETRIEVAL },
   { token:'claude-searchbot', pattern:/\bClaude-SearchBot(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'anthropic', family:'claude-searchbot', trafficClass:TRAFFIC_CLASSES.DECLARED_AI_CRAWLER, purpose:AGENT_PURPOSES.SEARCH_INDEXING },
-  { token:'claudebot', pattern:/\bClaudeBot(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'anthropic', family:'claudebot', trafficClass:TRAFFIC_CLASSES.DECLARED_AI_CRAWLER, purpose:AGENT_PURPOSES.MODEL_TRAINING }
+  { token:'claudebot', pattern:/\bClaudeBot(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'anthropic', family:'claudebot', trafficClass:TRAFFIC_CLASSES.DECLARED_AI_CRAWLER, purpose:AGENT_PURPOSES.MODEL_TRAINING },
+
+  // Perplexity publishes separate automatic search and user-triggered fetchers.
+  { token:'perplexity-user', pattern:/\bPerplexity-User(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'perplexity', family:'perplexity-user', trafficClass:TRAFFIC_CLASSES.USER_DIRECTED_AGENT, purpose:AGENT_PURPOSES.USER_RETRIEVAL },
+  { token:'perplexitybot', pattern:/\bPerplexityBot(?:\/[A-Za-z0-9._-]+)?\b/i, provider:'perplexity', family:'perplexitybot', trafficClass:TRAFFIC_CLASSES.DECLARED_AI_CRAWLER, purpose:AGENT_PURPOSES.SEARCH_INDEXING },
+
+  // Google-Agent and Gemini Notebook are user-triggered fetchers. Google-Extended
+  // is intentionally absent because Google documents it as a robots token, not an HTTP UA.
+  { token:'google-agent', pattern:/\bGoogle-Agent\b/i, provider:'google', family:'google-agent', trafficClass:TRAFFIC_CLASSES.USER_DIRECTED_AGENT, purpose:AGENT_PURPOSES.USER_RETRIEVAL },
+  { token:'google-gemininotebook', pattern:/\bGoogle-(?:GeminiNotebook|NotebookLM)\b/i, provider:'google', family:'google-gemininotebook', trafficClass:TRAFFIC_CLASSES.USER_DIRECTED_AGENT, purpose:AGENT_PURPOSES.USER_RETRIEVAL },
+  { token:'google-cloudvertexbot', pattern:/\bGoogle-CloudVertexBot\b/i, provider:'google', family:'google-cloudvertexbot', trafficClass:TRAFFIC_CLASSES.DECLARED_AI_CRAWLER, purpose:AGENT_PURPOSES.GENERAL_AUTOMATION }
 ]);
 
 const GENERIC_AUTOMATION = /bot|crawler|spider|scrape|curl|wget|python-requests|httpclient|go-http-client|headless/i;

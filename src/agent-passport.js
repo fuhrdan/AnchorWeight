@@ -35,7 +35,9 @@ function publicEnforcement(config = {}) {
     resourceBudgetsAvailable: true,
     resourceBudgetsEnforced: false,
     policyEngineAvailable: true,
-    policyEngineEnforced: !!config.policyEngineEnabled && !!config.policyEngineEnforcementEnabled && !config.policyEngineShadowMode && !config.shadowMode
+    policyEngineEnforced: !!config.policyEngineEnabled && !!config.policyEngineEnforcementEnabled && !config.policyEngineShadowMode && !config.shadowMode,
+    aiAgentPolicyAvailable: true,
+    aiAgentPolicyEnforced: config.aiAgentPolicyEnabled !== false && !!config.aiAgentPolicyEnforcementEnabled && config.aiAgentPolicyShadowMode === false
   };
 }
 
@@ -71,6 +73,20 @@ export function createAgentPassport(config = {}) {
         enforcementBypass: false,
         rawClientIpExposed: false,
         rawForwardedHeaderExposed: false
+      },
+      aiAgentControls: {
+        version: 1,
+        available: true,
+        providers: ['openai','anthropic','google','perplexity'],
+        actions: ['allow','observe','deny'],
+        purposeDefaults: ['model_training','search_indexing','user_retrieval','general_automation'],
+        shadowFirst: true,
+        explicitEnforcementOptIn: true,
+        requestScopedDeny: true,
+        denyRequiresTrustedClientIdentity: false,
+        allowGrantsTrust: false,
+        robotsGuidance: true,
+        rawUserAgentRetained: false
       },
       resourceBudgets: {
         version: 1,

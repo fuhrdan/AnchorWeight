@@ -115,3 +115,7 @@ Set the following only after validating the equivalent fallback application:
 | `AW_RESILIENCE_ALLOWED_ORIGINS` | empty | Exact comma-delimited operator-approved fallback origins |
 
 See [UPSTREAM-RESILIENCE.md](UPSTREAM-RESILIENCE.md) for fallbacks, limits and rollback.
+
+## AI Agent Controls (v3.1)
+
+AI Agent Controls are enabled for observation by default and remain shadowed until explicitly activated. Core settings: AW_AI_AGENT_POLICY_ENABLED, AW_AI_AGENT_POLICY_SHADOW_MODE, AW_AI_AGENT_POLICY_ENFORCEMENT_ENABLED, AW_AI_AGENT_TRAINING_ACTION, AW_AI_AGENT_SEARCH_ACTION, AW_AI_AGENT_USER_ACTION, AW_AI_AGENT_AUTOMATION_ACTION, and AW_AI_AGENT_FAMILY_RULES. See AI-AGENT-CONTROLS.md for semantics and examples.

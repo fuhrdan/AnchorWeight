@@ -16,6 +16,7 @@ import { simulatePolicyScenario, policySimulationDescriptor } from './policy-sim
 import { buildEnforcementRehearsal } from './enforcement-rehearsal.js';
 import { buildReleaseReadiness } from './release-readiness.js';
 import { ANCHORWEIGHT_VERSION } from './version.js';
+import { evaluateAiAgentRequestPolicy } from './ai-agent-policy.js';
 
 function esc(s) {
   return String(s).replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
@@ -92,6 +93,16 @@ export function createAnchorWeight(config, deps = {}) {
   function trustedKey(identity) { return identity?.enforcementSafe ? ipFingerprint(config.secret, identity.ip) : null; }
 
   async function preflight(req, res, url) {
+    const aiAgentPolicy=evaluateAiAgentRequestPolicy(req,config,{pathname:url?.pathname||''});
+    if(aiAgentPolicy.matched){
+      store.stats.aiAgentPolicyEvaluations=(store.stats.aiAgentPolicyEvaluations||0)+1;
+      if(aiAgentPolicy.action==='deny' && !aiAgentPolicy.enforcementEligible) store.stats.aiAgentPolicyWouldDeny=(store.stats.aiAgentPolicyWouldDeny||0)+1;
+      log({type:aiAgentPolicy.enforcementEligible?'ai_agent_policy_deny':'ai_agent_policy_observe',provider:aiAgentPolicy.provider,family:aiAgentPolicy.family,purpose:aiAgentPolicy.purpose,action:aiAgentPolicy.action,enforcement:aiAgentPolicy.enforcement});
+      if(aiAgentPolicy.enforcementEligible){
+        store.stats.aiAgentPolicyDenied=(store.stats.aiAgentPolicyDenied||0)+1;
+        return text(res,403,'Access denied by site AI-agent policy.');
+      }
+    }
     const identity = identityFor(req);
     const key = trustedKey(identity);
     if (!key) {

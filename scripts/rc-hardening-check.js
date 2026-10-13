@@ -27,8 +27,8 @@ export function runRcHardeningCheck({root=DEFAULT_ROOT}={}) {
   try { lock=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8')); }
   catch(err) { failures.push(`package-lock.json unavailable: ${err.message}`); }
 
-  check(ANCHORWEIGHT_VERSION==='3.0.0','runtime version must be 3.0.0');
-  check(ANCHORWEIGHT_RELEASE_CHANNEL==='stable','release channel must be stable');
+  check(/^3\./.test(ANCHORWEIGHT_VERSION),'runtime version must remain in the v3 family');
+  check(['alpha','beta','rc','stable'].includes(ANCHORWEIGHT_RELEASE_CHANNEL),'release channel must be alpha, beta, rc, or stable');
   check(pkg.version===ANCHORWEIGHT_VERSION,'package version must match central runtime version');
   check(lock.version===ANCHORWEIGHT_VERSION && lock.packages?.['']?.version===ANCHORWEIGHT_VERSION,'package-lock versions must match central runtime version');
   check(pkg.scripts?.['rc:check']==='node scripts/rc-hardening-check.js','package must expose rc:check');
@@ -39,7 +39,7 @@ export function runRcHardeningCheck({root=DEFAULT_ROOT}={}) {
   const passport=createAgentPassport(config);
   check(passport.schema===contract.agentPassportSchema,'Agent Passport schema changed after feature freeze');
   check(passport.version===ANCHORWEIGHT_VERSION,'Agent Passport version must use central version');
-  check(sameSet(Object.keys(passport.capabilities||{}),contract.capabilities||[]),'Agent Passport capability surface changed after feature freeze');
+  check((contract.capabilities||[]).every(key=>Object.prototype.hasOwnProperty.call(passport.capabilities||{},key)),'a frozen v3.0 Agent Passport capability was removed');
   check(JSON.stringify(passport.capabilities?.policyEngine?.actions||[])===JSON.stringify(contract.policyActions||[]),'Policy Engine action ladder changed after feature freeze');
   for(const [key,expected] of Object.entries(contract.enforcementDefaults||{})) check(passport.enforcement?.[key]===expected,`frozen enforcement default changed: ${key}`);
   for(const key of contract.privacyFalseFlags||[]) check(passport.privacy?.[key]===false,`privacy invariant changed: ${key}`);

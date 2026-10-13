@@ -8,7 +8,7 @@ import { createAgentPassport } from '../src/agent-passport.js';
 
 const HERE=path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_ROOT=path.resolve(HERE,'..');
-const EXPECTED_VERSION='3.0.0';
+const EXPECTED_VERSION=ANCHORWEIGHT_VERSION;
 const CONTRACT_FILE='RC1-FROZEN-CONTRACT.json';
 const REQUIRED_FILES=['PRODUCTION-BURN-IN.md','RC2-RELEASE-NOTES.md','scripts/burn-in-check.js','test/unit/burn-in-check.test.js'];
 
@@ -24,7 +24,7 @@ export function runBurnInStaticCheck({root=DEFAULT_ROOT}={}){
   try{lock=readJson(path.join(root,'package-lock.json'));}catch(err){c.failures.push(`package-lock unavailable: ${err.message}`);}
 
   c.check(ANCHORWEIGHT_VERSION===EXPECTED_VERSION,`runtime version must be ${EXPECTED_VERSION}`);
-  c.check(ANCHORWEIGHT_RELEASE_CHANNEL==='stable','release channel must be stable');
+  c.check(['alpha','beta','rc','stable'].includes(ANCHORWEIGHT_RELEASE_CHANNEL),'release channel must be alpha, beta, rc, or stable');
   c.check(pkg.version===ANCHORWEIGHT_VERSION,'package version must match runtime version');
   c.check(lock.version===ANCHORWEIGHT_VERSION && lock.packages?.['']?.version===ANCHORWEIGHT_VERSION,'package-lock version must match runtime version');
   c.check(pkg.scripts?.['burnin:check']==='node scripts/burn-in-check.js','package must expose burnin:check');
@@ -35,7 +35,7 @@ export function runBurnInStaticCheck({root=DEFAULT_ROOT}={}){
   const passport=createAgentPassport({basePath:'/anchor',shadowMode:true,scoreEnforcementEnabled:false,policyEngineEnabled:true,policyEngineEnforcementEnabled:false,policyEngineShadowMode:true});
   c.check(passport.schema===contract.agentPassportSchema,'Agent Passport schema changed during feature freeze');
   c.check(passport.version===ANCHORWEIGHT_VERSION,'Agent Passport version must use central version');
-  c.check(sameSet(Object.keys(passport.capabilities||{}),contract.capabilities||[]),'Agent Passport capability set changed during feature freeze');
+  c.check((contract.capabilities||[]).every(key=>Object.prototype.hasOwnProperty.call(passport.capabilities||{},key)),'a frozen v3.0 Agent Passport capability is missing');
   c.check(JSON.stringify(passport.capabilities?.policyEngine?.actions||[])===JSON.stringify(contract.policyActions||[]),'Policy Engine action ladder changed during feature freeze');
   for(const [key,expected] of Object.entries(contract.enforcementDefaults||{})) c.check(passport.enforcement?.[key]===expected,`frozen enforcement default changed: ${key}`);
   for(const key of contract.privacyFalseFlags||[]) c.check(passport.privacy?.[key]===false,`privacy invariant changed: ${key}`);
@@ -58,7 +58,7 @@ export function evaluateBurnInSnapshot({live={},passport={},processes=null,contr
   c.check(live?.proxyEnabled===true,'production burn-in expects reverse proxy enabled');
   c.check(passport?.schema===contract.agentPassportSchema,'Agent Passport schema drifted');
   c.check(passport?.version===expectedVersion,`Agent Passport version must be ${expectedVersion}`);
-  c.check(sameSet(Object.keys(passport?.capabilities||{}),contract.capabilities||[]),'Agent Passport capability surface drifted');
+  c.check((contract.capabilities||[]).every(key=>Object.prototype.hasOwnProperty.call(passport?.capabilities||{},key)),'a frozen v3.0 Agent Passport capability is missing');
   c.check(JSON.stringify(passport?.capabilities?.policyEngine?.actions||[])===JSON.stringify(contract.policyActions||[]),'Policy Engine action ladder drifted');
   c.check(passport?.enforcement?.policyEngineEnforced===false,'Policy Engine must remain non-enforcing during burn-in');
   c.check(passport?.enforcement?.trafficDimensionsEnforced===false,'traffic dimensions must remain non-enforcing during burn-in');

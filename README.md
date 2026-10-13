@@ -610,3 +610,7 @@ On process-limited shared hosting, run the full suite with `UV_THREADPOOL_SIZE=1
 ## v3.0.0-beta.3 — Policy Forensics + Calibration
 
 Beta.3 adds bounded, privacy-safe policy decision forensics and Observatory calibration. It records action/reason transitions and aggregate recommendation counts without expanding enforcement or storing raw request identity data. See [POLICY-FORENSICS.md](POLICY-FORENSICS.md).
+
+## v3.1 AI Agent Controls
+
+v3.1 adds explicit, shadow-first access policy for declared AI crawlers and user-triggered AI fetchers. See [AI-AGENT-CONTROLS.md](AI-AGENT-CONTROLS.md). Declared identity may justify request-scoped deny, but never grants trust or bypass privileges.
