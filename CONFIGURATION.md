@@ -143,3 +143,9 @@ The dashboard policy manager edits a staged draft and exports canonical AW_AI_AG
 ## Controlled AI policy deployment (v3.1 alpha.6)
 
 The dashboard can prepare a private shadow-only environment from the saved AI-agent policy draft plus a rollback snapshot. Generated candidate and rollback environments always set AW_AI_AGENT_POLICY_SHADOW_MODE=true and AW_AI_AGENT_POLICY_ENFORCEMENT_ENABLED=false. Applying those values to cPanel and restarting Node/Passenger remain explicit external operator actions.
+
+
+<!-- v3.1-alpha.7-ai-burnin-readiness -->
+## v3.1 alpha.7 — AI-agent burn-in and beta-review readiness
+
+Alpha.7 adds a consolidated offline burn-in gate, `npm run ai-agents:burnin-check`, that re-runs the full v3.1 AI control stack, validates all 12 declared-agent family canaries, verifies the frozen v3.0 contract/privacy/action ladder, and checks alpha.6 shadow deployment safety. A PASS means ready for v3.1 beta review; it does not grant enforcement readiness. See `AI-AGENT-BURNIN-READINESS.md`.

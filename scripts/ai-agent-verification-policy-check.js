@@ -14,7 +14,7 @@ function ver(status){return {status,provider:'openai',family:'oai-searchbot',ver
 
 export function runAiAgentVerificationPolicyCheck({root=ROOT}={}) {
   const failures=[];let checks=0;const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
-  check(ANCHORWEIGHT_VERSION==='3.1.0-alpha.6','runtime version must be 3.1.0-alpha.6');
+  check(ANCHORWEIGHT_VERSION==='3.1.0-alpha.7','runtime version must be 3.1.0-alpha.7');
   check(ANCHORWEIGHT_RELEASE_CHANNEL==='alpha','release channel must be alpha');
   const parsed=parseAiAgentVerificationRules(['openai:oai-searchbot@verified=allow','openai:oai-searchbot@unverified=deny']);
   check(parsed.rules.size===2 && parsed.invalid.length===0,'verification rule parser failed');
@@ -41,7 +41,7 @@ export function runAiAgentVerificationPolicyCheck({root=ROOT}={}) {
   check(desc.verifiedAutomaticallyAllowed===false && desc.unverifiedAutomaticallyDenied===false,'descriptor must not invent implicit trust/blocking');
   check(desc.allowGrantsTrust===false,'descriptor allow must not grant trust');
   const passport=createAgentPassport({});
-  check(passport.capabilities?.aiAgentControls?.version===6,'Agent Passport must publish AI Agent Controls v4');
+  check(passport.capabilities?.aiAgentControls?.version===7,'Agent Passport must publish AI Agent Controls v4');
   check(passport.capabilities?.aiAgentControls?.verificationAwarePolicy?.available===true,'passport must publish verification-aware policy');
   check(passport.capabilities?.aiAgentControls?.verificationAwarePolicy?.allowGrantsTrust===false,'passport must preserve no-trust invariant');
   for(const file of ['src/ai-agent-verification-policy.js','test/unit/ai-agent-verification-policy.test.js','VERIFICATION-AWARE-AI-POLICY.md','V3.1.0-ALPHA3-RELEASE-NOTES.md'])

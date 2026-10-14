@@ -22,7 +22,7 @@ export function runAiAgentObservabilityCheck({root=ROOT}={}) {
   const failures=[];let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(ANCHORWEIGHT_VERSION==='3.1.0-alpha.6','runtime version must be 3.1.0-alpha.6');
+  check(ANCHORWEIGHT_VERSION==='3.1.0-alpha.7','runtime version must be 3.1.0-alpha.7');
   check(ANCHORWEIGHT_RELEASE_CHANNEL==='alpha','release channel must be alpha');
 
   let tick=1;
@@ -67,7 +67,7 @@ export function runAiAgentObservabilityCheck({root=ROOT}={}) {
   check(descriptor.rawIpRetained===false && descriptor.rawUserAgentRetained===false,'observability descriptor privacy changed');
 
   const passport=createAgentPassport({});
-  check(passport.capabilities?.aiAgentControls?.version===6,'Agent Passport must publish AI Agent Controls v4');
+  check(passport.capabilities?.aiAgentControls?.version===7,'Agent Passport must publish AI Agent Controls v4');
   check(passport.capabilities?.aiAgentControls?.observability?.available===true,'Agent Passport observability capability missing');
   check(passport.capabilities?.aiAgentControls?.observability?.authenticated===true,'Agent Passport observability must be authenticated');
   check(passport.capabilities?.aiAgentControls?.observability?.enforcement===false,'Agent Passport observability must be non-enforcing');

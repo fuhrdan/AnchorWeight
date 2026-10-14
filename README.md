@@ -638,3 +638,9 @@ The authenticated dashboard can now validate, preview, privately save and export
 ## v3.1 alpha.6 — Controlled AI Policy Deployment & Rehearsal
 
 Saved alpha.5 drafts can now be compared with live policy, rehearsed against bounded observations, risk-reviewed, and prepared as private shadow-only deployment and rollback artifacts. Alpha.6 does not edit the hosting control plane, restart the application, mutate runtime policy, or enable active enforcement. See [AI-AGENT-POLICY-DEPLOYMENT.md](AI-AGENT-POLICY-DEPLOYMENT.md).
+
+
+<!-- v3.1-alpha.7-ai-burnin-readiness -->
+## v3.1 alpha.7 — AI-agent burn-in and beta-review readiness
+
+Alpha.7 adds a consolidated offline burn-in gate, `npm run ai-agents:burnin-check`, that re-runs the full v3.1 AI control stack, validates all 12 declared-agent family canaries, verifies the frozen v3.0 contract/privacy/action ladder, and checks alpha.6 shadow deployment safety. A PASS means ready for v3.1 beta review; it does not grant enforcement readiness. See `AI-AGENT-BURNIN-READINESS.md`.
