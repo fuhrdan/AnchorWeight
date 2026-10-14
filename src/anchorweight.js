@@ -19,6 +19,7 @@ import { ANCHORWEIGHT_VERSION } from './version.js';
 import { evaluateAiAgentRequestPolicy } from './ai-agent-policy.js';
 import { createAiAgentVerifier } from './ai-agent-verification.js';
 import { applyAiAgentVerificationPolicy } from './ai-agent-verification-policy.js';
+import { createAiAgentTrafficObservatory } from './ai-agent-traffic-observatory.js';
 
 function esc(s) {
   return String(s).replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
@@ -76,6 +77,7 @@ export function createAnchorWeight(config, deps = {}) {
   const audit = deps.audit || (config.auditEnabled === false ? (() => {}) : createAuditLogger(config.auditLogFile));
   const identityMonitor = deps.identityMonitor || createClientIdentityMonitor(config);
   const aiAgentVerifier = deps.aiAgentVerifier || createAiAgentVerifier(config,deps.aiAgentVerifierOptions || {});
+  const aiAgentTrafficObservatory = deps.aiAgentTrafficObservatory || createAiAgentTrafficObservatory({now:deps.now});
 
   function currentReleaseReadiness() {
     const profiles=typeof store.getPublicProfiles==='function' ? store.getPublicProfiles(500) : (store.snapshot().topProfiles||[]);
@@ -103,6 +105,7 @@ export function createAnchorWeight(config, deps = {}) {
         declared:true,provider:declaredAiAgentPolicy.provider,family:declaredAiAgentPolicy.family,purpose:declaredAiAgentPolicy.purpose
       },identity);
       const aiAgentPolicy=applyAiAgentVerificationPolicy(declaredAiAgentPolicy,aiAgentVerification,config,{pathname:url?.pathname||''});
+      aiAgentTrafficObservatory.record(aiAgentPolicy,aiAgentVerification);
       store.stats.aiAgentPolicyEvaluations=(store.stats.aiAgentPolicyEvaluations||0)+1;
       if(aiAgentVerification.status==='verified') store.stats.aiAgentVerified=(store.stats.aiAgentVerified||0)+1;
       else if(aiAgentVerification.status==='unverified') store.stats.aiAgentUnverified=(store.stats.aiAgentUnverified||0)+1;
@@ -313,12 +316,15 @@ export function createAnchorWeight(config, deps = {}) {
         res.setHeader('Cache-Control','no-store');
         return json(res,200,ticket);
       }
+      if (url.pathname === `${config.basePath}/api/ai-agents` && method === 'GET') {
+        return json(res,200,{version:ANCHORWEIGHT_VERSION,aiAgentTraffic:aiAgentTrafficObservatory.snapshot()});
+      }
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
         const state=store.snapshot();
         const profiles=typeof store.getPublicProfiles==='function' ? store.getPublicProfiles(500) : (state.topProfiles||[]);
         const releaseReadiness=buildReleaseReadiness({config,clientIdentity:identityMonitor.snapshot(),publicProfiles:profiles,agentObservatory:state.agentObservatory||{},totalProfiles:state.trackedProfiles??profiles.length});
         const enforcementRehearsal=buildEnforcementRehearsal(profiles,{totalProfiles:state.trackedProfiles??profiles.length});
-        return json(res, 200, { version: ANCHORWEIGHT_VERSION, routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), policySimulation:policySimulationDescriptor(config), enforcementRehearsal, releaseReadiness, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...state });
+        return json(res, 200, { version: ANCHORWEIGHT_VERSION, aiAgentTraffic:aiAgentTrafficObservatory.snapshot(), routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), policySimulation:policySimulationDescriptor(config), enforcementRehearsal, releaseReadiness, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...state });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
@@ -634,7 +640,7 @@ export function createAnchorWeight(config, deps = {}) {
     return html(res, 200, renderIndex(config, sid, tokens, children[0], children));
   }
 
-  return { preflight, handle, store, behavior, goodBots, campaigns, admin, publisher, identityMonitor };
+  return { preflight, handle, store, behavior, goodBots, campaigns, admin, publisher, identityMonitor, aiAgentTrafficObservatory };
 }
 
 function renderIndex(config, sid, tokens, child, entries) {

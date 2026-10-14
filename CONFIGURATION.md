@@ -129,3 +129,7 @@ AW_AI_AGENT_VERIFICATION_ENABLED enables observational verification using provid
 ## v3.1 alpha.3 — verification-aware AI policy
 
 Exact verification-status overrides are configured with `AW_AI_AGENT_VERIFICATION_RULES`, using `provider:family@status=allow|observe|deny`. If no exact rule matches, AnchorWeight preserves the alpha.1 declaration policy; verified identity never grants trust. See `VERIFICATION-AWARE-AI-POLICY.md`.
+
+## v3.1 alpha.4 AI-agent observability
+
+No new environment variables are required. AI-agent observability is authenticated, process-local, bounded, non-enforcing, and resets when the Node process restarts.

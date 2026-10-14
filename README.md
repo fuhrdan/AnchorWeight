@@ -624,3 +624,7 @@ Alpha.2 adds provider-published network verification for declared OpenAI, Perple
 ## v3.1 alpha.3 — verification-aware AI policy
 
 Exact verification-status overrides are configured with `AW_AI_AGENT_VERIFICATION_RULES`, using `provider:family@status=allow|observe|deny`. If no exact rule matches, AnchorWeight preserves the alpha.1 declaration policy; verified identity never grants trust. See `VERIFICATION-AWARE-AI-POLICY.md`.
+
+## v3.1 alpha — AI-agent observability
+
+Alpha.4 adds authenticated, bounded AI-agent access observability to the operator dashboard and stats API. See `AI-AGENT-OBSERVABILITY.md`.

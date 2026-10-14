@@ -33,12 +33,19 @@
 <section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Routing</h2><div class="help">Opt-in multi-origin configuration; route definitions require a server restart. Origin addresses are not exposed in the dashboard.</div></div></div><div id="routingInfo" class="help">Connect to see route status.</div></section>
 <section><h2>Traffic & protection</h2><div class="grid" id="grid"></div></section>
 
-<section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Agent Traffic Observatory</h2><div class="help">Observation-only view of traffic identity, behavior, Automation Confidence, Policy Risk, and Resource Pressure. Beta.7 adds enforcement rehearsal over the shadow-first Policy Engine while release readiness remains advisory. THROTTLE, DECOY, and QUARANTINE still require explicit enforcement opt-in and both shadow modes off.</div></div></div>
+<section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Agent Traffic Observatory</h2><div class="help">Observation-only Bot DNA view of traffic identity, behavior, Automation Confidence, Policy Risk, and Resource Pressure. AI-agent access decisions are summarized separately below. THROTTLE, DECOY, and QUARANTINE still require explicit enforcement opt-in and both shadow modes off.</div></div></div>
 <div class="grid" id="agentObservatoryGrid"><div class="card"><div class="label">Agent observatory</div><div class="value">—</div><div class="help">Load stats to view agent traffic.</div></div></div>
 <div id="agentClassSummary" class="summary" style="margin-top:1rem"></div>
 <h3>Highest resource pressure</h3><div id="agentPressureTable" class="table-wrap help">No agent traffic recorded.</div>
 <h3>Highest policy risk</h3><div id="agentPolicyTable" class="table-wrap help">No agent traffic recorded.</div>
 </section>
+
+<section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">AI Agent Access Observatory</h2><div class="help">Bounded, process-local view of declared AI-agent traffic, provider verification, and access-policy outcomes. No raw IPs, User-Agents, paths, queries, cookies or credentials are retained here.</div></div></div>
+<div class="grid" id="aiAgentAccessGrid"><div class="card"><div class="label">AI-agent traffic</div><div class="value">—</div><div class="help">Load stats to view declared AI-agent access.</div></div></div>
+<div id="aiAgentVerificationSummary" class="summary" style="margin-top:1rem"></div>
+<h3>Provider / family activity</h3><div id="aiAgentProviderTable" class="table-wrap help">No declared AI-agent traffic recorded.</div>
+<h3>Recent AI-agent decisions</h3><div id="aiAgentRecentTable" class="table-wrap help">No declared AI-agent decisions recorded.</div>
+<p class="help">“Unverified” means the declaration did not match available provider-published verification data; it is spoofing evidence, not proof of malicious intent. Counters reset when the Node process restarts.</p></section>
 
 <section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Policy Simulation</h2><div class="help">Read-only what-if analysis. Candidate thresholds are evaluated against bounded public Bot DNA projections and can never change configuration, state, or enforcement.</div></div><button id="runPolicySimulation">Run simulation</button></div>
 <div class="grid" style="margin-top:1rem">
@@ -128,6 +135,21 @@ function renderAgentObservatory(o){
  const reasons=Object.entries(cal.topReasons||{}).slice(0,5).map(([k,v])=>esc(k)+': '+esc(v)).join(' · ');
  if(reasons)classes.innerHTML+='<span class=\"pill\">Reasons '+reasons+'</span>';
 }
+function renderAiAgentTraffic(a){
+ const grid=document.querySelector('#aiAgentAccessGrid'),summary=document.querySelector('#aiAgentVerificationSummary');
+ const providers=document.querySelector('#aiAgentProviderTable'),recent=document.querySelector('#aiAgentRecentTable');
+ if(!grid||!summary||!providers||!recent)return;
+ if(!a){grid.innerHTML='<div class="card"><div class="label">AI-agent traffic</div><div class="value">—</div><div class="help">No AI-agent observability data.</div></div>';summary.innerHTML='';providers.textContent='No declared AI-agent traffic recorded.';recent.textContent='No declared AI-agent decisions recorded.';return;}
+ const v=a.verification||{},out=a.outcomes||{};
+ const cards=[['Declared requests',a.declaredRequests??a.requests??0],['Verified',v.verified??0],['Unverified / mismatch',v.unverified??0],['Verification unavailable',v.unavailable??0],['Verification disabled',v.disabled??0],['Allowed',out.allowed??0],['Observed',out.observed??0],['Would deny',out.would_deny??0],['Denied',out.denied??0],['Verification-rule matches',a.verificationPolicyMatches??0]];
+ grid.innerHTML=cards.map(([label,value])=>'<div class="card"><div class="label">'+esc(label)+'</div><div class="value">'+esc(value)+'</div></div>').join('');
+ summary.innerHTML=Object.entries(a.purposes||{}).filter(([,n])=>Number(n)>0).map(([k,n])=>'<span class="pill">'+esc(k)+': <b>'+esc(n)+'</b></span>').join('')||'<span class="muted">No declared purposes observed yet.</span>';
+ const rows=[];
+ for(const p of (a.providers||[]))for(const f of (p.families||[]))rows.push({provider:p.provider,...f});
+ providers.innerHTML=rows.length?'<table><thead><tr><th>Provider</th><th>Family</th><th>Requests</th><th>Verified</th><th>Unverified</th><th>Unavailable</th><th>Disabled</th><th>Allow</th><th>Observe</th><th>Deny</th><th>Would deny</th><th>Denied</th></tr></thead><tbody>'+rows.map(r=>'<tr><td>'+esc(r.provider)+'</td><td>'+esc(r.family)+'</td><td>'+esc(r.requests)+'</td><td>'+esc(r.verification?.verified??0)+'</td><td>'+esc(r.verification?.unverified??0)+'</td><td>'+esc(r.verification?.unavailable??0)+'</td><td>'+esc(r.verification?.disabled??0)+'</td><td>'+esc(r.actions?.allow??0)+'</td><td>'+esc(r.actions?.observe??0)+'</td><td>'+esc(r.actions?.deny??0)+'</td><td>'+esc(r.outcomes?.would_deny??0)+'</td><td>'+esc(r.outcomes?.denied??0)+'</td></tr>').join('')+'</tbody></table>':'No declared AI-agent traffic recorded.';
+ const history=(a.recent||[]).slice().reverse();
+ recent.innerHTML=history.length?'<table><thead><tr><th>Time</th><th>Provider</th><th>Family</th><th>Purpose</th><th>Verification</th><th>Action</th><th>Outcome</th><th>Policy source</th></tr></thead><tbody>'+history.map(r=>'<tr><td>'+esc(new Date(r.at).toLocaleString())+'</td><td>'+esc(r.provider)+'</td><td>'+esc(r.family)+'</td><td>'+esc(r.purpose)+'</td><td>'+esc(r.verificationStatus)+'</td><td>'+esc(r.action)+'</td><td>'+esc(r.outcome)+'</td><td>'+esc(r.policySource)+'</td></tr>').join('')+'</tbody></table>':'No declared AI-agent decisions recorded.';
+}
 let policySimulationConfigured=false;
 function configurePolicySimulation(d){
  const state=document.querySelector('#policySimulationState'),button=document.querySelector('#runPolicySimulation');
@@ -199,6 +221,7 @@ async function load(){await discoverApiBase();const msg=document.querySelector('
  renderResilience(j.resilience);
  renderRouting(j.routing);
  renderAgentObservatory(j.agentObservatory);
+ renderAiAgentTraffic(j.aiAgentTraffic);
  renderEnforcementRehearsal(j.enforcementRehearsal);
  renderReleaseReadiness(j.releaseReadiness);
  configurePolicySimulation(j.policySimulation);
