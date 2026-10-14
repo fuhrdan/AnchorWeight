@@ -5,7 +5,7 @@ import { buildAiAgentProductionReadiness,describeAiAgentProductionReadiness,AI_A
 function good(overrides={}) {
   return {
     beta2StaticReady:true,liveVersionMatches:true,liveShadowMode:true,aiEnforcementDisabled:true,
-    passportValid:true,robotsReachable:true,browserUnaffected:true,canariesExpected:12,canariesPassed:12,
+    passportValid:true,robotsPolicyAccessible:true,browserUnaffected:true,canariesExpected:12,canariesPassed:12,
     authenticatedChecksRequested:true,authenticatedChecksPassed:true,privacyChecksPassed:true,
     clientIdentityStatus:'degraded',clientIdentityEnforcementSafe:false,
     restartComparisonRequested:true,restartComparisonPassed:true,
@@ -45,10 +45,10 @@ test('live version mismatch blocks validation',()=>{
   assert.ok(r.blockers.some(x=>x.code==='live_version_mismatch'));
 });
 
-test('public passport and robots remain mandatory',()=>{
-  const r=buildAiAgentProductionReadiness(good({passportValid:false,robotsReachable:false}));
+test('public passport and robots policy accessibility remain mandatory',()=>{
+  const r=buildAiAgentProductionReadiness(good({passportValid:false,robotsPolicyAccessible:false}));
   assert.ok(r.blockers.some(x=>x.code==='agent_passport_invalid'));
-  assert.ok(r.blockers.some(x=>x.code==='robots_unreachable'));
+  assert.ok(r.blockers.some(x=>x.code==='robots_policy_blocked'));
 });
 
 test('normal browser traffic must remain unaffected',()=>{

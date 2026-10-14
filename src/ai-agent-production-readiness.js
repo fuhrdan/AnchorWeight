@@ -13,7 +13,7 @@ export function buildAiAgentProductionReadiness(input={}) {
   if(input.liveShadowMode!==true) blockers.push(blocker('live_not_shadow_mode','Production shadow validation requires global shadow mode.'));
   if(input.aiEnforcementDisabled!==true) blockers.push(blocker('ai_enforcement_enabled','Active AI-agent deny enforcement must remain disabled during beta.2 validation.'));
   if(input.passportValid!==true) blockers.push(blocker('agent_passport_invalid','The public Agent Passport did not match the beta.2 contract.'));
-  if(input.robotsReachable!==true) blockers.push(blocker('robots_unreachable','/robots.txt was not reachable.'));
+  if(input.robotsPolicyAccessible!==true) blockers.push(blocker('robots_policy_blocked','/robots.txt was blocked by AI policy or failed server-side.'));
   if(input.browserUnaffected!==true) blockers.push(blocker('browser_request_blocked','A normal browser canary was unexpectedly denied.'));
   if(input.canariesPassed!==input.canariesExpected || !(Number(input.canariesExpected)>0))
     blockers.push(blocker('ai_canary_matrix_failed',`${Number(input.canariesPassed)||0}/${Number(input.canariesExpected)||0} live AI-agent canaries passed.`));

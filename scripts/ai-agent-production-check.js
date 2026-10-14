@@ -44,14 +44,17 @@ async function jsonGet(url,options={}) {
   try { body=await response.json(); } catch {}
   return {response,body};
 }
-function forbiddenAiData(value) {
+export function forbiddenAiData(value) {
   const forbidden=new Set(['rawip','ip','rawuseragent','useragent','rawpath','rawquery','query','cookie','cookies','credentials','authorization']);
   const stack=[value];
   while(stack.length) {
     const cur=stack.pop();
     if(!cur || typeof cur!=='object') continue;
     for(const [key,val] of Object.entries(cur)) {
-      if(forbidden.has(String(key).toLowerCase())) return key;
+      const normalized=String(key).toLowerCase();
+      // Privacy descriptors explicitly declaring that a raw field is absent are
+      // safe. Any populated/true sensitive field still fails closed.
+      if(forbidden.has(normalized) && val!==false && val!==null) return key;
       if(val && typeof val==='object') stack.push(val);
     }
   }
@@ -129,9 +132,13 @@ export async function runAiAgentProductionCheck(options={}) {
     passport?.privacy?.credentialsExposed===false;
   if(!passportValid) failures.push('public Agent Passport validation failed');
 
-  const robots=await get(base+'/robots.txt',{timeoutMs,headers:{'User-Agent':'AnchorWeight-Production-Validator/1.0'}});
-  const robotsReachable=robots.status>=200 && robots.status<400;
-  if(!robotsReachable) failures.push(`/robots.txt returned HTTP ${robots.status}`);
+  // AnchorWeight does not serve robots.txt itself. A site may legitimately have no
+  // robots.txt and return 404. The production invariant is that the AI policy must
+  // not turn crawler discovery into an AnchorWeight 403 or a server-side failure.
+  const robots=await get(base+'/robots.txt',{timeoutMs,headers:{'User-Agent':'GPTBot/1.4'}});
+  const robotsPolicyAccessible=robots.status!==403 && robots.status<500;
+  details.robots={status:robots.status,policyAccessible:robotsPolicyAccessible};
+  if(!robotsPolicyAccessible) failures.push(`/robots.txt AI-policy accessibility failed with HTTP ${robots.status}`);
 
   const browser=await get(base+'/',{timeoutMs,headers:{'User-Agent':'Mozilla/5.0 AnchorWeight-Production-Validator/1.0'}});
   const browserUnaffected=browser.status!==403 && browser.status<500;
@@ -219,7 +226,7 @@ export async function runAiAgentProductionCheck(options={}) {
     liveShadowMode,
     aiEnforcementDisabled:passport?.enforcement?.aiAgentPolicyEnforced===false,
     passportValid,
-    robotsReachable,
+    robotsPolicyAccessible,
     browserUnaffected,
     canariesExpected:CANARIES.length,
     canariesPassed,

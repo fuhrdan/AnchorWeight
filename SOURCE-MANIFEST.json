@@ -75,7 +75,7 @@
     },
     {
       "file": "AI-AGENT-PRODUCTION-SHADOW-VALIDATION.md",
-      "sha256": "4c378a67dd334dd959d8ef91a8ec3740a8e06bb6922cefb18324f43d452ec163"
+      "sha256": "92540fb774f4f9b932da8425cd55fd91b75495105c3be8a9ff76379fdb41139a"
     },
     {
       "file": "ALERTS-AND-WEBHOOKS.md",
@@ -415,7 +415,7 @@
     },
     {
       "file": "scripts/ai-agent-beta2-check.js",
-      "sha256": "970441568e2892c329a0e2c98fd6fa1cd158ec8dde761b7d9034a1c900d628eb"
+      "sha256": "6b25b3bab587ee29ab41a1b9cafe9b85b8b50f63d53c93e0553034591c18cc2f"
     },
     {
       "file": "scripts/ai-agent-burnin-check.js",
@@ -439,7 +439,7 @@
     },
     {
       "file": "scripts/ai-agent-production-check.js",
-      "sha256": "5f50910b0b036fd01cdd2f667270e2a5689c1d444c546eb021b2159f827f3e66"
+      "sha256": "9f3b81dcbc7f817d77e5d920867b64601594c58bcaee23ac087fc29b027247a2"
     },
     {
       "file": "scripts/ai-agent-robots.js",
@@ -531,7 +531,7 @@
     },
     {
       "file": "src/ai-agent-production-readiness.js",
-      "sha256": "bf950b92ca7a95f1676dfd0b704b613f9f64cf986ea949b946de38ec865868b3"
+      "sha256": "629fb206875178205aa4aeb8aa56f9329b6104e0f731d3118f1b30c781935968"
     },
     {
       "file": "src/ai-agent-traffic-observatory.js",
@@ -874,8 +874,12 @@
       "sha256": "dc9cabb5e3e5feea5a6d64563b4ca01a8d4420db60a78d98997e0a3ab9c0f244"
     },
     {
+      "file": "test/unit/ai-agent-production-privacy-scanner.test.js",
+      "sha256": "32d40b2e3afce21e7bbe282d3d1e8f9996514afbcaf2ee73c8499ba9e4704f1d"
+    },
+    {
       "file": "test/unit/ai-agent-production-readiness.test.js",
-      "sha256": "60d32390a72d05c4dee19cf9c009821c10843dcc987cdfd24fab14d91801719f"
+      "sha256": "4f040b7936698a230616ef3c619ffd5d89991af190aaa64a9675399eb511fd4b"
     },
     {
       "file": "test/unit/ai-agent-traffic-observatory.test.js",

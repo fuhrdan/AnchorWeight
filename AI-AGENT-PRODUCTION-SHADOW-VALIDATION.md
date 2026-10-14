@@ -104,3 +104,10 @@ A public-only PASS means the deployed shadow path behaved safely.
 `READY FOR v3.1 RC REVIEW` requires authenticated operator checks **and** a successful post-restart comparison. A live check without the restart drill can pass production-shadow validation but cannot claim RC-review completeness.
 
 Even an RC-review verdict does **not** grant enforcement readiness or enable deny enforcement.
+
+
+## beta.2-fix2 validator clarification
+
+AnchorWeight does not create or serve `/robots.txt`. The `ai-agents:robots` command only prints suggested directives for an operator to merge into an existing robots file.
+
+Production validation therefore requests `/robots.txt` using `GPTBot/1.4` and treats an origin HTTP 404 as acceptable pass-through. HTTP 403 remains a failure because AI policy denied crawler discovery, and HTTP 5xx remains a server-side failure.

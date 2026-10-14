@@ -32,7 +32,7 @@ export async function runAiAgentBeta2Check({root=ROOT}={}) {
 
   const sample=buildAiAgentProductionReadiness({
     beta2StaticReady:true,liveVersionMatches:true,liveShadowMode:true,aiEnforcementDisabled:true,passportValid:true,
-    robotsReachable:true,browserUnaffected:true,canariesExpected:12,canariesPassed:12,
+    robotsPolicyAccessible:true,browserUnaffected:true,canariesExpected:12,canariesPassed:12,
     authenticatedChecksRequested:true,authenticatedChecksPassed:true,privacyChecksPassed:true,
     clientIdentityStatus:'degraded',clientIdentityEnforcementSafe:false,
     restartComparisonRequested:true,restartComparisonPassed:true
@@ -44,7 +44,7 @@ export async function runAiAgentBeta2Check({root=ROOT}={}) {
 
   const active=buildAiAgentProductionReadiness({
     beta2StaticReady:true,liveVersionMatches:true,liveShadowMode:true,aiEnforcementDisabled:false,passportValid:true,
-    robotsReachable:true,browserUnaffected:true,canariesExpected:12,canariesPassed:12,privacyChecksPassed:true
+    robotsPolicyAccessible:true,browserUnaffected:true,canariesExpected:12,canariesPassed:12,privacyChecksPassed:true
   });
   check(active.productionShadowValidated===false && active.blockers.some(b=>b.code==='ai_enforcement_enabled'),'active AI enforcement must block beta.2 shadow validation');
 
@@ -55,6 +55,8 @@ export async function runAiAgentBeta2Check({root=ROOT}={}) {
   check(passport.capabilities?.aiAgentControls?.productionValidation?.dashboardTokenFromEnvironmentOnly===true,'passport must state dashboard token environment-only');
 
   const productionSource=fs.readFileSync(path.join(root,'scripts/ai-agent-production-check.js'),'utf8');
+  check(productionSource.includes('val!==false && val!==null'),'production privacy scanner must allow only explicit false/null sensitive descriptors');
+  check(productionSource.includes('export function forbiddenAiData'),'production privacy scanner must be directly testable');
   check(productionSource.includes('AW_PRODUCTION_CHECK_URL'),'production validator URL environment support missing');
   check(productionSource.includes('AW_PRODUCTION_DASHBOARD_TOKEN'),'production validator dashboard token environment support missing');
   check(productionSource.includes("throw new Error('Do not pass dashboard tokens on the command line"),'production validator must reject CLI token');
