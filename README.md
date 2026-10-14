@@ -614,3 +614,7 @@ Beta.3 adds bounded, privacy-safe policy decision forensics and Observatory cali
 ## v3.1 AI Agent Controls
 
 v3.1 adds explicit, shadow-first access policy for declared AI crawlers and user-triggered AI fetchers. See [AI-AGENT-CONTROLS.md](AI-AGENT-CONTROLS.md). Declared identity may justify request-scoped deny, but never grants trust or bypass privileges.
+
+## v3.1 Verified AI-Agent Identity
+
+Alpha.2 adds provider-published network verification for declared OpenAI, Perplexity and Google AI agents while explicitly reporting Anthropic as unverifiable by published network data. Verification never grants a trust bypass. See [VERIFIED-AI-AGENTS.md](VERIFIED-AI-AGENTS.md).

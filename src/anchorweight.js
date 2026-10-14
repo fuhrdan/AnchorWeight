@@ -17,6 +17,7 @@ import { buildEnforcementRehearsal } from './enforcement-rehearsal.js';
 import { buildReleaseReadiness } from './release-readiness.js';
 import { ANCHORWEIGHT_VERSION } from './version.js';
 import { evaluateAiAgentRequestPolicy } from './ai-agent-policy.js';
+import { createAiAgentVerifier } from './ai-agent-verification.js';
 
 function esc(s) {
   return String(s).replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
@@ -73,6 +74,7 @@ export function createAnchorWeight(config, deps = {}) {
   const admin = deps.admin || new AdminSecurity(config, deps.now);
   const audit = deps.audit || (config.auditEnabled === false ? (() => {}) : createAuditLogger(config.auditLogFile));
   const identityMonitor = deps.identityMonitor || createClientIdentityMonitor(config);
+  const aiAgentVerifier = deps.aiAgentVerifier || createAiAgentVerifier(config,deps.aiAgentVerifierOptions || {});
 
   function currentReleaseReadiness() {
     const profiles=typeof store.getPublicProfiles==='function' ? store.getPublicProfiles(500) : (store.snapshot().topProfiles||[]);
@@ -93,17 +95,31 @@ export function createAnchorWeight(config, deps = {}) {
   function trustedKey(identity) { return identity?.enforcementSafe ? ipFingerprint(config.secret, identity.ip) : null; }
 
   async function preflight(req, res, url) {
+    const identity = identityFor(req);
     const aiAgentPolicy=evaluateAiAgentRequestPolicy(req,config,{pathname:url?.pathname||''});
     if(aiAgentPolicy.matched){
+      const aiAgentVerification=await aiAgentVerifier.verify({
+        declared:true,provider:aiAgentPolicy.provider,family:aiAgentPolicy.family,purpose:aiAgentPolicy.purpose
+      },identity);
       store.stats.aiAgentPolicyEvaluations=(store.stats.aiAgentPolicyEvaluations||0)+1;
+      if(aiAgentVerification.status==='verified') store.stats.aiAgentVerified=(store.stats.aiAgentVerified||0)+1;
+      else if(aiAgentVerification.status==='unverified') store.stats.aiAgentUnverified=(store.stats.aiAgentUnverified||0)+1;
+      else store.stats.aiAgentVerificationUnavailable=(store.stats.aiAgentVerificationUnavailable||0)+1;
       if(aiAgentPolicy.action==='deny' && !aiAgentPolicy.enforcementEligible) store.stats.aiAgentPolicyWouldDeny=(store.stats.aiAgentPolicyWouldDeny||0)+1;
-      log({type:aiAgentPolicy.enforcementEligible?'ai_agent_policy_deny':'ai_agent_policy_observe',provider:aiAgentPolicy.provider,family:aiAgentPolicy.family,purpose:aiAgentPolicy.purpose,action:aiAgentPolicy.action,enforcement:aiAgentPolicy.enforcement});
+      log({
+        type:aiAgentPolicy.enforcementEligible?'ai_agent_policy_deny':'ai_agent_policy_observe',
+        provider:aiAgentPolicy.provider,family:aiAgentPolicy.family,purpose:aiAgentPolicy.purpose,
+        action:aiAgentPolicy.action,enforcement:aiAgentPolicy.enforcement,
+        verificationStatus:aiAgentVerification.status,
+        verificationMethod:aiAgentVerification.method,
+        verificationScope:aiAgentVerification.scope,
+        verificationReason:aiAgentVerification.reason
+      });
       if(aiAgentPolicy.enforcementEligible){
         store.stats.aiAgentPolicyDenied=(store.stats.aiAgentPolicyDenied||0)+1;
         return text(res,403,'Access denied by site AI-agent policy.');
       }
     }
-    const identity = identityFor(req);
     const key = trustedKey(identity);
     if (!key) {
       store.stats.identityDegradedRequests = (store.stats.identityDegradedRequests || 0) + 1;

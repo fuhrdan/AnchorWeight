@@ -157,6 +157,10 @@ export function loadConfig(overrides = {}) {
     aiAgentUserAction: (process.env.AW_AI_AGENT_USER_ACTION || 'observe').toLowerCase(),
     aiAgentAutomationAction: (process.env.AW_AI_AGENT_AUTOMATION_ACTION || 'observe').toLowerCase(),
     aiAgentFamilyRules: listEnv('AW_AI_AGENT_FAMILY_RULES'),
+    // v3.1-alpha.2: provider-published network verification is observational and never grants trust.
+    aiAgentVerificationEnabled: boolEnv('AW_AI_AGENT_VERIFICATION_ENABLED', true),
+    aiAgentVerificationCacheMinutes: intEnv('AW_AI_AGENT_VERIFICATION_CACHE_MINUTES', 360, 5, 1440),
+    aiAgentVerificationTimeoutMs: intEnv('AW_AI_AGENT_VERIFICATION_TIMEOUT_MS', 1500, 250, 10000),
     // v2.8: adaptive deception is measurement/recommendation only by default.
     adaptiveDeceptionEnabled: boolEnv('AW_ADAPTIVE_DECEPTION_ENABLED', true),
     adaptiveDeceptionShadowMode: boolEnv('AW_ADAPTIVE_DECEPTION_SHADOW_MODE', true),

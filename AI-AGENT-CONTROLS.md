@@ -126,3 +126,7 @@ The first command verifies identity mappings, deny semantics, shadow behavior, r
 - Perplexity crawler documentation: https://docs.perplexity.ai/docs/resources/perplexity-crawlers
 
 Vendor identities and behavior can change. Update the catalog only from current vendor documentation and keep new identities shadowed until tested.
+
+## Alpha.2 verification
+
+Alpha.2 adds a second identity state beside the declared User-Agent: provider-published network verification. See VERIFIED-AI-AGENTS.md. Declared deny remains independent from verification; verified allow still does not grant trust.

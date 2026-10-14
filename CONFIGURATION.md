@@ -119,3 +119,7 @@ See [UPSTREAM-RESILIENCE.md](UPSTREAM-RESILIENCE.md) for fallbacks, limits and r
 ## AI Agent Controls (v3.1)
 
 AI Agent Controls are enabled for observation by default and remain shadowed until explicitly activated. Core settings: AW_AI_AGENT_POLICY_ENABLED, AW_AI_AGENT_POLICY_SHADOW_MODE, AW_AI_AGENT_POLICY_ENFORCEMENT_ENABLED, AW_AI_AGENT_TRAINING_ACTION, AW_AI_AGENT_SEARCH_ACTION, AW_AI_AGENT_USER_ACTION, AW_AI_AGENT_AUTOMATION_ACTION, and AW_AI_AGENT_FAMILY_RULES. See AI-AGENT-CONTROLS.md for semantics and examples.
+
+### Verified AI-Agent Identity (v3.1 alpha.2)
+
+AW_AI_AGENT_VERIFICATION_ENABLED enables observational verification using provider-published network ranges when trusted client identity is available. AW_AI_AGENT_VERIFICATION_CACHE_MINUTES controls the in-process range cache and AW_AI_AGENT_VERIFICATION_TIMEOUT_MS bounds provider feed fetches. Verification never grants trust and does not change alpha.1 request-scoped deny behavior.

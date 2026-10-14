@@ -75,7 +75,7 @@ export function createAgentPassport(config = {}) {
         rawForwardedHeaderExposed: false
       },
       aiAgentControls: {
-        version: 1,
+        version: 2,
         available: true,
         providers: ['openai','anthropic','google','perplexity'],
         actions: ['allow','observe','deny'],
@@ -86,7 +86,20 @@ export function createAgentPassport(config = {}) {
         denyRequiresTrustedClientIdentity: false,
         allowGrantsTrust: false,
         robotsGuidance: true,
-        rawUserAgentRetained: false
+        rawUserAgentRetained: false,
+        verification: {
+          available: true,
+          version: 1,
+          method: 'provider_published_network_ranges',
+          requiresTrustedClientIdentity: true,
+          allowGrantsTrust: false,
+          requestDenyDependsOnVerification: false,
+          openai: 'family_published_cidr',
+          perplexity: 'family_published_cidr',
+          google: 'provider_category_published_cidr',
+          anthropic: 'provider_ranges_unpublished',
+          googleWebBotAuth: 'experimental_not_implemented'
+        }
       },
       resourceBudgets: {
         version: 1,
