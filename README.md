@@ -618,3 +618,9 @@ v3.1 adds explicit, shadow-first access policy for declared AI crawlers and user
 ## v3.1 Verified AI-Agent Identity
 
 Alpha.2 adds provider-published network verification for declared OpenAI, Perplexity and Google AI agents while explicitly reporting Anthropic as unverifiable by published network data. Verification never grants a trust bypass. See [VERIFIED-AI-AGENTS.md](VERIFIED-AI-AGENTS.md).
+
+
+<!-- v3.1-alpha.3 verification-aware-policy -->
+## v3.1 alpha.3 — verification-aware AI policy
+
+Exact verification-status overrides are configured with `AW_AI_AGENT_VERIFICATION_RULES`, using `provider:family@status=allow|observe|deny`. If no exact rule matches, AnchorWeight preserves the alpha.1 declaration policy; verified identity never grants trust. See `VERIFICATION-AWARE-AI-POLICY.md`.

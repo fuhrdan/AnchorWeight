@@ -19,7 +19,7 @@ function base(overrides={}){return {
 };}
 export function runAiAgentCheck({root=ROOT}={}){
   const failures=[];let checks=0;const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
-  check(ANCHORWEIGHT_VERSION==='3.1.0-alpha.2','runtime version must be 3.1.0-alpha.2');
+  check(ANCHORWEIGHT_VERSION==='3.1.0-alpha.3','runtime version must be 3.1.0-alpha.3');
   check(ANCHORWEIGHT_RELEASE_CHANNEL==='alpha','release channel must be alpha');
   const ids=[
     ['GPTBot/1.4','openai','gptbot','model_training'],
@@ -51,7 +51,7 @@ export function runAiAgentCheck({root=ROOT}={}){
   const desc=describeAiAgentPolicy(base());
   check(desc.allowGrantsTrust===false && desc.denyRequiresTrustedClientIdentity===false,'descriptor safety semantics changed');
   const passport=createAgentPassport(base());
-  check(passport.capabilities?.aiAgentControls?.version===2,'Agent Passport must publish AI Agent Controls v2');
+  check(passport.capabilities?.aiAgentControls?.version===3,'Agent Passport must publish AI Agent Controls v3');
   check(passport.capabilities?.aiAgentControls?.allowGrantsTrust===false,'Agent Passport must state allow does not grant trust');
   check(passport.privacy?.rawUserAgentExposed===false,'AI Agent Controls must not expose raw User-Agent');
   const source=fs.readFileSync(path.join(root,'src/anchorweight.js'),'utf8');

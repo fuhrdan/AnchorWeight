@@ -155,6 +155,12 @@ export function validateConfig(config) {
   if (config.aiAgentVerificationEnabled != null && typeof config.aiAgentVerificationEnabled !== 'boolean') errors.push('aiAgentVerificationEnabled must be boolean');
   intRange('aiAgentVerificationCacheMinutes',config.aiAgentVerificationCacheMinutes??360,5,1440);
   intRange('aiAgentVerificationTimeoutMs',config.aiAgentVerificationTimeoutMs??1500,250,10000);
+  const aiAgentVerificationRules=config.aiAgentVerificationRules??[];
+  if(!Array.isArray(aiAgentVerificationRules)) errors.push('aiAgentVerificationRules must be an array');
+  else {
+    if(aiAgentVerificationRules.length>32) errors.push('aiAgentVerificationRules must contain no more than 32 entries');
+    for(const rule of aiAgentVerificationRules) if(!/^[a-z0-9_-]{2,32}:[a-z0-9_-]{2,64}@(verified|unverified|unavailable|disabled)=(allow|observe|deny)$/.test(String(rule||'').toLowerCase())) errors.push('AI-agent verification rules must use provider:family@verified|unverified|unavailable|disabled=allow|observe|deny');
+  }
   if (config.aiAgentPolicyEnforcementEnabled && !config.aiAgentPolicyEnabled) errors.push('aiAgentPolicyEnforcementEnabled requires aiAgentPolicyEnabled');
   if (config.aiAgentPolicyEnforcementEnabled && config.aiAgentPolicyShadowMode) warnings.push('AI Agent Controls enforcement is enabled but AI-agent shadow mode is active, so declared-agent deny remains advisory.');
   if (config.aiAgentPolicyEnforcementEnabled && !config.aiAgentPolicyShadowMode) warnings.push('AI Agent Controls declared-agent deny is ACTIVE and request-scoped; allow does not grant trust or bypass other defenses.');

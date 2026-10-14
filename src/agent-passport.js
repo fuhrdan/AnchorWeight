@@ -75,7 +75,7 @@ export function createAgentPassport(config = {}) {
         rawForwardedHeaderExposed: false
       },
       aiAgentControls: {
-        version: 2,
+        version: 3,
         available: true,
         providers: ['openai','anthropic','google','perplexity'],
         actions: ['allow','observe','deny'],
@@ -99,6 +99,17 @@ export function createAgentPassport(config = {}) {
           google: 'provider_category_published_cidr',
           anthropic: 'provider_ranges_unpublished',
           googleWebBotAuth: 'experimental_not_implemented'
+        },
+        verificationAwarePolicy: {
+          available: true,
+          version: 1,
+          statuses: ['verified','unverified','unavailable','disabled'],
+          exactFamilyRules: true,
+          defaultBehavior: 'inherit_declaration_policy',
+          unavailableFallsBackToDeclarationPolicy: true,
+          verifiedAutomaticallyAllowed: false,
+          unverifiedAutomaticallyDenied: false,
+          allowGrantsTrust: false
         }
       },
       resourceBudgets: {

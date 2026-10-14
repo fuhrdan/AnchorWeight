@@ -161,6 +161,8 @@ export function loadConfig(overrides = {}) {
     aiAgentVerificationEnabled: boolEnv('AW_AI_AGENT_VERIFICATION_ENABLED', true),
     aiAgentVerificationCacheMinutes: intEnv('AW_AI_AGENT_VERIFICATION_CACHE_MINUTES', 360, 5, 1440),
     aiAgentVerificationTimeoutMs: intEnv('AW_AI_AGENT_VERIFICATION_TIMEOUT_MS', 1500, 250, 10000),
+    // v3.1-alpha.3: exact verification-status policy overrides; absent rules inherit alpha.1 declaration policy.
+    aiAgentVerificationRules: listEnv('AW_AI_AGENT_VERIFICATION_RULES'),
     // v2.8: adaptive deception is measurement/recommendation only by default.
     adaptiveDeceptionEnabled: boolEnv('AW_ADAPTIVE_DECEPTION_ENABLED', true),
     adaptiveDeceptionShadowMode: boolEnv('AW_ADAPTIVE_DECEPTION_SHADOW_MODE', true),

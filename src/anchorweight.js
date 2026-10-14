@@ -18,6 +18,7 @@ import { buildReleaseReadiness } from './release-readiness.js';
 import { ANCHORWEIGHT_VERSION } from './version.js';
 import { evaluateAiAgentRequestPolicy } from './ai-agent-policy.js';
 import { createAiAgentVerifier } from './ai-agent-verification.js';
+import { applyAiAgentVerificationPolicy } from './ai-agent-verification-policy.js';
 
 function esc(s) {
   return String(s).replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
@@ -96,20 +97,23 @@ export function createAnchorWeight(config, deps = {}) {
 
   async function preflight(req, res, url) {
     const identity = identityFor(req);
-    const aiAgentPolicy=evaluateAiAgentRequestPolicy(req,config,{pathname:url?.pathname||''});
-    if(aiAgentPolicy.matched){
+    const declaredAiAgentPolicy=evaluateAiAgentRequestPolicy(req,config,{pathname:url?.pathname||''});
+    if(declaredAiAgentPolicy.matched){
       const aiAgentVerification=await aiAgentVerifier.verify({
-        declared:true,provider:aiAgentPolicy.provider,family:aiAgentPolicy.family,purpose:aiAgentPolicy.purpose
+        declared:true,provider:declaredAiAgentPolicy.provider,family:declaredAiAgentPolicy.family,purpose:declaredAiAgentPolicy.purpose
       },identity);
+      const aiAgentPolicy=applyAiAgentVerificationPolicy(declaredAiAgentPolicy,aiAgentVerification,config,{pathname:url?.pathname||''});
       store.stats.aiAgentPolicyEvaluations=(store.stats.aiAgentPolicyEvaluations||0)+1;
       if(aiAgentVerification.status==='verified') store.stats.aiAgentVerified=(store.stats.aiAgentVerified||0)+1;
       else if(aiAgentVerification.status==='unverified') store.stats.aiAgentUnverified=(store.stats.aiAgentUnverified||0)+1;
       else store.stats.aiAgentVerificationUnavailable=(store.stats.aiAgentVerificationUnavailable||0)+1;
+      if(aiAgentPolicy.verificationPolicyMatched) store.stats.aiAgentVerificationPolicyMatches=(store.stats.aiAgentVerificationPolicyMatches||0)+1;
       if(aiAgentPolicy.action==='deny' && !aiAgentPolicy.enforcementEligible) store.stats.aiAgentPolicyWouldDeny=(store.stats.aiAgentPolicyWouldDeny||0)+1;
       log({
         type:aiAgentPolicy.enforcementEligible?'ai_agent_policy_deny':'ai_agent_policy_observe',
         provider:aiAgentPolicy.provider,family:aiAgentPolicy.family,purpose:aiAgentPolicy.purpose,
-        action:aiAgentPolicy.action,enforcement:aiAgentPolicy.enforcement,
+        action:aiAgentPolicy.action,baseAction:aiAgentPolicy.baseAction,enforcement:aiAgentPolicy.enforcement,
+        policySource:aiAgentPolicy.policySource,verificationPolicyMatched:aiAgentPolicy.verificationPolicyMatched,
         verificationStatus:aiAgentVerification.status,
         verificationMethod:aiAgentVerification.method,
         verificationScope:aiAgentVerification.scope,

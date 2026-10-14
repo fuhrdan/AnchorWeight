@@ -45,3 +45,9 @@ Provider range documents are cached in-process. Fetch failures, malformed feeds,
 - Google user-triggered fetchers: https://developers.google.com/crawling/docs/crawlers-fetchers/google-user-triggered-fetchers
 - Google Web Bot Auth (experimental): https://developers.google.com/crawling/docs/crawlers-fetchers/web-bot-auth
 - Anthropic crawler guidance: https://support.anthropic.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler
+
+
+<!-- v3.1-alpha.3 verification-aware-policy -->
+## v3.1 alpha.3 — verification-aware AI policy
+
+Exact verification-status overrides are configured with `AW_AI_AGENT_VERIFICATION_RULES`, using `provider:family@status=allow|observe|deny`. If no exact rule matches, AnchorWeight preserves the alpha.1 declaration policy; verified identity never grants trust. See `VERIFICATION-AWARE-AI-POLICY.md`.

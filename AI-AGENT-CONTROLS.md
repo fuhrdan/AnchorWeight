@@ -130,3 +130,9 @@ Vendor identities and behavior can change. Update the catalog only from current 
 ## Alpha.2 verification
 
 Alpha.2 adds a second identity state beside the declared User-Agent: provider-published network verification. See VERIFIED-AI-AGENTS.md. Declared deny remains independent from verification; verified allow still does not grant trust.
+
+
+<!-- v3.1-alpha.3 verification-aware-policy -->
+## v3.1 alpha.3 — verification-aware AI policy
+
+Exact verification-status overrides are configured with `AW_AI_AGENT_VERIFICATION_RULES`, using `provider:family@status=allow|observe|deny`. If no exact rule matches, AnchorWeight preserves the alpha.1 declaration policy; verified identity never grants trust. See `VERIFICATION-AWARE-AI-POLICY.md`.

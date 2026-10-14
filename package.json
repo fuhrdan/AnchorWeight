@@ -1,6 +1,6 @@
 {
   "name": "anchorweight",
-  "version": "3.1.0-alpha.2",
+  "version": "3.1.0-alpha.3",
   "description": "Autonomous traffic control and proof-of-crawl defense with Agent Identity, Bot DNA, bounded quarantine, investigation tooling, and reverse proxy protection.",
   "type": "module",
   "main": "app.js",
@@ -28,7 +28,8 @@
     "final:check": "node scripts/final-release-check.js",
     "ai-agents:check": "node scripts/ai-agent-check.js",
     "ai-agents:robots": "node scripts/ai-agent-robots.js",
-    "ai-agents:verify": "node scripts/ai-agent-verification-check.js"
+    "ai-agents:verify": "node scripts/ai-agent-verification-check.js",
+    "ai-agents:policy-check": "node scripts/ai-agent-verification-policy-check.js"
   },
   "engines": {
     "node": ">=20"

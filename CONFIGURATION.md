@@ -123,3 +123,9 @@ AI Agent Controls are enabled for observation by default and remain shadowed unt
 ### Verified AI-Agent Identity (v3.1 alpha.2)
 
 AW_AI_AGENT_VERIFICATION_ENABLED enables observational verification using provider-published network ranges when trusted client identity is available. AW_AI_AGENT_VERIFICATION_CACHE_MINUTES controls the in-process range cache and AW_AI_AGENT_VERIFICATION_TIMEOUT_MS bounds provider feed fetches. Verification never grants trust and does not change alpha.1 request-scoped deny behavior.
+
+
+<!-- v3.1-alpha.3 verification-aware-policy -->
+## v3.1 alpha.3 — verification-aware AI policy
+
+Exact verification-status overrides are configured with `AW_AI_AGENT_VERIFICATION_RULES`, using `provider:family@status=allow|observe|deny`. If no exact rule matches, AnchorWeight preserves the alpha.1 declaration policy; verified identity never grants trust. See `VERIFICATION-AWARE-AI-POLICY.md`.
