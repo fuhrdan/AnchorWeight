@@ -633,3 +633,8 @@ Alpha.4 adds authenticated, bounded AI-agent access observability to the operato
 ## v3.1 alpha.5 — AI Agent Policy Manager
 
 The authenticated dashboard can now validate, preview, privately save and export AI-agent policy drafts without mutating the running policy or enabling enforcement. See [AI-AGENT-POLICY-MANAGER.md](AI-AGENT-POLICY-MANAGER.md).
+
+<!-- v3.1-alpha.6 controlled-policy-deployment -->
+## v3.1 alpha.6 — Controlled AI Policy Deployment & Rehearsal
+
+Saved alpha.5 drafts can now be compared with live policy, rehearsed against bounded observations, risk-reviewed, and prepared as private shadow-only deployment and rollback artifacts. Alpha.6 does not edit the hosting control plane, restart the application, mutate runtime policy, or enable active enforcement. See [AI-AGENT-POLICY-DEPLOYMENT.md](AI-AGENT-POLICY-DEPLOYMENT.md).

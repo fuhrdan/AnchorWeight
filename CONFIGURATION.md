@@ -138,3 +138,8 @@ No new environment variables are required. AI-agent observability is authenticat
 ## AI Agent Policy Manager (v3.1 alpha.5)
 
 The dashboard policy manager edits a staged draft and exports canonical AW_AI_AGENT_* environment settings. Export is deliberately shadow-first and always sets AW_AI_AGENT_POLICY_ENFORCEMENT_ENABLED=false. Applying exported settings and any later enforcement transition remain separate deployment actions.
+
+<!-- v3.1-alpha.6 controlled-policy-deployment -->
+## Controlled AI policy deployment (v3.1 alpha.6)
+
+The dashboard can prepare a private shadow-only environment from the saved AI-agent policy draft plus a rollback snapshot. Generated candidate and rollback environments always set AW_AI_AGENT_POLICY_SHADOW_MODE=true and AW_AI_AGENT_POLICY_ENFORCEMENT_ENABLED=false. Applying those values to cPanel and restarting Node/Passenger remain explicit external operator actions.

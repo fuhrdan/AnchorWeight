@@ -75,7 +75,7 @@ export function createAgentPassport(config = {}) {
         rawForwardedHeaderExposed: false
       },
       aiAgentControls: {
-        version: 5,
+        version: 6,
         available: true,
         providers: ['openai','anthropic','google','perplexity'],
         actions: ['allow','observe','deny'],
@@ -134,6 +134,21 @@ export function createAgentPassport(config = {}) {
           exportForcesShadowMode: true,
           exportForcesEnforcementDisabled: true,
           privateDraftPersistence: true,
+          rawIpExposed: false,
+          rawUserAgentExposed: false
+        },
+        policyDeployment: {
+          available: true,
+          version: 1,
+          authenticated: true,
+          csrfProtectedWrites: true,
+          exactPlanConfirmation: true,
+          rollbackSnapshot: true,
+          shadowOnlyPreparation: true,
+          automaticActivation: false,
+          automaticRestart: false,
+          changesRuntime: false,
+          enforcementControlAvailable: false,
           rawIpExposed: false,
           rawUserAgentExposed: false
         }

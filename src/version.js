@@ -1,2 +1,2 @@
-export const ANCHORWEIGHT_VERSION = '3.1.0-alpha.5';
+export const ANCHORWEIGHT_VERSION = '3.1.0-alpha.6';
 export const ANCHORWEIGHT_RELEASE_CHANNEL = 'alpha';
