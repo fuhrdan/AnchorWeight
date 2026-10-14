@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createAiAgentPolicyManager,AI_AGENT_POLICY_DRAFT_SCHEMA } from '../../src/ai-agent-policy-manager.js';
+function draft(){return {schema:AI_AGENT_POLICY_DRAFT_SCHEMA,purposeActions:{modelTraining:'deny',searchIndexing:'allow',userRetrieval:'observe',generalAutomation:'observe'},familyRules:['openai:gptbot=deny'],verificationRules:['openai:oai-searchbot@verified=allow']};}
+test('saved manager draft survives a new manager instance but does not become runtime config',()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-policy-manager-int-'));const file=path.join(dir,'draft.json');const config={aiAgentTrainingAction:'observe',aiAgentSearchAction:'observe',aiAgentUserAction:'observe',aiAgentAutomationAction:'observe',aiAgentFamilyRules:[],aiAgentVerificationRules:[]};const traffic={snapshot:()=>({recent:[]})};const a=createAiAgentPolicyManager(config,traffic,{draftFile:file});a.save(draft());const b=createAiAgentPolicyManager(config,traffic,{draftFile:file});assert.equal(b.snapshot().savedDraftStatus,'saved');assert.equal(b.snapshot().savedDraft.purposeActions.modelTraining,'deny');assert.equal(b.snapshot().current.purposeActions.modelTraining,'observe');fs.rmSync(dir,{recursive:true,force:true});});
+test('preview never mutates observatory snapshot or candidate',()=>{const candidate=draft();const traffic={recent:[{provider:'openai',family:'gptbot',purpose:'model_training',verificationStatus:'verified',action:'observe',policySource:'declaration_policy'}]};const before=JSON.stringify({candidate,traffic});const manager=createAiAgentPolicyManager({}, {snapshot:()=>traffic});const result=manager.preview(candidate);assert.equal(result.preview.enforcement,false);assert.equal(JSON.stringify({candidate,traffic}),before);});

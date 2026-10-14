@@ -65,7 +65,7 @@ test('runtime records verification-aware AI decision and exposes authenticated a
 
 test('Agent Passport advertises authenticated bounded AI observability',()=>{
   const p=createAgentPassport({});
-  assert.equal(p.capabilities.aiAgentControls.version,4);
+  assert.equal(p.capabilities.aiAgentControls.version,5);
   assert.equal(p.capabilities.aiAgentControls.observability.available,true);
   assert.equal(p.capabilities.aiAgentControls.observability.authenticated,true);
   assert.equal(p.capabilities.aiAgentControls.observability.enforcement,false);

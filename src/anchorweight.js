@@ -20,6 +20,7 @@ import { evaluateAiAgentRequestPolicy } from './ai-agent-policy.js';
 import { createAiAgentVerifier } from './ai-agent-verification.js';
 import { applyAiAgentVerificationPolicy } from './ai-agent-verification-policy.js';
 import { createAiAgentTrafficObservatory } from './ai-agent-traffic-observatory.js';
+import { createAiAgentPolicyManager } from './ai-agent-policy-manager.js';
 
 function esc(s) {
   return String(s).replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
@@ -78,6 +79,7 @@ export function createAnchorWeight(config, deps = {}) {
   const identityMonitor = deps.identityMonitor || createClientIdentityMonitor(config);
   const aiAgentVerifier = deps.aiAgentVerifier || createAiAgentVerifier(config,deps.aiAgentVerifierOptions || {});
   const aiAgentTrafficObservatory = deps.aiAgentTrafficObservatory || createAiAgentTrafficObservatory({now:deps.now});
+  const aiAgentPolicyManager = deps.aiAgentPolicyManager || createAiAgentPolicyManager(config,aiAgentTrafficObservatory,deps.aiAgentPolicyManagerOptions || {});
 
   function currentReleaseReadiness() {
     const profiles=typeof store.getPublicProfiles==='function' ? store.getPublicProfiles(500) : (store.snapshot().topProfiles||[]);
@@ -233,9 +235,10 @@ export function createAnchorWeight(config, deps = {}) {
     const isPolicyPost = method === 'POST' && url.pathname === `${config.basePath}/api/policy`;
     const isPolicySimulationPost = method === 'POST' && url.pathname === `${config.basePath}/api/policy/simulate`;
     const isReviewPost = method === 'POST' && url.pathname === `${config.basePath}/api/review`;
+    const isAiAgentPolicyManagerPost = method === 'POST' && [`${config.basePath}/api/ai-agents/policy-manager/preview`,`${config.basePath}/api/ai-agents/policy-manager/save`].includes(url.pathname);
     const isSetupPost = method === 'POST' &&
       [`${config.basePath}/api/setup/validate`,`${config.basePath}/api/setup/apply`,`${config.basePath}/api/setup/rollback`].includes(url.pathname);
-    if (!['GET', 'HEAD'].includes(method) && !isClientEnvironmentPost && !isPolicyPost && !isPolicySimulationPost && !isReviewPost && !isSetupPost) return text(res, 405, 'Method not allowed');
+    if (!['GET', 'HEAD'].includes(method) && !isClientEnvironmentPost && !isPolicyPost && !isPolicySimulationPost && !isReviewPost && !isAiAgentPolicyManagerPost && !isSetupPost) return text(res, 405, 'Method not allowed');
 
     if (isClientEnvironmentPost) {
       let bytes=0, chunks=[], ended=false;
@@ -319,12 +322,36 @@ export function createAnchorWeight(config, deps = {}) {
       if (url.pathname === `${config.basePath}/api/ai-agents` && method === 'GET') {
         return json(res,200,{version:ANCHORWEIGHT_VERSION,aiAgentTraffic:aiAgentTrafficObservatory.snapshot()});
       }
+      if (url.pathname === `${config.basePath}/api/ai-agents/policy-manager` && method === 'GET') {
+        return json(res,200,{version:ANCHORWEIGHT_VERSION,policyManager:aiAgentPolicyManager.snapshot()});
+      }
+      if (isAiAgentPolicyManagerPost) {
+        if (!admin.validateCsrf(req)) {
+          audit({type:'admin_csrf_failed',client:admin.clientKey(req),path:url.pathname});
+          return json(res,403,{error:'csrf_required'});
+        }
+        let bytes=0,chunks=[],ended=false;
+        req.on('data',chunk=>{if(ended)return;bytes+=chunk.length;if(bytes>32768){ended=true;return json(res,413,{error:'request_body_too_large'});}chunks.push(chunk);});
+        req.on('end',()=>{
+          if(ended)return;let input;try{input=JSON.parse(Buffer.concat(chunks).toString('utf8')||'{}');}catch{return json(res,400,{error:'invalid_json'});}
+          try {
+            const result=url.pathname.endsWith('/save')?aiAgentPolicyManager.save(input):aiAgentPolicyManager.preview(input);
+            if(!result.valid)return json(res,400,{error:'invalid_ai_agent_policy_draft',...result});
+            if(url.pathname.endsWith('/save'))audit({type:'ai_agent_policy_draft_saved',client:admin.clientKey(req),familyRules:result.canonical.familyRules.length,verificationRules:result.canonical.verificationRules.length});
+            return json(res,200,{version:ANCHORWEIGHT_VERSION,...result,policyManager:aiAgentPolicyManager.snapshot()});
+          } catch(err) {
+            console.error('[AnchorWeight] AI agent policy manager failed:',err);
+            return json(res,500,{error:'ai_agent_policy_manager_failed'});
+          }
+        });
+        return true;
+      }
       if (url.pathname === `${config.basePath}/api/stats` || url.pathname === `${config.basePath}/api/stats/`) {
         const state=store.snapshot();
         const profiles=typeof store.getPublicProfiles==='function' ? store.getPublicProfiles(500) : (state.topProfiles||[]);
         const releaseReadiness=buildReleaseReadiness({config,clientIdentity:identityMonitor.snapshot(),publicProfiles:profiles,agentObservatory:state.agentObservatory||{},totalProfiles:state.trackedProfiles??profiles.length});
         const enforcementRehearsal=buildEnforcementRehearsal(profiles,{totalProfiles:state.trackedProfiles??profiles.length});
-        return json(res, 200, { version: ANCHORWEIGHT_VERSION, aiAgentTraffic:aiAgentTrafficObservatory.snapshot(), routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), policySimulation:policySimulationDescriptor(config), enforcementRehearsal, releaseReadiness, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...state });
+        return json(res, 200, { version: ANCHORWEIGHT_VERSION, aiAgentTraffic:aiAgentTrafficObservatory.snapshot(), aiAgentPolicyManager:aiAgentPolicyManager.snapshot(), routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), policySimulation:policySimulationDescriptor(config), enforcementRehearsal, releaseReadiness, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...state });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {
@@ -640,7 +667,7 @@ export function createAnchorWeight(config, deps = {}) {
     return html(res, 200, renderIndex(config, sid, tokens, children[0], children));
   }
 
-  return { preflight, handle, store, behavior, goodBots, campaigns, admin, publisher, identityMonitor, aiAgentTrafficObservatory };
+  return { preflight, handle, store, behavior, goodBots, campaigns, admin, publisher, identityMonitor, aiAgentTrafficObservatory, aiAgentPolicyManager };
 }
 
 function renderIndex(config, sid, tokens, child, entries) {

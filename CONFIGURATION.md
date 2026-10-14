@@ -133,3 +133,8 @@ Exact verification-status overrides are configured with `AW_AI_AGENT_VERIFICATIO
 ## v3.1 alpha.4 AI-agent observability
 
 No new environment variables are required. AI-agent observability is authenticated, process-local, bounded, non-enforcing, and resets when the Node process restarts.
+
+<!-- v3.1-alpha.5 policy-manager -->
+## AI Agent Policy Manager (v3.1 alpha.5)
+
+The dashboard policy manager edits a staged draft and exports canonical AW_AI_AGENT_* environment settings. Export is deliberately shadow-first and always sets AW_AI_AGENT_POLICY_ENFORCEMENT_ENABLED=false. Applying exported settings and any later enforcement transition remain separate deployment actions.

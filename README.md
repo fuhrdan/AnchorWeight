@@ -628,3 +628,8 @@ Exact verification-status overrides are configured with `AW_AI_AGENT_VERIFICATIO
 ## v3.1 alpha — AI-agent observability
 
 Alpha.4 adds authenticated, bounded AI-agent access observability to the operator dashboard and stats API. See `AI-AGENT-OBSERVABILITY.md`.
+
+<!-- v3.1-alpha.5 policy-manager -->
+## v3.1 alpha.5 — AI Agent Policy Manager
+
+The authenticated dashboard can now validate, preview, privately save and export AI-agent policy drafts without mutating the running policy or enabling enforcement. See [AI-AGENT-POLICY-MANAGER.md](AI-AGENT-POLICY-MANAGER.md).
