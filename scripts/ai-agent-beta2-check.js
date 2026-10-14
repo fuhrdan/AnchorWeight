@@ -12,8 +12,8 @@ const ROOT=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 export async function runAiAgentBeta2Check({root=ROOT}={}) {
   const failures=[];let checks=0;const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(ANCHORWEIGHT_VERSION==='3.1.0-beta.2','runtime version must be 3.1.0-beta.2');
-  check(ANCHORWEIGHT_RELEASE_CHANNEL==='beta','release channel must remain beta');
+  check(ANCHORWEIGHT_VERSION==='3.1.0-rc.1','runtime version must be 3.1.0-rc.1');
+  check(ANCHORWEIGHT_RELEASE_CHANNEL==='rc','release channel must remain beta');
 
   const beta=await runAiAgentBetaCheck({root});
   check(beta.ok===true,`beta.1 stabilization prerequisite failed: ${(beta.failures||[]).join('; ')}`);
@@ -49,7 +49,7 @@ export async function runAiAgentBeta2Check({root=ROOT}={}) {
   check(active.productionShadowValidated===false && active.blockers.some(b=>b.code==='ai_enforcement_enabled'),'active AI enforcement must block beta.2 shadow validation');
 
   const passport=createAgentPassport({});
-  check(passport.capabilities?.aiAgentControls?.version===9,'Agent Passport must publish AI Agent Controls v9');
+  check(passport.capabilities?.aiAgentControls?.version===10,'Agent Passport must publish AI Agent Controls v9');
   check(passport.capabilities?.aiAgentControls?.productionValidation?.available===true,'Agent Passport production validation capability missing');
   check(passport.capabilities?.aiAgentControls?.productionValidation?.enforcementControlAvailable===false,'passport production validation must expose no enforcement control');
   check(passport.capabilities?.aiAgentControls?.productionValidation?.dashboardTokenFromEnvironmentOnly===true,'passport must state dashboard token environment-only');

@@ -1,0 +1,30 @@
+{
+  "schema": "anchorweight-v31-rc1-validation-record/v1",
+  "baselineVersion": "3.1.0-beta.2",
+  "baselineTag": "v3.1.0-beta.2-validated",
+  "baselineCommit": "3472fee0bb4e46d7483b9845688b0719836a1e9a",
+  "productionTarget": "https://newlands-games.com",
+  "evidence": {
+    "publicProductionShadowValidation": true,
+    "authenticatedOperatorValidation": true,
+    "liveAiCanaries": {
+      "passed": 12,
+      "expected": 12
+    },
+    "restartComparisonPassed": true,
+    "readyForRcReview": true,
+    "privacyScannerRegressionPassed": true
+  },
+  "productionSafety": {
+    "globalShadowMode": true,
+    "aiAgentPolicyEnforced": false,
+    "clientIdentity": {
+      "status": "degraded",
+      "reason": "trusted_proxy_client_ip_unavailable",
+      "enforcementSafe": false
+    }
+  },
+  "secretsRecorded": false,
+  "rawClientDataRecorded": false,
+  "note": "Static provenance record derived from completed beta.2 production validation. It is not a substitute for RC.1 live burn-in."
+}

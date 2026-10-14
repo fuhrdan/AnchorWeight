@@ -9,10 +9,10 @@ import { createAgentPassport } from '../../src/agent-passport.js';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 
 test('beta.2 publishes production validation capability without enforcement authority',()=>{
-  assert.equal(ANCHORWEIGHT_VERSION,'3.1.0-beta.2');
-  assert.equal(ANCHORWEIGHT_RELEASE_CHANNEL,'beta');
+  assert.equal(ANCHORWEIGHT_VERSION,'3.1.0-rc.1');
+  assert.equal(ANCHORWEIGHT_RELEASE_CHANNEL,'rc');
   const p=createAgentPassport({});
-  assert.equal(p.capabilities.aiAgentControls.version,9);
+  assert.equal(p.capabilities.aiAgentControls.version,10);
   assert.equal(p.capabilities.aiAgentControls.productionValidation.available,true);
   assert.equal(p.capabilities.aiAgentControls.productionValidation.enforcementReadinessGranted,false);
   assert.equal(p.capabilities.aiAgentControls.productionValidation.enforcementControlAvailable,false);

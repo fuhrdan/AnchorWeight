@@ -14,8 +14,8 @@ function safe(ip){return {enforcementSafe:true,ip,status:'trusted'};}
 
 export async function runAiAgentVerificationCheck({root=ROOT}={}) {
   const failures=[];let checks=0;const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
-  check(ANCHORWEIGHT_VERSION==='3.1.0-beta.2','runtime version must be 3.1.0-beta.2');
-  check(ANCHORWEIGHT_RELEASE_CHANNEL==='beta','release channel must be beta');
+  check(ANCHORWEIGHT_VERSION==='3.1.0-rc.1','runtime version must be 3.1.0-rc.1');
+  check(ANCHORWEIGHT_RELEASE_CHANNEL==='rc','release channel must be beta');
   check(ipInCidr('203.0.113.7','203.0.113.0/24'),'IPv4 CIDR matcher failed');
   check(!ipInCidr('203.0.114.7','203.0.113.0/24'),'IPv4 CIDR matcher overmatched');
   check(ipInCidr('2001:db8::7','2001:db8::/32'),'IPv6 CIDR matcher failed');
@@ -52,7 +52,7 @@ export async function runAiAgentVerificationCheck({root=ROOT}={}) {
   check(descriptor.googleWebBotAuth?.status==='experimental_not_implemented','Google Web Bot Auth must not be overstated as implemented');
 
   const passport=createAgentPassport({});
-  check(passport.capabilities?.aiAgentControls?.version===9,'Agent Passport must publish AI Agent Controls v4');
+  check(passport.capabilities?.aiAgentControls?.version===10,'Agent Passport must publish AI Agent Controls v4');
   check(passport.capabilities?.aiAgentControls?.verification?.available===true,'Agent Passport must publish verification availability');
   check(passport.capabilities?.aiAgentControls?.verification?.allowGrantsTrust===false,'Agent Passport verification must not grant trust');
 

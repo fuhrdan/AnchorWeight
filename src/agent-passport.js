@@ -75,7 +75,7 @@ export function createAgentPassport(config = {}) {
         rawForwardedHeaderExposed: false
       },
       aiAgentControls: {
-        version: 9,
+        version: 10,
         available: true,
         providers: ['openai','anthropic','google','perplexity'],
         actions: ['allow','observe','deny'],
@@ -194,6 +194,8 @@ export function createAgentPassport(config = {}) {
           publicCanaries: true,
           authenticatedOperatorChecks: true,
           optionalRestartComparison: true,
+          restartComparisonAvailable: true,
+          restartComparisonRequiredForRcReview: true,
           automaticRestart: false,
           automaticActivation: false,
           enforcementReadinessGranted: false,
@@ -203,6 +205,29 @@ export function createAgentPassport(config = {}) {
           dashboardTokenFromEnvironmentOnly: true,
           rawIpExposed: false,
           rawUserAgentExposed: false
+        },
+        rcReadiness: {
+          available: true,
+          version: 1,
+          stabilizationOnly: true,
+          requiresValidatedBeta2: true,
+          requiresFrozenContract: true,
+          requiresUnchangedRequestPath: true,
+          requiresPrivacyContract: true,
+          requiresShadowSafety: true,
+          requiresProductionValidationSemantics: true,
+          requiresReleaseVerification: true,
+          rcCandidateVerdict: true,
+          gaReadinessGranted: false,
+          enforcementReadinessGranted: false,
+          enforcementControlAvailable: false,
+          changesRuntime: false,
+          networkRequired: false,
+          rawIpExposed: false,
+          rawUserAgentExposed: false,
+          rawPathExposed: false,
+          rawQueryExposed: false,
+          credentialsExposed: false
         }
       },
       resourceBudgets: {

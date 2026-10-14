@@ -122,7 +122,8 @@ export async function runAiAgentProductionCheck(options={}) {
   const passportValid=passportResult.response.ok &&
     passport?.service==='AnchorWeight' &&
     passport?.version===ANCHORWEIGHT_VERSION &&
-    ai?.version===9 &&
+    ai?.version===10 &&
+    ai?.rcReadiness?.available===true &&
     ai?.productionValidation?.available===true &&
     passport?.enforcement?.aiAgentPolicyEnforced===false &&
     passport?.privacy?.rawIpExposed===false &&

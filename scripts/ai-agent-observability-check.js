@@ -22,8 +22,8 @@ export function runAiAgentObservabilityCheck({root=ROOT}={}) {
   const failures=[];let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(ANCHORWEIGHT_VERSION==='3.1.0-beta.2','runtime version must be 3.1.0-beta.2');
-  check(ANCHORWEIGHT_RELEASE_CHANNEL==='beta','release channel must be beta');
+  check(ANCHORWEIGHT_VERSION==='3.1.0-rc.1','runtime version must be 3.1.0-rc.1');
+  check(ANCHORWEIGHT_RELEASE_CHANNEL==='rc','release channel must be beta');
 
   let tick=1;
   const o=createAiAgentTrafficObservatory({now:()=>tick++});
@@ -67,7 +67,7 @@ export function runAiAgentObservabilityCheck({root=ROOT}={}) {
   check(descriptor.rawIpRetained===false && descriptor.rawUserAgentRetained===false,'observability descriptor privacy changed');
 
   const passport=createAgentPassport({});
-  check(passport.capabilities?.aiAgentControls?.version===9,'Agent Passport must publish AI Agent Controls v4');
+  check(passport.capabilities?.aiAgentControls?.version===10,'Agent Passport must publish AI Agent Controls v4');
   check(passport.capabilities?.aiAgentControls?.observability?.available===true,'Agent Passport observability capability missing');
   check(passport.capabilities?.aiAgentControls?.observability?.authenticated===true,'Agent Passport observability must be authenticated');
   check(passport.capabilities?.aiAgentControls?.observability?.enforcement===false,'Agent Passport observability must be non-enforcing');

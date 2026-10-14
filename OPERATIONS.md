@@ -110,3 +110,8 @@ Beta.1 promotes the alpha.1-alpha.7 AI-agent stack into stabilization without ad
 ## v3.1 beta.2 — Production shadow validation
 
 Beta.2 adds a read-only production validation harness. Run `npm run ai-agents:beta2-check` before deployment, then explicitly run `npm run ai-agents:production-check` against the shadow-mode deployed instance. The live validator never enables enforcement, edits hosting configuration, or restarts the application. Dashboard credentials are accepted only through `AW_PRODUCTION_DASHBOARD_TOKEN`. See `AI-AGENT-PRODUCTION-SHADOW-VALIDATION.md`.
+
+
+## v3.1.0-rc.1 validation
+
+Run `npm run ai-agents:rc-check` after the existing AI gates. RC.1 inherits the validated beta.2 production evidence but must receive its own shadow-mode live burn-in before GA. Do not enable active AI deny enforcement as part of RC validation.
