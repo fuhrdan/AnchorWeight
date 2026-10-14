@@ -35,7 +35,7 @@ test('authenticated rehearsal endpoint is read-only and returns central beta.7 v
   assert.equal(handled,true);
   assert.equal(res.statusCode,200);
   const j=JSON.parse(res.body);
-  assert.equal(j.version,'3.1.0-beta.1');
+  assert.equal(j.version,'3.1.0-beta.2');
   assert.equal(j.rehearsal.advisoryOnly,true);
   assert.equal(j.rehearsal.enforcement,false);
   assert.equal(j.rehearsal.evaluations,5);
@@ -44,7 +44,7 @@ test('authenticated rehearsal endpoint is read-only and returns central beta.7 v
 
 test('Agent Passport advertises rehearsal as authenticated, advisory and non-enforcing',()=>{
   const passport=createAgentPassport({shadowMode:true});
-  assert.equal(passport.version,'3.1.0-beta.1');
+  assert.equal(passport.version,'3.1.0-beta.2');
   assert.equal(passport.capabilities.enforcementRehearsal.authenticated,true);
   assert.equal(passport.capabilities.enforcementRehearsal.advisoryOnly,true);
   assert.equal(passport.capabilities.enforcementRehearsal.enforcement,false);

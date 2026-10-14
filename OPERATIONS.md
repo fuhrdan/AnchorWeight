@@ -104,3 +104,9 @@ The authenticated investigation response now includes a bounded `profile.evidenc
 ## v3.1 beta.1 — AI-agent stabilization and validation
 
 Beta.1 promotes the alpha.1-alpha.7 AI-agent stack into stabilization without adding enforcement behavior. Run `npm run ai-agents:burnin-check` followed by `npm run ai-agents:beta-check`, then security and release check/verify. The beta verdict does not grant enforcement readiness and does not change trusted-client-identity requirements. See `AI-AGENT-BETA-VALIDATION.md`.
+
+
+<!-- v3.1-beta.2-production-shadow-validation -->
+## v3.1 beta.2 — Production shadow validation
+
+Beta.2 adds a read-only production validation harness. Run `npm run ai-agents:beta2-check` before deployment, then explicitly run `npm run ai-agents:production-check` against the shadow-mode deployed instance. The live validator never enables enforcement, edits hosting configuration, or restarts the application. Dashboard credentials are accepted only through `AW_PRODUCTION_DASHBOARD_TOKEN`. See `AI-AGENT-PRODUCTION-SHADOW-VALIDATION.md`.

@@ -21,7 +21,7 @@ export async function runAiAgentBetaCheck({root=ROOT}={}) {
   const failures=[];let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(ANCHORWEIGHT_VERSION==='3.1.0-beta.1','runtime version must be 3.1.0-beta.1');
+  check(ANCHORWEIGHT_VERSION==='3.1.0-beta.2','runtime version must be 3.1.0-beta.2');
   check(ANCHORWEIGHT_RELEASE_CHANNEL==='beta','release channel must be beta');
 
   const burnIn=await runAiAgentBurnInCheck({root});
@@ -40,7 +40,7 @@ export async function runAiAgentBetaCheck({root=ROOT}={}) {
   catch { check(false,'RC1 frozen contract is not valid JSON'); }
 
   const passport=createAgentPassport({});
-  check(passport.capabilities?.aiAgentControls?.version===8,'Agent Passport must publish AI Agent Controls v8');
+  check(passport.capabilities?.aiAgentControls?.version===9,'Agent Passport must publish AI Agent Controls v8');
   check(passport.capabilities?.aiAgentControls?.betaReadiness?.available===true,'Agent Passport beta readiness capability missing');
   check(passport.capabilities?.aiAgentControls?.betaReadiness?.enforcementReadinessGranted===false,'beta readiness capability must not grant enforcement readiness');
   check(passport.capabilities?.aiAgentControls?.betaReadiness?.enforcementControlAvailable===false,'beta readiness capability must not expose enforcement control');
