@@ -149,3 +149,9 @@ The dashboard can prepare a private shadow-only environment from the saved AI-ag
 ## v3.1 alpha.7 — AI-agent burn-in and beta-review readiness
 
 Alpha.7 adds a consolidated offline burn-in gate, `npm run ai-agents:burnin-check`, that re-runs the full v3.1 AI control stack, validates all 12 declared-agent family canaries, verifies the frozen v3.0 contract/privacy/action ladder, and checks alpha.6 shadow deployment safety. A PASS means ready for v3.1 beta review; it does not grant enforcement readiness. See `AI-AGENT-BURNIN-READINESS.md`.
+
+
+<!-- v3.1-beta.1-stabilization -->
+## v3.1 beta.1 — AI-agent stabilization and validation
+
+Beta.1 promotes the alpha.1-alpha.7 AI-agent stack into stabilization without adding enforcement behavior. Run `npm run ai-agents:burnin-check` followed by `npm run ai-agents:beta-check`, then security and release check/verify. The beta verdict does not grant enforcement readiness and does not change trusted-client-identity requirements. See `AI-AGENT-BETA-VALIDATION.md`.

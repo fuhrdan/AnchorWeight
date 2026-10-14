@@ -98,3 +98,9 @@ not a substitute for authorized production-like proxy load tests.
 ## v1.3 evidence operations
 
 The authenticated investigation response now includes a bounded `profile.evidence` history and profile offense context. Event files record branch lineage; treat them as operational security logs subject to existing retention and access controls. The signed URL tokens themselves are not stored in these new records. See [CANARY-EVIDENCE.md](CANARY-EVIDENCE.md).
+
+
+<!-- v3.1-beta.1-stabilization -->
+## v3.1 beta.1 — AI-agent stabilization and validation
+
+Beta.1 promotes the alpha.1-alpha.7 AI-agent stack into stabilization without adding enforcement behavior. Run `npm run ai-agents:burnin-check` followed by `npm run ai-agents:beta-check`, then security and release check/verify. The beta verdict does not grant enforcement readiness and does not change trusted-client-identity requirements. See `AI-AGENT-BETA-VALIDATION.md`.

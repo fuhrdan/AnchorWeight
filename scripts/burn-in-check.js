@@ -24,7 +24,7 @@ export function runBurnInStaticCheck({root=DEFAULT_ROOT}={}){
   try{lock=readJson(path.join(root,'package-lock.json'));}catch(err){c.failures.push(`package-lock unavailable: ${err.message}`);}
 
   c.check(ANCHORWEIGHT_VERSION===EXPECTED_VERSION,`runtime version must be ${EXPECTED_VERSION}`);
-  c.check(['alpha','beta','rc','stable'].includes(ANCHORWEIGHT_RELEASE_CHANNEL),'release channel must be alpha, beta, rc, or stable');
+  c.check(['alpha','beta','rc','stable'].includes(ANCHORWEIGHT_RELEASE_CHANNEL),'release channel must be beta, beta, rc, or stable');
   c.check(pkg.version===ANCHORWEIGHT_VERSION,'package version must match runtime version');
   c.check(lock.version===ANCHORWEIGHT_VERSION && lock.packages?.['']?.version===ANCHORWEIGHT_VERSION,'package-lock version must match runtime version');
   c.check(pkg.scripts?.['burnin:check']==='node scripts/burn-in-check.js','package must expose burnin:check');

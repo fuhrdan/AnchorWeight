@@ -7,4 +7,4 @@ import { runFinalReleaseCheck } from '../../scripts/final-release-check.js';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 
-test('v3.1 alpha does not masquerade as the v3.0.0 stable release',()=>{assert.equal(ANCHORWEIGHT_VERSION,'3.1.0-alpha.7');assert.equal(ANCHORWEIGHT_RELEASE_CHANNEL,'alpha');const result=runFinalReleaseCheck({root});assert.equal(result.ok,false);assert.ok(result.failures.some(x=>x.includes('runtime version must be 3.0.0')));});
+test('v3.1 alpha does not masquerade as the v3.0.0 stable release',()=>{assert.equal(ANCHORWEIGHT_VERSION,'3.1.0-beta.1');assert.equal(ANCHORWEIGHT_RELEASE_CHANNEL,'beta');const result=runFinalReleaseCheck({root});assert.equal(result.ok,false);assert.ok(result.failures.some(x=>x.includes('runtime version must be 3.0.0')));});

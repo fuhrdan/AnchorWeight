@@ -28,7 +28,7 @@ export function runRcHardeningCheck({root=DEFAULT_ROOT}={}) {
   catch(err) { failures.push(`package-lock.json unavailable: ${err.message}`); }
 
   check(/^3\./.test(ANCHORWEIGHT_VERSION),'runtime version must remain in the v3 family');
-  check(['alpha','beta','rc','stable'].includes(ANCHORWEIGHT_RELEASE_CHANNEL),'release channel must be alpha, beta, rc, or stable');
+  check(['alpha','beta','rc','stable'].includes(ANCHORWEIGHT_RELEASE_CHANNEL),'release channel must be beta, beta, rc, or stable');
   check(pkg.version===ANCHORWEIGHT_VERSION,'package version must match central runtime version');
   check(lock.version===ANCHORWEIGHT_VERSION && lock.packages?.['']?.version===ANCHORWEIGHT_VERSION,'package-lock versions must match central runtime version');
   check(pkg.scripts?.['rc:check']==='node scripts/rc-hardening-check.js','package must expose rc:check');

@@ -11,9 +11,9 @@ import { describeAiAgentPolicyDeployment } from '../../src/ai-agent-policy-deplo
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 
 test('alpha.7 advertises burn-in readiness without enforcement authority',()=>{
-  assert.equal(ANCHORWEIGHT_VERSION,'3.1.0-alpha.7');
+  assert.equal(ANCHORWEIGHT_VERSION,'3.1.0-beta.1');
   const p=createAgentPassport({});
-  assert.equal(p.capabilities.aiAgentControls.version,7);
+  assert.equal(p.capabilities.aiAgentControls.version,8);
   assert.equal(p.capabilities.aiAgentControls.burnInReadiness.available,true);
   assert.equal(p.capabilities.aiAgentControls.burnInReadiness.enforcementReadinessGranted,false);
   assert.equal(p.capabilities.aiAgentControls.burnInReadiness.enforcementControlAvailable,false);
