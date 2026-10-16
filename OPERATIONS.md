@@ -115,3 +115,8 @@ Beta.2 adds a read-only production validation harness. Run `npm run ai-agents:be
 ## v3.1.0-rc.1 validation
 
 Run `npm run ai-agents:rc-check` after the existing AI gates. RC.1 inherits the validated beta.2 production evidence but must receive its own shadow-mode live burn-in before GA. Do not enable active AI deny enforcement as part of RC validation.
+
+
+## v3.1.0 GA validation
+
+Run `npm run ai-agents:ga-check` after all prerequisite AI gates and before tagging. After deploying the immutable `v3.1.0` tag, rerun `npm run ai-agents:production-check` against production. Active AI deny enforcement is not part of the GA promotion.

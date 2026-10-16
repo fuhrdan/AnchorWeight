@@ -166,3 +166,8 @@ Beta.2 adds a read-only production validation harness. Run `npm run ai-agents:be
 ## v3.1.0-rc.1 AI-agent safety posture
 
 RC.1 does not add an enforcement switch or change request-policy defaults. Keep `AW_AI_AGENT_POLICY_SHADOW_MODE=true` and `AW_AI_AGENT_POLICY_ENFORCEMENT_ENABLED=false` during RC burn-in. The HawkHost client-identity limitation remains fail-safe.
+
+
+## v3.1.0 AI-agent stable defaults
+
+GA preserves the RC shadow-first defaults: `AW_AI_AGENT_POLICY_SHADOW_MODE=true` and `AW_AI_AGENT_POLICY_ENFORCEMENT_ENABLED=false`. Stable release status does not automatically enable AI deny enforcement.

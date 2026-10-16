@@ -18,7 +18,7 @@ function sha256(file) {
 }
 
 export function betaPrerequisiteReleaseChannel(version=ANCHORWEIGHT_VERSION,channel=ANCHORWEIGHT_RELEASE_CHANNEL) {
-  if(version==='3.1.0-rc.1' && channel==='rc') return 'beta';
+  if(version==='3.1.0' && channel==='stable') return 'beta';
   return channel;
 }
 
@@ -26,8 +26,8 @@ export async function runAiAgentBetaCheck({root=ROOT}={}) {
   const failures=[];let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(ANCHORWEIGHT_VERSION==='3.1.0-rc.1','runtime version must be 3.1.0-rc.1');
-  check(ANCHORWEIGHT_RELEASE_CHANNEL==='rc','release channel must be beta');
+  check(ANCHORWEIGHT_VERSION==='3.1.0','runtime version must be 3.1.0');
+  check(ANCHORWEIGHT_RELEASE_CHANNEL==='stable','release channel must be beta');
 
   const burnIn=await runAiAgentBurnInCheck({root});
   check(burnIn.ok===true,`alpha.7 burn-in prerequisite failed: ${(burnIn.failures||[]).join('; ')}`);
@@ -45,7 +45,7 @@ export async function runAiAgentBetaCheck({root=ROOT}={}) {
   catch { check(false,'RC1 frozen contract is not valid JSON'); }
 
   const passport=createAgentPassport({});
-  check(passport.capabilities?.aiAgentControls?.version===10,'Agent Passport must publish AI Agent Controls v8');
+  check(passport.capabilities?.aiAgentControls?.version===11,'Agent Passport must publish AI Agent Controls v8');
   check(passport.capabilities?.aiAgentControls?.betaReadiness?.available===true,'Agent Passport beta readiness capability missing');
   check(passport.capabilities?.aiAgentControls?.betaReadiness?.enforcementReadinessGranted===false,'beta readiness capability must not grant enforcement readiness');
   check(passport.capabilities?.aiAgentControls?.betaReadiness?.enforcementControlAvailable===false,'beta readiness capability must not expose enforcement control');
@@ -149,8 +149,8 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   } else {
     if(!result.ok){for(const f of result.failures)console.error('FAIL:',f);process.exit(1);}
     console.log(`AnchorWeight ${ANCHORWEIGHT_VERSION} AI Agent Beta Stabilization PASS (${result.checks} invariants checked)`);
-    if(ANCHORWEIGHT_RELEASE_CHANNEL==='rc')
-      console.log('BETA PREREQUISITE PRESERVED FOR v3.1 RC');
+    if(ANCHORWEIGHT_RELEASE_CHANNEL==='stable')
+      console.log('BETA PREREQUISITE PRESERVED FOR v3.1 GA');
     else
       console.log('READY FOR v3.1 BETA VALIDATION');
     console.log('Active AI deny enforcement remains a separate explicit operator decision.');

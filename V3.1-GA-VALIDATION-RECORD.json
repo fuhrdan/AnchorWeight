@@ -1,0 +1,32 @@
+{
+  "schema": "anchorweight-v31-ga-validation-record/v1",
+  "baselineVersion": "3.1.0-rc.1",
+  "baselineTag": "v3.1.0-rc.1",
+  "baselineCommit": "b5ee49260c09ceb621718801aeae8001465adcb0",
+  "productionTarget": "https://newlands-games.com",
+  "evidence": {
+    "localAggregate": {"passed": 486, "expected": 486},
+    "rcReadinessInvariants": {"passed": 40, "expected": 40},
+    "releaseManifestSourceFiles": 285,
+    "releaseVerificationPassed": true,
+    "securityAuditHighVulnerabilities": 0,
+    "publicProductionShadowValidation": true,
+    "authenticatedOperatorValidation": true,
+    "liveAiCanaries": {"passed": 12, "expected": 12},
+    "restartComparisonPassed": true,
+    "subsequentProductionShadowValidationPassed": true,
+    "materialRegressionObserved": false
+  },
+  "productionSafety": {
+    "globalShadowMode": true,
+    "aiAgentPolicyEnforced": false,
+    "clientIdentity": {
+      "status": "degraded",
+      "reason": "trusted_proxy_client_ip_unavailable",
+      "enforcementSafe": false
+    }
+  },
+  "secretsRecorded": false,
+  "rawClientDataRecorded": false,
+  "note": "Static GA admission provenance derived from the validated RC.1 cycle. GA still requires post-deploy production validation."
+}

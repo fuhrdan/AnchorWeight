@@ -11,10 +11,10 @@ import { describeAiAgentPolicyDeployment } from '../../src/ai-agent-policy-deplo
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 
 test('beta.1 exposes beta release metadata and AI Controls v8',()=>{
-  assert.equal(ANCHORWEIGHT_VERSION,'3.1.0-rc.1');
-  assert.equal(ANCHORWEIGHT_RELEASE_CHANNEL,'rc');
+  assert.equal(ANCHORWEIGHT_VERSION,'3.1.0');
+  assert.equal(ANCHORWEIGHT_RELEASE_CHANNEL,'stable');
   const p=createAgentPassport({});
-  assert.equal(p.capabilities.aiAgentControls.version,10);
+  assert.equal(p.capabilities.aiAgentControls.version,11);
   assert.equal(p.capabilities.aiAgentControls.betaReadiness.available,true);
   assert.equal(p.capabilities.aiAgentControls.betaReadiness.enforcementReadinessGranted,false);
 });

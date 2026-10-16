@@ -19,8 +19,8 @@ function base(overrides={}){return {
 };}
 export function runAiAgentCheck({root=ROOT}={}){
   const failures=[];let checks=0;const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
-  check(ANCHORWEIGHT_VERSION==='3.1.0-rc.1','runtime version must be 3.1.0-rc.1');
-  check(ANCHORWEIGHT_RELEASE_CHANNEL==='rc','release channel must be beta');
+  check(ANCHORWEIGHT_VERSION==='3.1.0','runtime version must be 3.1.0');
+  check(ANCHORWEIGHT_RELEASE_CHANNEL==='stable','release channel must be beta');
   const ids=[
     ['GPTBot/1.4','openai','gptbot','model_training'],
     ['OAI-SearchBot/1.4','openai','oai-searchbot','search_indexing'],
@@ -51,7 +51,7 @@ export function runAiAgentCheck({root=ROOT}={}){
   const desc=describeAiAgentPolicy(base());
   check(desc.allowGrantsTrust===false && desc.denyRequiresTrustedClientIdentity===false,'descriptor safety semantics changed');
   const passport=createAgentPassport(base());
-  check(passport.capabilities?.aiAgentControls?.version===10,'Agent Passport must publish AI Agent Controls v4');
+  check(passport.capabilities?.aiAgentControls?.version===11,'Agent Passport must publish AI Agent Controls v4');
   check(passport.capabilities?.aiAgentControls?.allowGrantsTrust===false,'Agent Passport must state allow does not grant trust');
   check(passport.privacy?.rawUserAgentExposed===false,'AI Agent Controls must not expose raw User-Agent');
   const source=fs.readFileSync(path.join(root,'src/anchorweight.js'),'utf8');

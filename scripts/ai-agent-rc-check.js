@@ -35,8 +35,8 @@ export async function runAiAgentRcCheck({root=ROOT}={}) {
   const failures=[];let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(ANCHORWEIGHT_VERSION==='3.1.0-rc.1','runtime version must be 3.1.0-rc.1');
-  check(ANCHORWEIGHT_RELEASE_CHANNEL==='rc','release channel must be rc');
+  check(ANCHORWEIGHT_VERSION==='3.1.0','runtime version must be 3.1.0');
+  check(ANCHORWEIGHT_RELEASE_CHANNEL==='stable','release channel must be rc');
 
   const beta2=await runAiAgentBeta2Check({root});
   check(beta2.ok===true,`beta.2 validated-source prerequisite failed: ${(beta2.failures||[]).join('; ')}`);
@@ -81,7 +81,7 @@ export async function runAiAgentRcCheck({root=ROOT}={}) {
     aiAgentPolicyEnabled:true,aiAgentPolicyShadowMode:true,aiAgentPolicyEnforcementEnabled:false
   });
   const ai=passport.capabilities?.aiAgentControls;
-  check(ai?.version===10,'Agent Passport must publish AI Agent Controls v10');
+  check(ai?.version===11,'Agent Passport must publish AI Agent Controls v10');
   check(ai?.rcReadiness?.available===true,'Agent Passport RC readiness descriptor missing');
   check(ai?.rcReadiness?.enforcementReadinessGranted===false,'RC readiness must grant no enforcement readiness');
   check(ai?.rcReadiness?.enforcementControlAvailable===false,'RC readiness must expose no enforcement control');
@@ -100,7 +100,7 @@ export async function runAiAgentRcCheck({root=ROOT}={}) {
 
   const productionSource=fs.readFileSync(path.join(root,'scripts/ai-agent-production-check.js'),'utf8');
   const productionValidationSemanticsPass=
-    productionSource.includes("ai?.version===10") &&
+    productionSource.includes("ai?.version===11") &&
     productionSource.includes('val!==false && val!==null') &&
     productionSource.includes("headers:{'User-Agent':'GPTBot/1.4'}") &&
     productionSource.includes('robotsPolicyAccessible') &&
@@ -183,5 +183,8 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   }
   console.log(`AnchorWeight ${ANCHORWEIGHT_VERSION} AI Agent RC Readiness PASS (${r.checks} invariants checked)`);
   for(const warning of r.readiness.warnings) console.log(`WARNING: ${warning.code}: ${warning.detail}`);
-  console.log('READY FOR v3.1 RC.1 BURN-IN');
+  if(ANCHORWEIGHT_RELEASE_CHANNEL==='stable')
+    console.log('RC PREREQUISITE PRESERVED FOR v3.1 GA');
+  else
+    console.log('READY FOR v3.1 RC.1 BURN-IN');
 }

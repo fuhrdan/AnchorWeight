@@ -57,8 +57,8 @@ export async function runAiAgentBurnInCheck({root=ROOT}={}) {
   const failures=[];let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(ANCHORWEIGHT_VERSION==='3.1.0-rc.1','runtime version must be 3.1.0-rc.1');
-  check(ANCHORWEIGHT_RELEASE_CHANNEL==='rc','release channel must be beta');
+  check(ANCHORWEIGHT_VERSION==='3.1.0','runtime version must be 3.1.0');
+  check(ANCHORWEIGHT_RELEASE_CHANNEL==='stable','release channel must be beta');
 
   const prior={
     controls:runAiAgentCheck({root}),
@@ -88,7 +88,7 @@ export async function runAiAgentBurnInCheck({root=ROOT}={}) {
   catch { check(false,'RC1 frozen contract is not valid JSON'); }
 
   const passport=createAgentPassport({});
-  check(passport.capabilities?.aiAgentControls?.version===10,'Agent Passport must publish AI Agent Controls v7');
+  check(passport.capabilities?.aiAgentControls?.version===11,'Agent Passport must publish AI Agent Controls v7');
   check(passport.capabilities?.aiAgentControls?.burnInReadiness?.available===true,'Agent Passport burn-in readiness capability missing');
   check(passport.capabilities?.aiAgentControls?.burnInReadiness?.enforcementReadinessGranted===false,'burn-in capability must not grant enforcement readiness');
 
