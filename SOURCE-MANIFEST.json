@@ -230,8 +230,12 @@
       "sha256": "dcf8f8fe63907d7ef98cd19887615b78fecd414e3929ef57cfb71cde7a82047d"
     },
     {
-      "file": "README.md",
+      "file": "README-old.md",
       "sha256": "7acd50bfb605a65738e344719e4073b626151722cd1747e1ad7c5665744aeaa9"
+    },
+    {
+      "file": "README.md",
+      "sha256": "4101ff82f3ae661ba6588a0ad37cac66ba01d2a7f1b11cb51e3a465f04e7cf18"
     },
     {
       "file": "RELEASE-CANDIDATE-HARDENING.md",
