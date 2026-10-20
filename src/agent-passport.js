@@ -37,7 +37,9 @@ function publicEnforcement(config = {}) {
     policyEngineAvailable: true,
     policyEngineEnforced: !!config.policyEngineEnabled && !!config.policyEngineEnforcementEnabled && !config.policyEngineShadowMode && !config.shadowMode,
     aiAgentPolicyAvailable: true,
-    aiAgentPolicyEnforced: config.aiAgentPolicyEnabled !== false && !!config.aiAgentPolicyEnforcementEnabled && config.aiAgentPolicyShadowMode === false
+    aiAgentPolicyEnforced: config.aiAgentPolicyEnabled !== false && !!config.aiAgentPolicyEnforcementEnabled && config.aiAgentPolicyShadowMode === false,
+    siteExtractionDetectionAvailable: true,
+    siteExtractionDetectionEnforced: false
   };
 }
 
@@ -56,6 +58,18 @@ export function createAgentPassport(config = {}) {
         declaredPurposes: [...DECLARED_PURPOSES]
       },
       agentBehavior: { version:1, observationOnly:true },
+      siteExtractionDetection: {
+        version: 1,
+        available: true,
+        observationOnly: true,
+        enforcement: false,
+        behaviorBased: true,
+        commandLineIdentityRequired: false,
+        rawPathRetained: false,
+        rawQueryRetained: false,
+        rawCookieRetained: false,
+        rawUserAgentRetained: false
+      },
       clientEnvironment: {
         version: 2,
         headlessConsistency: true,

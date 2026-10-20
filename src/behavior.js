@@ -8,6 +8,7 @@ import { observeTrafficIdentity, recordTrafficIdentity, publicTrafficIdentity, T
 import { observeAgentBehavior, observeAgentResponse, publicAgentBehavior, emptyAgentBehavior } from './agent-behavior.js';
 import { scoreTrafficDimensions } from './traffic-scoring.js';
 import { evaluateResourceBudget, publicResourceBudget, emptyResourceBudget } from './resource-budgets.js';
+import { observeSiteExtraction, refreshSiteExtraction, publicSiteExtraction, emptySiteExtraction } from './site-extraction.js';
 import { evaluatePolicyDecision, publicPolicyDecision, emptyPolicyDecision } from './policy-engine.js';
 import { recordPolicyForensics, publicPolicyForensics, emptyPolicyForensics } from './policy-forensics.js';
 function shortHash(secret, value) {
@@ -59,6 +60,10 @@ export class BehaviorEngine {
     // Agent Behavior alpha.2 is descriptive only: zero score and zero enforcement effect.
     observeAgentBehavior(p, req, url, { now, secret:this.config.secret });
     this.store.stats.agentBehaviorObservations = (this.store.stats.agentBehaviorObservations || 0) + 1;
+    // v3.2-alpha.1 site extraction detector is observation-only. It does not
+    // mutate legacy score or feed Policy Engine/Resource Budget inputs.
+    observeSiteExtraction(p, req, url, { now, secret:this.config.secret });
+    this.store.stats.siteExtractionObservations = (this.store.stats.siteExtractionObservations || 0) + 1;
 
     p.requestCount++;
     p.lastSeen = now;
@@ -111,6 +116,7 @@ export class BehaviorEngine {
   noteResponse(ipKey, req, res, url) {
     const p = this.store.getProfile(ipKey);
     const observation = observeAgentResponse(p, req, res, url, { now:this.now() });
+    refreshSiteExtraction(p, { now:this.now() });
     this.updatePolicyDecision(p, this.now());
     this.store.touchProfile?.(ipKey);
     return observation;
@@ -258,6 +264,7 @@ export function newProfile() {
     displayFingerprints: [], clientEnvironment: { observations:0, lastAt:null, lastReasons:[], headlessConsistency: { webdriver:null, automationControlled:false, multiScreenState:'unavailable', indicatorNames:[], capabilities:{} } },
     agentIdentity: { observations:0, lastAt:null, current:null, history:[] },
     agentBehavior: emptyAgentBehavior(),
+    siteExtraction: emptySiteExtraction(),
     resourceBudget: emptyResourceBudget(),
     policyDecision: emptyPolicyDecision(),
     policyForensics: emptyPolicyForensics(),
@@ -294,6 +301,7 @@ export function publicProfile(ipKey, p) {
     evidence: (p.evidence || []).slice(-12),
     clientEnvironment: { observations:p.clientEnvironment?.observations || 0, fingerprintVariants:(p.displayFingerprints || []).length, lastReasons:(p.clientEnvironment?.lastReasons || []).slice(0,8), headlessConsistency:{webdriver:p.clientEnvironment?.headlessConsistency?.webdriver ?? null,automationControlled:!!p.clientEnvironment?.headlessConsistency?.automationControlled,multiScreenState:p.clientEnvironment?.headlessConsistency?.multiScreenState || 'unavailable',indicatorNames:(p.clientEnvironment?.headlessConsistency?.indicatorNames || []).slice(0,8),capabilities:{...(p.clientEnvironment?.headlessConsistency?.capabilities || {})}} },
     agentBehavior: publicAgentBehavior(p),
+    siteExtraction: publicSiteExtraction(p),
     trafficScores: scoreTrafficDimensions(p),
     resourceBudget: publicResourceBudget(p),
     policyDecision: publicPolicyDecision(p),

@@ -5,12 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { createAuditLogger } from '../../src/audit.js';
 import { readEvents } from '../../src/logger.js';
+import { ANCHORWEIGHT_VERSION } from '../../src/version.js';
 
 test('audit logger produces structured v1 records',()=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'aw-audit-')); const file=path.join(dir,'audit.jsonl');
   createAuditLogger(file)({type:'operator_test',client:'abc'});
   const r=JSON.parse(fs.readFileSync(file,'utf8').trim());
-  assert.equal(r.version,'3.1.0'); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
+  assert.equal(r.version,ANCHORWEIGHT_VERSION); assert.equal(r.type,'operator_test'); assert.ok(r.ts);
   fs.rmSync(dir,{recursive:true,force:true});
 });
 

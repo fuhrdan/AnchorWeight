@@ -13,7 +13,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
 const contract=JSON.parse(fs.readFileSync(path.join(root,'RC1-FROZEN-CONTRACT.json'),'utf8'));
 const shadowConfig={basePath:'/anchor',shadowMode:true,scoreEnforcementEnabled:false,policyEngineEnabled:true,policyEngineEnforcementEnabled:false,policyEngineShadowMode:true,aiAgentPolicyEnabled:true,aiAgentPolicyShadowMode:true,aiAgentPolicyEnforcementEnabled:false};
 
-test('v3.1 alpha exposes alpha release metadata',()=>{assert.equal(ANCHORWEIGHT_VERSION,'3.1.0');assert.equal(ANCHORWEIGHT_RELEASE_CHANNEL,'stable');});
+test('v3.2 alpha exposes alpha release metadata',()=>{assert.equal(ANCHORWEIGHT_VERSION,'3.2.0-alpha.1');assert.equal(ANCHORWEIGHT_RELEASE_CHANNEL,'alpha');});
 test('v3.1 retains every frozen v3.0 capability and adds AI Agent Controls',()=>{const p=createAgentPassport(shadowConfig);for(const key of contract.capabilities)assert.ok(p.capabilities[key],key);assert.equal(p.capabilities.aiAgentControls.version,11);assert.deepEqual(p.capabilities.policyEngine.actions,contract.policyActions);});
 test('v3.1 retains v3.0 privacy invariants',()=>{const p=createAgentPassport(shadowConfig);for(const key of contract.privacyFalseFlags)assert.equal(p.privacy[key],false,key);});
 test('v3.1 keeps existing client-scoped enforcement defaults non-enforcing',()=>{const p=createAgentPassport(shadowConfig);for(const [key,value] of Object.entries(contract.enforcementDefaults))assert.equal(p.enforcement[key],value,key);assert.equal(p.enforcement.aiAgentPolicyEnforced,false);});
