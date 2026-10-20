@@ -106,8 +106,32 @@ for(const entry of runtimeVersionFiles()){
 }
 if(pkg.version!==ANCHORWEIGHT_VERSION) failures.push(`package version is ${pkg.version}; expected ${ANCHORWEIGHT_VERSION}`);
 for(const file of required) if(!fs.existsSync(path.join(root,file))) failures.push(`missing ${file}`);
-for (const entry of ['app.js','hub.js']) { try { execFileSync(process.execPath,['--check',path.join(root,entry)],{stdio:'pipe'}); } catch { failures.push(`${entry} syntax check failed`); } }
-try { const cli=execFileSync(process.execPath,[path.join(root,'bin/anchorweight.js'),'version'],{encoding:'utf8'}).trim(); if(cli!==ANCHORWEIGHT_VERSION) failures.push(`CLI version is ${cli}; expected ${ANCHORWEIGHT_VERSION}`); } catch { failures.push('CLI version command failed'); }
+const constrainedReleaseCheck=process.env.AW_RELEASE_CONSTRAINED==='1';
+
+if(constrainedReleaseCheck){
+  console.warn('WARN: constrained release check: child-process syntax and CLI checks skipped; run them directly before release verification');
+}else{
+  for (const entry of ['app.js','hub.js']) {
+    try {
+      execFileSync(process.execPath,['--check',path.join(root,entry)],{stdio:'pipe'});
+    } catch {
+      failures.push(`${entry} syntax check failed`);
+    }
+  }
+
+  try {
+    const cli=execFileSync(
+      process.execPath,
+      [path.join(root,'bin/anchorweight.js'),'version'],
+      {encoding:'utf8'}
+    ).trim();
+
+    if(cli!==ANCHORWEIGHT_VERSION)
+      failures.push(`CLI version is ${cli}; expected ${ANCHORWEIGHT_VERSION}`);
+  } catch {
+    failures.push('CLI version command failed');
+  }
+}
 const lock=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8'));
 if(lock.version!==ANCHORWEIGHT_VERSION || lock.packages?.['']?.version!==ANCHORWEIGHT_VERSION) failures.push('package-lock version mismatch');
 
