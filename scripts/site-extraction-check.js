@@ -70,7 +70,7 @@ export function runSiteExtractionCheck({root=ROOT}={})
   let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(ANCHORWEIGHT_VERSION==='3.2.0-alpha.1','runtime version must be 3.2.0-alpha.1');
+  check(['3.2.0-alpha.1','3.2.0-alpha.2'].includes(ANCHORWEIGHT_VERSION),'runtime version must be a supported v3.2 alpha');
   check(ANCHORWEIGHT_RELEASE_CHANNEL==='alpha','release channel must be alpha');
 
   const frozen=path.join(root,'RC1-FROZEN-CONTRACT.json');
@@ -167,5 +167,5 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   }
   console.log(`AnchorWeight ${ANCHORWEIGHT_VERSION} Site Extraction Detection PASS (${r.checks} invariants checked)`);
   console.log('Observation-only: no new blocking, throttling, quarantine, or Policy Engine input.');
-  console.log('READY FOR v3.2 alpha.1 shadow evaluation');
+  console.log('READY FOR v3.2 alpha shadow evaluation');
 }

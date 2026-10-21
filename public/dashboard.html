@@ -40,6 +40,13 @@
 <h3>Highest policy risk</h3><div id="agentPolicyTable" class="table-wrap help">No agent traffic recorded.</div>
 </section>
 
+<section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">Site Extraction Observatory</h2><div class="help">v3.2 alpha.2 production-tuning view of the observation-only bulk site-extraction detector. Candidate scores do not block, throttle, quarantine, decoy, or feed the Policy Engine.</div></div></div>
+<div class="grid" id="siteExtractionGrid"><div class="card"><div class="label">Site extraction</div><div class="value">—</div><div class="help">Load stats to view extraction evidence.</div></div></div>
+<div id="siteExtractionLevels" class="summary" style="margin-top:1rem"></div>
+<h3>Most common extraction evidence</h3><div id="siteExtractionReasons" class="summary"></div>
+<h3>Highest extraction scores</h3><div id="siteExtractionCandidates" class="table-wrap help">No extraction candidates recorded.</div>
+<p class="help">Only anonymized Bot DNA IDs and bounded counters are shown. Raw paths, queries, cookies, User-Agents, IP addresses, and route-family hashes are not exposed.</p></section>
+
 <section class="panel"><div class="section-title"><div><h2 style="margin:.1rem 0">AI Agent Access Observatory</h2><div class="help">Bounded, process-local view of declared AI-agent traffic, provider verification, and access-policy outcomes. No raw IPs, User-Agents, paths, queries, cookies or credentials are retained here.</div></div></div>
 <div class="grid" id="aiAgentAccessGrid"><div class="card"><div class="label">AI-agent traffic</div><div class="value">—</div><div class="help">Load stats to view declared AI-agent access.</div></div></div>
 <div id="aiAgentVerificationSummary" class="summary" style="margin-top:1rem"></div>
@@ -163,6 +170,18 @@ function renderAgentObservatory(o){
  const reasons=Object.entries(cal.topReasons||{}).slice(0,5).map(([k,v])=>esc(k)+': '+esc(v)).join(' · ');
  if(reasons)classes.innerHTML+='<span class=\"pill\">Reasons '+reasons+'</span>';
 }
+function renderSiteExtractionObservatory(o){
+ const grid=document.querySelector('#siteExtractionGrid'),levels=document.querySelector('#siteExtractionLevels');
+ const reasons=document.querySelector('#siteExtractionReasons'),candidates=document.querySelector('#siteExtractionCandidates');
+ if(!grid||!levels||!reasons||!candidates)return;
+ if(!o){grid.innerHTML='<div class="card"><div class="label">Site extraction</div><div class="value">—</div><div class="help">Observatory data unavailable.</div></div>';levels.innerHTML='';reasons.innerHTML='';candidates.textContent='No extraction candidates recorded.';return;}
+ const cards=[['Observed profiles',o.observedProfiles??0],['Active last 5m',o.recentProfiles??0],['Likely bulk scrape',o.likelyBulkScrape??0],['High confidence',o.highConfidenceBulkScrape??0],['Average score',o.averageScore??0],['Maximum score',o.maxScore??0]];
+ grid.innerHTML=cards.map(([label,value])=>'<div class="card"><div class="label">'+esc(label)+'</div><div class="value">'+esc(value)+'</div></div>').join('');
+ levels.innerHTML=Object.entries(o.levels||{}).map(([level,n])=>'<span class="pill">'+esc(level)+': <b>'+esc(n)+'</b></span>').join('');
+ reasons.innerHTML=Object.entries(o.topReasons||{}).map(([reason,n])=>'<span class="pill">'+esc(reason)+': <b>'+esc(n)+'</b></span>').join('')||'<span class="muted">No extraction reason codes observed yet.</span>';
+ const rows=o.topCandidates||[];
+ candidates.innerHTML=rows.length?'<table><thead><tr><th>ID</th><th>Score</th><th>Level</th><th>Requests</th><th>Unique/min</th><th>Breadth 5m</th><th>Families</th><th>404%</th><th>Downloads</th><th>Reasons</th></tr></thead><tbody>'+rows.map(p=>'<tr><td><button class="inspect" data-bot="'+esc(p.id)+'"><code>'+esc(p.id)+'</code></button></td><td class="risk">'+esc(p.score)+'</td><td>'+esc(p.level)+'</td><td>'+esc(p.observations)+'</td><td>'+esc(p.evidence?.uniqueUrlsCurrentMinute??0)+'</td><td>'+esc(p.evidence?.routeBreadth5m??0)+'</td><td>'+esc(p.evidence?.routeFamilyCount??0)+'</td><td>'+esc(p.evidence?.notFoundPercent??0)+'</td><td>'+esc(p.evidence?.downloadResponses??0)+'</td><td>'+esc((p.reasons||[]).map(r=>r.code+' +'+r.points).join(', ')||'—')+'</td></tr>').join('')+'</tbody></table>':'No extraction candidates recorded.';
+}
 function renderAiAgentTraffic(a){
  const grid=document.querySelector('#aiAgentAccessGrid'),summary=document.querySelector('#aiAgentVerificationSummary');
  const providers=document.querySelector('#aiAgentProviderTable'),recent=document.querySelector('#aiAgentRecentTable');
@@ -260,6 +279,7 @@ async function load(){await discoverApiBase();const msg=document.querySelector('
  renderResilience(j.resilience);
  renderRouting(j.routing);
  renderAgentObservatory(j.agentObservatory);
+ renderSiteExtractionObservatory(j.siteExtractionObservatory);
  renderAiAgentTraffic(j.aiAgentTraffic);
  renderAiPolicyManager(j.aiAgentPolicyManager);
  renderPolicyDeployment(j.aiAgentPolicyDeployment);
