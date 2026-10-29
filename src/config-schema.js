@@ -122,6 +122,31 @@ export function validateConfig(config) {
   if (config.trustedJa4Enabled) warnings.push('trustedJa4Enabled requires the trusted TLS terminator to OVERWRITE X-AW-JA4 and strip client-supplied values.');
   if (config.allowQueryAdminToken) warnings.push('allowQueryAdminToken is enabled; bearer-only admin authentication is recommended.');
   if (config.scoreEnforcementEnabled) warnings.push('score-based enforcement is enabled; review Shadow Mode evidence before enabling in production.');
+  for (const name of [
+    'canaryEnabled',
+    'canaryShadowMode',
+    'canaryFileTrapsEnabled',
+    'canaryRouteTrapsEnabled',
+    'canaryTokenTrapsEnabled',
+    'canaryCookieEnabled'
+  ])
+    if (config[name] != null && typeof config[name] !== 'boolean')
+      errors.push(`${name} must be boolean`);
+
+  intRange('canaryTokenTtlSeconds',config.canaryTokenTtlSeconds??3600,60,86400);
+  intRange('canaryCookieThreshold',config.canaryCookieThreshold??85,1,100);
+  intRange('canaryCookieTtlSeconds',config.canaryCookieTtlSeconds??1800,60,86400);
+
+  if (config.canaryCookieName &&
+      !/^__Host-[A-Za-z0-9_-]{1,80}$/.test(config.canaryCookieName))
+    errors.push('canaryCookieName must use a __Host- prefixed safe cookie name');
+
+  if (config.canaryEnabled && !config.canaryShadowMode)
+    warnings.push('Canary Intelligence shadow mode is disabled; verify Proof-of-Intent evidence before changing policy enforcement.');
+
+  if (config.canaryCookieEnabled)
+    warnings.push('Suspect-only Canary Intelligence cookie issuance is enabled.');
+
   if (config.resourceBudgetsEnabled != null && typeof config.resourceBudgetsEnabled !== 'boolean') errors.push('resourceBudgetsEnabled must be boolean');
   intRange('resourceBudgetRequestsPerMinute',config.resourceBudgetRequestsPerMinute??120,1,100000);
   intRange('resourceBudgetUniqueUrlsPerMinute',config.resourceBudgetUniqueUrlsPerMinute??60,1,64);

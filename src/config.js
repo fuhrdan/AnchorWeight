@@ -129,6 +129,19 @@ export function loadConfig(overrides = {}) {
     scoreRapidBurst: intEnv('AW_SCORE_RAPID_BURST', 10, 0, 100),
     scoreSpoofedGoodBot: intEnv('AW_SCORE_SPOOFED_GOOD_BOT', 25, 0, 200),
     scoreSharedCanary: intEnv('AW_SCORE_SHARED_CANARY', 20, 0, 200),
+
+    // v3.2 Canary Intelligence / Proof-of-Intent.
+    // Shadow-first; trap handling never independently enables quarantine.
+    canaryEnabled: boolEnv('AW_CANARY_ENABLED', false),
+    canaryShadowMode: boolEnv('AW_CANARY_SHADOW_MODE', true),
+    canaryFileTrapsEnabled: boolEnv('AW_CANARY_FILE_TRAPS_ENABLED', true),
+    canaryRouteTrapsEnabled: boolEnv('AW_CANARY_ROUTE_TRAPS_ENABLED', true),
+    canaryTokenTrapsEnabled: boolEnv('AW_CANARY_TOKEN_TRAPS_ENABLED', true),
+    canaryTokenTtlSeconds: intEnv('AW_CANARY_TOKEN_TTL_SECONDS', 3600, 60, 86400),
+    canaryCookieEnabled: boolEnv('AW_CANARY_COOKIE_ENABLED', false),
+    canaryCookieName: process.env.AW_CANARY_COOKIE_NAME || '__Host-awci',
+    canaryCookieThreshold: intEnv('AW_CANARY_COOKIE_THRESHOLD', 85, 1, 100),
+    canaryCookieTtlSeconds: intEnv('AW_CANARY_COOKIE_TTL_SECONDS', 1800, 60, 86400),
     clientEnvironmentEnabled: boolEnv('AW_CLIENT_ENVIRONMENT_ENABLED', true),
     // v3.0-beta.1: explicit resource budgets are observation/shadow only.
     resourceBudgetsEnabled: boolEnv('AW_RESOURCE_BUDGETS_ENABLED', false),

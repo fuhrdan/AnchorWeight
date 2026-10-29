@@ -31,7 +31,7 @@ export function runSiteExtractionObservatoryCheck({root=ROOT}={})
   let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(ANCHORWEIGHT_VERSION==='3.2.0-alpha.2','runtime version must be 3.2.0-alpha.2');
+  check(['3.2.0-alpha.2','3.2.0-alpha.3'].includes(ANCHORWEIGHT_VERSION),'runtime version must be a supported Site Extraction Observatory v3.2 alpha');
   check(ANCHORWEIGHT_RELEASE_CHANNEL==='alpha','release channel must remain alpha');
 
   const out=buildSiteExtractionObservatory([
@@ -76,5 +76,5 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   }
   console.log(`AnchorWeight ${ANCHORWEIGHT_VERSION} Site Extraction Observatory PASS (${r.checks} invariants checked)`);
   console.log('Observation-only: no blocking, throttling, quarantine, decoy, Policy Engine, or Resource Budget changes.');
-  console.log('READY FOR v3.2 alpha.2 shadow deployment');
+  console.log('READY FOR v3.2 alpha shadow deployment');
 }
