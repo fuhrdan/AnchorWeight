@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createAgentPassport, handleAgentPassport } from '../../src/agent-passport.js';
+import { ANCHORWEIGHT_VERSION } from '../../src/version.js';
 
 function response(){
   const headers={};
@@ -20,7 +21,7 @@ test('base-path fallback serves the same public passport',()=>{
   assert.equal(handled,true);
   assert.equal(res.statusCode,200);
   const body=JSON.parse(res.body);
-  assert.equal(body.version,'3.1.0');
+  assert.equal(body.version,ANCHORWEIGHT_VERSION);
   assert.equal(body.privacy.originExposed,false);
 });
 

@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { createAgentPassport } from '../../src/agent-passport.js';
 import { ANCHORWEIGHT_VERSION,ANCHORWEIGHT_RELEASE_CHANNEL } from '../../src/version.js';
 
-test('RC.1 Agent Passport publishes additive RC readiness without enabling enforcement',()=>{
-  assert.equal(ANCHORWEIGHT_VERSION,'3.1.0');
-  assert.equal(ANCHORWEIGHT_RELEASE_CHANNEL,'stable');
+test('v3.1 RC readiness contract remains available without enabling enforcement',()=>{
+  assert.match(ANCHORWEIGHT_VERSION,/^3\./);
+  assert.ok(['alpha','beta','rc','stable'].includes(ANCHORWEIGHT_RELEASE_CHANNEL));
   const p=createAgentPassport({
     shadowMode:true,
     scoreEnforcementEnabled:false,

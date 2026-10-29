@@ -22,6 +22,8 @@ import { applyAiAgentVerificationPolicy } from './ai-agent-verification-policy.j
 import { createAiAgentTrafficObservatory } from './ai-agent-traffic-observatory.js';
 import { createAiAgentPolicyManager } from './ai-agent-policy-manager.js';
 import { createAiAgentPolicyDeployment } from './ai-agent-policy-deployment.js';
+import { buildSiteExtractionObservatory } from './site-extraction-observatory.js';
+import { createCanaryIntelligence } from './canary-intelligence.js';
 
 function esc(s) {
   return String(s).replace(/[&<>\"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '\"':'&quot;', "'":'&#39;' }[c]));
@@ -73,6 +75,10 @@ export function createAnchorWeight(config, deps = {}) {
   const resilience = deps.resilience || null;
   const log = event => { localLog(event); publisher.publish(event); };
   const behavior = deps.behavior || new BehaviorEngine(config, store, log, deps.now);
+  const canary = deps.canary || createCanaryIntelligence(config, {
+    log,
+    now: deps.now || (() => Date.now())
+  });
   const goodBots = deps.goodBots || new GoodBotVerifier(config, deps.goodBotOptions || {});
   const campaigns = deps.campaigns || new CampaignEngine(config, store, log, deps.now);
   const admin = deps.admin || new AdminSecurity(config, deps.now);
@@ -133,7 +139,22 @@ export function createAnchorWeight(config, deps = {}) {
     }
     const key = trustedKey(identity);
     if (!key) {
-      store.stats.identityDegradedRequests = (store.stats.identityDegradedRequests || 0) + 1;
+      store.stats.identityDegradedRequests =
+        (store.stats.identityDegradedRequests || 0) + 1;
+
+      // HawkHost/Passenger may provide no trustworthy client identity.
+      // Canary traps may still serve inert synthetic responses, but the
+      // unscoped path has no profile, scoring, cookies, or enforcement.
+      const degradedCanaryResult = await canary.handle(req, res, url, {
+        key:null,
+        profile:null,
+        behavior:null,
+        trusted:false
+      });
+
+      if (degradedCanaryResult.handled)
+        return true;
+
       return false;
     }
     const profile = behavior.observeRequest(key, req, url);
@@ -149,8 +170,22 @@ export function createAnchorWeight(config, deps = {}) {
     const good = await goodBots.verify(identity.ip, String(req.headers['user-agent'] || ''));
     behavior.noteGoodBot(key, good);
 
+    const canaryTrusted =
+      profile.manualPolicy === 'allow' ||
+      (profile.goodBotVerified && profile.manualPolicy !== 'quarantine');
+
+    const canaryResult = await canary.handle(req, res, url, {
+      key,
+      profile,
+      behavior,
+      trusted: canaryTrusted
+    });
+
+    if (canaryResult.handled)
+      return true;
+
     // Explicit allow policy wins. Verified search crawlers are also trusted unless explicitly quarantined.
-    if (profile.manualPolicy === 'allow' || (profile.goodBotVerified && profile.manualPolicy !== 'quarantine')) {
+    if (canaryTrusted) {
       log({ type: profile.manualPolicy === 'allow' ? 'manual_allow' : 'verified_good_bot', ipKey: key, provider: profile.goodBotProvider || null });
       return false;
     }
@@ -379,7 +414,8 @@ export function createAnchorWeight(config, deps = {}) {
         const profiles=typeof store.getPublicProfiles==='function' ? store.getPublicProfiles(500) : (state.topProfiles||[]);
         const releaseReadiness=buildReleaseReadiness({config,clientIdentity:identityMonitor.snapshot(),publicProfiles:profiles,agentObservatory:state.agentObservatory||{},totalProfiles:state.trackedProfiles??profiles.length});
         const enforcementRehearsal=buildEnforcementRehearsal(profiles,{totalProfiles:state.trackedProfiles??profiles.length});
-        return json(res, 200, { version: ANCHORWEIGHT_VERSION, aiAgentTraffic:aiAgentTrafficObservatory.snapshot(), aiAgentPolicyManager:aiAgentPolicyManager.snapshot(), aiAgentPolicyDeployment:aiAgentPolicyDeployment.snapshot(), routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), policySimulation:policySimulationDescriptor(config), enforcementRehearsal, releaseReadiness, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...state });
+        const siteExtractionObservatory=buildSiteExtractionObservatory(profiles);
+        return json(res, 200, { version: ANCHORWEIGHT_VERSION, siteExtractionObservatory, aiAgentTraffic:aiAgentTrafficObservatory.snapshot(), aiAgentPolicyManager:aiAgentPolicyManager.snapshot(), aiAgentPolicyDeployment:aiAgentPolicyDeployment.snapshot(), routing:routingStatus(), telemetry:telemetry?.snapshot() || null, observatory:observatory?.snapshot() || null, alerts:alerts?.snapshot() || null, gateway:gateway?.snapshot() || null, applicationAuth:applicationAuth?.snapshot() || null, upstreamHealth:health?.snapshot() || null, resilience:resilience?.snapshot() || null, clientIdentity:identityMonitor.snapshot(), policySimulation:policySimulationDescriptor(config), enforcementRehearsal, releaseReadiness, proxyEnabled:config.proxyEnabled, mode: config.shadowMode ? 'shadow' : 'enforce', blockDepth: config.blockDepth, distributed: {siteId: config.intelligenceEnabled ? config.intelligenceSiteId : null, ...publisher.status()}, scoreEnforcementEnabled: !!config.scoreEnforcementEnabled, quarantineScore: config.quarantineScore ?? 100, ...state });
       }
 
       if (setup && url.pathname === `${config.basePath}/api/setup` && method === 'GET') {

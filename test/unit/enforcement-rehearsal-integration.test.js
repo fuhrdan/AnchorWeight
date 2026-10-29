@@ -5,6 +5,7 @@ import os from 'node:os';
 import { createAnchorWeight } from '../../src/anchorweight.js';
 import { MemoryStore } from '../../src/store.js';
 import { createAgentPassport } from '../../src/agent-passport.js';
+import { ANCHORWEIGHT_VERSION } from '../../src/version.js';
 
 function responseCapture(){
   let body='';
@@ -22,7 +23,7 @@ function config(){return {
   policyEngineEnforcementEnabled:false
 };}
 
-test('authenticated rehearsal endpoint is read-only and returns central beta.7 version',()=>{
+test('authenticated rehearsal endpoint is read-only and returns central runtime version',()=>{
   const store=new MemoryStore(()=>1_000_000);
   const p=store.getProfile('1234567890abcdef');
   p.requestCount=5;
@@ -35,7 +36,7 @@ test('authenticated rehearsal endpoint is read-only and returns central beta.7 v
   assert.equal(handled,true);
   assert.equal(res.statusCode,200);
   const j=JSON.parse(res.body);
-  assert.equal(j.version,'3.1.0');
+  assert.equal(j.version,ANCHORWEIGHT_VERSION);
   assert.equal(j.rehearsal.advisoryOnly,true);
   assert.equal(j.rehearsal.enforcement,false);
   assert.equal(j.rehearsal.evaluations,5);
@@ -44,7 +45,7 @@ test('authenticated rehearsal endpoint is read-only and returns central beta.7 v
 
 test('Agent Passport advertises rehearsal as authenticated, advisory and non-enforcing',()=>{
   const passport=createAgentPassport({shadowMode:true});
-  assert.equal(passport.version,'3.1.0');
+  assert.equal(passport.version,ANCHORWEIGHT_VERSION);
   assert.equal(passport.capabilities.enforcementRehearsal.authenticated,true);
   assert.equal(passport.capabilities.enforcementRehearsal.advisoryOnly,true);
   assert.equal(passport.capabilities.enforcementRehearsal.enforcement,false);

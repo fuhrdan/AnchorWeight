@@ -18,10 +18,12 @@ import { runAiAgentBetaCheck } from './ai-agent-beta-check.js';
 import { runAiAgentBeta2Check } from './ai-agent-beta2-check.js';
 import { runAiAgentRcCheck } from './ai-agent-rc-check.js';
 import { runAiAgentGaCheck } from './ai-agent-ga-check.js';
+import { runSiteExtractionCheck } from './site-extraction-check.js';
+import { runSiteExtractionObservatoryCheck } from './site-extraction-observatory-check.js';
 
 const root=path.resolve(new URL('..',import.meta.url).pathname);
 const pkg=JSON.parse(fs.readFileSync(path.join(root,'package.json'),'utf8'));
-const required=['scripts/test-suite.js','TESTING-CONSTRAINED-HOSTS.md','README.md','SECURITY.md','ARCHITECTURE.md','THREAT-MODEL.md','CONFIGURATION.md','OPERATIONS.md','DEPLOYMENT.md','CLI.md','LICENSE','DISTRIBUTED-INTELLIGENCE.md','OPERATOR-GATEWAY.md','public/setup.html','src/setup.js','src/telemetry.js','src/gateway-policy.js','src/upstream-health.js','GATEWAY-PROTECTION.md','MULTI-ORIGIN-ROUTING.md','src/routing.js','test/unit/routing.test.js','test/multi-origin.integration.test.js','hub.js','src/declarative-config.js','test/unit/declarative-config.test.js','test/declarative-config.integration.test.js','DECLARATIVE-CONFIGURATION.md','APPLICATION-AUTH.md','src/app-auth.js','bin/app-auth.js','test/unit/app-auth.test.js','test/app-auth.integration.test.js','src/resilience.js','test/unit/resilience.test.js','test/resilience.integration.test.js','UPSTREAM-RESILIENCE.md','LIVE-TRAFFIC-OBSERVATORY.md','src/live-observatory.js','test/unit/live-observatory.test.js','test/live-observatory.integration.test.js','src/alerts.js','bin/alerts.js','test/unit/alerts.test.js','test/alerts.integration.test.js','ALERTS-AND-WEBHOOKS.md','config/examples/alerts-basic.json','INSTALLATION-AND-OPERATIONS.md','bin/operator.js','src/operator-experience.js','test/unit/operator-experience.test.js','test/operator-experience.integration.test.js','src/client-environment.js','test/unit/client-environment.test.js','CLIENT-ENVIRONMENT.md','ADAPTIVE-DECEPTION.md','src/adaptive-deception.js','test/unit/adaptive-deception.test.js','ADAPTIVE-INTERVENTION.md','src/adaptive-intervention.js','test/unit/adaptive-intervention.test.js','CLIENT-IDENTITY-SAFETY.md','src/client-identity.js','test/unit/client-identity.test.js','test/unit/client-identity-integration.test.js','test/unit/proxy-identity-safety.test.js','AGENT-IDENTITY.md','src/agent-identity.js','test/unit/agent-identity.test.js','test/unit/agent-identity-integration.test.js','AGENT-BEHAVIOR.md','src/agent-behavior.js','test/unit/agent-behavior.test.js','test/unit/agent-behavior-integration.test.js','TRAFFIC-SCORING.md','src/traffic-scoring.js','test/unit/traffic-scoring.test.js','test/unit/traffic-scoring-integration.test.js','AGENT-TRAFFIC-OBSERVATORY.md','src/agent-observatory.js','test/unit/agent-observatory.test.js','test/unit/agent-observatory-integration.test.js','AGENT-PASSPORT.md','src/agent-passport.js','test/unit/agent-passport.test.js','test/unit/agent-passport-integration.test.js','CLIENT-ENVIRONMENT-2.md','test/unit/client-environment-2.test.js','test/unit/client-environment-2-integration.test.js','test/unit/agent-passport-routing.test.js','RESOURCE-BUDGETS.md','src/resource-budgets.js','test/unit/resource-budgets.test.js','test/unit/resource-budgets-integration.test.js','test/unit/resource-budgets-observatory.test.js','POLICY-ENGINE.md','src/policy-engine.js','test/unit/policy-engine.test.js','test/unit/policy-engine-integration.test.js','test/unit/policy-engine-observatory.test.js','POLICY-FORENSICS.md','src/policy-forensics.js','test/unit/policy-forensics.test.js','test/unit/policy-forensics-integration.test.js','POLICY-SIMULATION.md','src/policy-simulation.js','test/unit/policy-simulation.test.js','test/unit/policy-simulation-store.test.js','src/version.js','src/release-readiness.js','RELEASE-READINESS.md','VERSION-OWNERSHIP.md','test/unit/version.test.js','test/unit/release-readiness.test.js','test/unit/release-readiness-integration.test.js','ENFORCEMENT-REHEARSAL.md','BETA7-RELEASE-NOTES.md','src/enforcement-rehearsal.js','test/unit/enforcement-rehearsal.test.js','test/unit/enforcement-rehearsal-integration.test.js','scripts/rc-hardening-check.js','test/unit/rc-hardening.test.js','RELEASE-CANDIDATE-HARDENING.md','RC1-RELEASE-NOTES.md','RC1-FROZEN-CONTRACT.json','scripts/burn-in-check.js','test/unit/burn-in-check.test.js','PRODUCTION-BURN-IN.md','RC2-RELEASE-NOTES.md','scripts/final-release-check.js','test/unit/final-release-check.test.js','FINAL-RELEASE-CHECKLIST.md','V3.0.0-RELEASE-NOTES.md','src/ai-agent-policy.js','scripts/ai-agent-check.js','scripts/ai-agent-robots.js','test/unit/ai-agent-policy.test.js','test/unit/ai-agent-identity-v31.test.js','AI-AGENT-CONTROLS.md','V3.1.0-ALPHA1-RELEASE-NOTES.md','src/ai-agent-verification.js','scripts/ai-agent-verification-check.js','test/unit/ai-agent-verification.test.js','VERIFIED-AI-AGENTS.md','V3.1.0-ALPHA2-RELEASE-NOTES.md','src/ai-agent-verification-policy.js','scripts/ai-agent-verification-policy-check.js','test/unit/ai-agent-verification-policy.test.js','VERIFICATION-AWARE-AI-POLICY.md','V3.1.0-ALPHA3-RELEASE-NOTES.md','src/ai-agent-traffic-observatory.js','scripts/ai-agent-observability-check.js','test/unit/ai-agent-traffic-observatory.test.js','test/unit/ai-agent-observability-integration.test.js','AI-AGENT-OBSERVABILITY.md','V3.1.0-ALPHA4-RELEASE-NOTES.md','src/ai-agent-policy-manager.js','scripts/ai-agent-policy-manager-check.js','test/unit/ai-agent-policy-manager.test.js','test/unit/ai-agent-policy-manager-integration.test.js','AI-AGENT-POLICY-MANAGER.md','V3.1.0-ALPHA5-RELEASE-NOTES.md','src/ai-agent-policy-deployment.js','scripts/ai-agent-policy-deployment-check.js','test/unit/ai-agent-policy-deployment.test.js','test/unit/ai-agent-policy-deployment-integration.test.js','AI-AGENT-POLICY-DEPLOYMENT.md','V3.1.0-ALPHA6-RELEASE-NOTES.md','src/ai-agent-burnin-readiness.js','scripts/ai-agent-burnin-check.js','test/unit/ai-agent-burnin-readiness.test.js','test/unit/ai-agent-burnin-integration.test.js','AI-AGENT-BURNIN-READINESS.md','V3.1.0-ALPHA7-RELEASE-NOTES.md','src/ai-agent-beta-readiness.js','scripts/ai-agent-beta-check.js','test/unit/ai-agent-beta-readiness.test.js','test/unit/ai-agent-beta-integration.test.js','AI-AGENT-BETA-VALIDATION.md','V3.1.0-BETA1-RELEASE-NOTES.md','src/ai-agent-production-readiness.js','scripts/ai-agent-production-check.js','scripts/ai-agent-beta2-check.js','test/unit/ai-agent-production-readiness.test.js','test/unit/ai-agent-production-integration.test.js','AI-AGENT-PRODUCTION-SHADOW-VALIDATION.md','V3.1.0-BETA2-RELEASE-NOTES.md','src/ai-agent-rc-readiness.js','scripts/ai-agent-rc-check.js','test/unit/ai-agent-rc-readiness.test.js','test/unit/ai-agent-rc-integration.test.js','AI-AGENT-RC-READINESS.md','V3.1.0-RC1-RELEASE-NOTES.md','V3.1-RC1-VALIDATION-RECORD.json','src/ai-agent-ga-readiness.js','scripts/ai-agent-ga-check.js','test/unit/ai-agent-ga-readiness.test.js','test/unit/ai-agent-ga-integration.test.js','AI-AGENT-GA-READINESS.md','V3.1.0-RELEASE-NOTES.md','V3.1-GA-VALIDATION-RECORD.json'];
+const required=['scripts/test-suite.js','TESTING-CONSTRAINED-HOSTS.md','README.md','SECURITY.md','ARCHITECTURE.md','THREAT-MODEL.md','CONFIGURATION.md','OPERATIONS.md','DEPLOYMENT.md','CLI.md','LICENSE','DISTRIBUTED-INTELLIGENCE.md','OPERATOR-GATEWAY.md','public/setup.html','src/setup.js','src/telemetry.js','src/gateway-policy.js','src/upstream-health.js','GATEWAY-PROTECTION.md','MULTI-ORIGIN-ROUTING.md','src/routing.js','test/unit/routing.test.js','test/multi-origin.integration.test.js','hub.js','src/declarative-config.js','test/unit/declarative-config.test.js','test/declarative-config.integration.test.js','DECLARATIVE-CONFIGURATION.md','APPLICATION-AUTH.md','src/app-auth.js','bin/app-auth.js','test/unit/app-auth.test.js','test/app-auth.integration.test.js','src/resilience.js','test/unit/resilience.test.js','test/resilience.integration.test.js','UPSTREAM-RESILIENCE.md','LIVE-TRAFFIC-OBSERVATORY.md','src/live-observatory.js','test/unit/live-observatory.test.js','test/live-observatory.integration.test.js','src/alerts.js','bin/alerts.js','test/unit/alerts.test.js','test/alerts.integration.test.js','ALERTS-AND-WEBHOOKS.md','config/examples/alerts-basic.json','INSTALLATION-AND-OPERATIONS.md','bin/operator.js','src/operator-experience.js','test/unit/operator-experience.test.js','test/operator-experience.integration.test.js','src/client-environment.js','test/unit/client-environment.test.js','CLIENT-ENVIRONMENT.md','ADAPTIVE-DECEPTION.md','src/adaptive-deception.js','test/unit/adaptive-deception.test.js','ADAPTIVE-INTERVENTION.md','src/adaptive-intervention.js','test/unit/adaptive-intervention.test.js','CLIENT-IDENTITY-SAFETY.md','src/client-identity.js','test/unit/client-identity.test.js','test/unit/client-identity-integration.test.js','test/unit/proxy-identity-safety.test.js','AGENT-IDENTITY.md','src/agent-identity.js','test/unit/agent-identity.test.js','test/unit/agent-identity-integration.test.js','AGENT-BEHAVIOR.md','src/agent-behavior.js','test/unit/agent-behavior.test.js','test/unit/agent-behavior-integration.test.js','TRAFFIC-SCORING.md','src/traffic-scoring.js','test/unit/traffic-scoring.test.js','test/unit/traffic-scoring-integration.test.js','AGENT-TRAFFIC-OBSERVATORY.md','src/agent-observatory.js','test/unit/agent-observatory.test.js','test/unit/agent-observatory-integration.test.js','AGENT-PASSPORT.md','src/agent-passport.js','test/unit/agent-passport.test.js','test/unit/agent-passport-integration.test.js','CLIENT-ENVIRONMENT-2.md','test/unit/client-environment-2.test.js','test/unit/client-environment-2-integration.test.js','test/unit/agent-passport-routing.test.js','RESOURCE-BUDGETS.md','src/resource-budgets.js','test/unit/resource-budgets.test.js','test/unit/resource-budgets-integration.test.js','test/unit/resource-budgets-observatory.test.js','POLICY-ENGINE.md','src/policy-engine.js','test/unit/policy-engine.test.js','test/unit/policy-engine-integration.test.js','test/unit/policy-engine-observatory.test.js','POLICY-FORENSICS.md','src/policy-forensics.js','test/unit/policy-forensics.test.js','test/unit/policy-forensics-integration.test.js','POLICY-SIMULATION.md','src/policy-simulation.js','test/unit/policy-simulation.test.js','test/unit/policy-simulation-store.test.js','src/version.js','src/release-readiness.js','RELEASE-READINESS.md','VERSION-OWNERSHIP.md','test/unit/version.test.js','test/unit/release-readiness.test.js','test/unit/release-readiness-integration.test.js','ENFORCEMENT-REHEARSAL.md','BETA7-RELEASE-NOTES.md','src/enforcement-rehearsal.js','test/unit/enforcement-rehearsal.test.js','test/unit/enforcement-rehearsal-integration.test.js','scripts/rc-hardening-check.js','test/unit/rc-hardening.test.js','RELEASE-CANDIDATE-HARDENING.md','RC1-RELEASE-NOTES.md','RC1-FROZEN-CONTRACT.json','scripts/burn-in-check.js','test/unit/burn-in-check.test.js','PRODUCTION-BURN-IN.md','RC2-RELEASE-NOTES.md','scripts/final-release-check.js','test/unit/final-release-check.test.js','FINAL-RELEASE-CHECKLIST.md','V3.0.0-RELEASE-NOTES.md','src/ai-agent-policy.js','scripts/ai-agent-check.js','scripts/ai-agent-robots.js','test/unit/ai-agent-policy.test.js','test/unit/ai-agent-identity-v31.test.js','AI-AGENT-CONTROLS.md','V3.1.0-ALPHA1-RELEASE-NOTES.md','src/ai-agent-verification.js','scripts/ai-agent-verification-check.js','test/unit/ai-agent-verification.test.js','VERIFIED-AI-AGENTS.md','V3.1.0-ALPHA2-RELEASE-NOTES.md','src/ai-agent-verification-policy.js','scripts/ai-agent-verification-policy-check.js','test/unit/ai-agent-verification-policy.test.js','VERIFICATION-AWARE-AI-POLICY.md','V3.1.0-ALPHA3-RELEASE-NOTES.md','src/ai-agent-traffic-observatory.js','scripts/ai-agent-observability-check.js','test/unit/ai-agent-traffic-observatory.test.js','test/unit/ai-agent-observability-integration.test.js','AI-AGENT-OBSERVABILITY.md','V3.1.0-ALPHA4-RELEASE-NOTES.md','src/ai-agent-policy-manager.js','scripts/ai-agent-policy-manager-check.js','test/unit/ai-agent-policy-manager.test.js','test/unit/ai-agent-policy-manager-integration.test.js','AI-AGENT-POLICY-MANAGER.md','V3.1.0-ALPHA5-RELEASE-NOTES.md','src/ai-agent-policy-deployment.js','scripts/ai-agent-policy-deployment-check.js','test/unit/ai-agent-policy-deployment.test.js','test/unit/ai-agent-policy-deployment-integration.test.js','AI-AGENT-POLICY-DEPLOYMENT.md','V3.1.0-ALPHA6-RELEASE-NOTES.md','src/ai-agent-burnin-readiness.js','scripts/ai-agent-burnin-check.js','test/unit/ai-agent-burnin-readiness.test.js','test/unit/ai-agent-burnin-integration.test.js','AI-AGENT-BURNIN-READINESS.md','V3.1.0-ALPHA7-RELEASE-NOTES.md','src/ai-agent-beta-readiness.js','scripts/ai-agent-beta-check.js','test/unit/ai-agent-beta-readiness.test.js','test/unit/ai-agent-beta-integration.test.js','AI-AGENT-BETA-VALIDATION.md','V3.1.0-BETA1-RELEASE-NOTES.md','src/ai-agent-production-readiness.js','scripts/ai-agent-production-check.js','scripts/ai-agent-beta2-check.js','test/unit/ai-agent-production-readiness.test.js','test/unit/ai-agent-production-integration.test.js','AI-AGENT-PRODUCTION-SHADOW-VALIDATION.md','V3.1.0-BETA2-RELEASE-NOTES.md','src/ai-agent-rc-readiness.js','scripts/ai-agent-rc-check.js','test/unit/ai-agent-rc-readiness.test.js','test/unit/ai-agent-rc-integration.test.js','AI-AGENT-RC-READINESS.md','V3.1.0-RC1-RELEASE-NOTES.md','V3.1-RC1-VALIDATION-RECORD.json','src/ai-agent-ga-readiness.js','scripts/ai-agent-ga-check.js','test/unit/ai-agent-ga-readiness.test.js','test/unit/ai-agent-ga-integration.test.js','AI-AGENT-GA-READINESS.md','V3.1.0-RELEASE-NOTES.md','V3.1-GA-VALIDATION-RECORD.json','src/site-extraction.js','scripts/site-extraction-check.js','test/unit/site-extraction.test.js','test/unit/site-extraction-integration.test.js','SITE-EXTRACTION-DETECTION.md','V3.2.0-ALPHA1-RELEASE-NOTES.md','src/site-extraction-observatory.js','scripts/site-extraction-observatory-check.js','test/unit/site-extraction-observatory.test.js','SITE-EXTRACTION-OBSERVATORY.md','V3.2.0-ALPHA2-RELEASE-NOTES.md'];
 const failures=[];
 if (ANCHORWEIGHT_VERSION.includes('-rc.')) {
   const rc=runRcHardeningCheck({root});
@@ -79,6 +81,14 @@ if (ANCHORWEIGHT_VERSION === '3.1.0') {
   const ga=await runAiAgentGaCheck({root});
   for(const failure of ga.failures) failures.push(`AI Agent GA Readiness: ${failure}`);
 }
+if (['3.2.0-alpha.1','3.2.0-alpha.2','3.2.0-alpha.3'].includes(ANCHORWEIGHT_VERSION)) {
+  const extraction=runSiteExtractionCheck({root});
+  for(const failure of extraction.failures) failures.push(`Site Extraction Detection: ${failure}`);
+}
+if (['3.2.0-alpha.2','3.2.0-alpha.3'].includes(ANCHORWEIGHT_VERSION)) {
+  const observatoryCheck=runSiteExtractionObservatoryCheck({root});
+  for(const failure of observatoryCheck.failures) failures.push(`Site Extraction Observatory: ${failure}`);
+}
 function runtimeVersionFiles(){
   const out=['app.js','hub.js'];
   for(const dir of ['src','bin','public']){
@@ -101,29 +111,95 @@ for(const entry of runtimeVersionFiles()){
 }
 if(pkg.version!==ANCHORWEIGHT_VERSION) failures.push(`package version is ${pkg.version}; expected ${ANCHORWEIGHT_VERSION}`);
 for(const file of required) if(!fs.existsSync(path.join(root,file))) failures.push(`missing ${file}`);
-for (const entry of ['app.js','hub.js']) { try { execFileSync(process.execPath,['--check',path.join(root,entry)],{stdio:'pipe'}); } catch { failures.push(`${entry} syntax check failed`); } }
-try { const cli=execFileSync(process.execPath,[path.join(root,'bin/anchorweight.js'),'version'],{encoding:'utf8'}).trim(); if(cli!==ANCHORWEIGHT_VERSION) failures.push(`CLI version is ${cli}; expected ${ANCHORWEIGHT_VERSION}`); } catch { failures.push('CLI version command failed'); }
+const constrainedReleaseCheck=process.env.AW_RELEASE_CONSTRAINED==='1';
+
+if(constrainedReleaseCheck){
+  console.warn('WARN: constrained release check: child-process syntax and CLI checks skipped; run them directly before release verification');
+}else{
+  for (const entry of ['app.js','hub.js']) {
+    try {
+      execFileSync(process.execPath,['--check',path.join(root,entry)],{stdio:'pipe'});
+    } catch {
+      failures.push(`${entry} syntax check failed`);
+    }
+  }
+
+  try {
+    const cli=execFileSync(
+      process.execPath,
+      [path.join(root,'bin/anchorweight.js'),'version'],
+      {encoding:'utf8'}
+    ).trim();
+
+    if(cli!==ANCHORWEIGHT_VERSION)
+      failures.push(`CLI version is ${cli}; expected ${ANCHORWEIGHT_VERSION}`);
+  } catch {
+    failures.push('CLI version command failed');
+  }
+}
 const lock=JSON.parse(fs.readFileSync(path.join(root,'package-lock.json'),'utf8'));
 if(lock.version!==ANCHORWEIGHT_VERSION || lock.packages?.['']?.version!==ANCHORWEIGHT_VERSION) failures.push('package-lock version mismatch');
 
 const VERIFY=process.argv.includes('--verify');
 if (process.argv.some(arg=>arg.startsWith('--') && arg!=='--verify')) failures.push('unsupported release-check argument');
-const files=[];
+
 const ignoredDirs=new Set(['.git','data','backups','reports','node_modules','tmp','coverage','.cache']);
 const ignoredFiles=new Set(['SOURCE-MANIFEST.json','SOURCE-REVIEW.txt','main']);
-function walk(dir){
-  for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
-    if (ignoredDirs.has(entry.name)||ignoredFiles.has(entry.name)||
-        (entry.name.startsWith('.env')&&entry.name!=='.env.example')||
-        /\.(?:log|bak|backup|zip|sqlite|sqlite-wal|sqlite-shm)$/.test(entry.name)) continue;
-    const fp=path.join(dir,entry.name);
-    if(entry.isSymbolicLink()) {failures.push(`symlink in release source: ${path.relative(root,fp)}`);continue;}
-    if(entry.isDirectory())walk(fp);
-    else if(entry.isFile())files.push(fp);
+
+function ignoredReleaseFile(rel) {
+  const normalized=rel.replaceAll('\\','/');
+  const parts=normalized.split('/');
+
+  if(parts.some(part=>ignoredDirs.has(part))) return true;
+
+  const name=parts.at(-1);
+  if(ignoredFiles.has(name)) return true;
+
+  if(name.startsWith('.env') && name!=='.env.example') return true;
+
+  if(/\.(?:log|bak|backup|zip|sqlite|sqlite-wal|sqlite-shm)$/.test(name))
+    return true;
+
+  return false;
+}
+
+let trackedFiles=[];
+try {
+  trackedFiles=execFileSync(
+    'git',
+    ['ls-files','-z'],
+    {cwd:root,encoding:'utf8'}
+  )
+    .split('\0')
+    .filter(Boolean)
+    .filter(rel=>!ignoredReleaseFile(rel));
+} catch {
+  failures.push('unable to enumerate Git-tracked release source');
+}
+
+const files=[];
+
+for(const rel of trackedFiles){
+  const fp=path.join(root,rel);
+
+  try {
+    const stat=fs.lstatSync(fp);
+
+    if(stat.isSymbolicLink()){
+      failures.push(`symlink in release source: ${rel}`);
+      continue;
+    }
+
+    if(stat.isFile()) files.push(fp);
+  } catch {
+    failures.push(`tracked release source unavailable: ${rel}`);
   }
 }
-walk(root);
-const manifest=files.sort().map(fp=>({file:path.relative(root,fp).replaceAll('\\','/'),sha256:crypto.createHash('sha256').update(fs.readFileSync(fp)).digest('hex')}));
+
+const manifest=files.sort().map(fp=>({
+  file:path.relative(root,fp).replaceAll('\\','/'),
+  sha256:crypto.createHash('sha256').update(fs.readFileSync(fp)).digest('hex')
+}));
 const expected={version:ANCHORWEIGHT_VERSION,files:manifest};
 const manifestFile=path.join(root,'SOURCE-MANIFEST.json');
 if (VERIFY) {
