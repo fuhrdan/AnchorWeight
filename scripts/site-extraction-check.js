@@ -13,8 +13,8 @@ const PROTECTED_BLOBS={
   "src/policy-engine.js": "ef2db82f668f2146073f6ae465dd720b191e7998",
   "src/traffic-scoring.js": "acb9feed6e6a4196ce14d0d90c552330f65077c8",
   "src/resource-budgets.js": "b9f3d7434004e9196142121d06965f4a5fbade08",
-  "src/config.js": "d275ba238f0bae518b81d35edcafb09a017bd6f1",
-  "src/config-schema.js": "a933cc5fe8a04999ad5b6605b9bb39264eab147a"
+  "src/config.js": "08b1e1dc16736301f8b36b3097bd2b7f9ba56c18",
+  "src/config-schema.js": "1d4f28f3f03328bb262f8e2af046eb1e2f36f0c5"
 };
 
 function sha256(file)
@@ -70,7 +70,7 @@ export function runSiteExtractionCheck({root=ROOT}={})
   let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(['3.2.0-alpha.1','3.2.0-alpha.2'].includes(ANCHORWEIGHT_VERSION),'runtime version must be a supported v3.2 alpha');
+  check(['3.2.0-alpha.1','3.2.0-alpha.2','3.2.0-alpha.3'].includes(ANCHORWEIGHT_VERSION),'runtime version must be a supported v3.2 alpha');
   check(ANCHORWEIGHT_RELEASE_CHANNEL==='alpha','release channel must be alpha');
 
   const frozen=path.join(root,'RC1-FROZEN-CONTRACT.json');

@@ -523,15 +523,15 @@
     },
     {
       "file": "scripts/release-check.js",
-      "sha256": "be5a680fe0b865fca21305cdabf0741a4e8f02233a3b54dded350e729ad8d3a0"
+      "sha256": "f5c1634ba34a547886489cc1525d9ca70740c2613d8abcef7ab687b30fa898bc"
     },
     {
       "file": "scripts/site-extraction-check.js",
-      "sha256": "25a9aa2abc946e7277d7879fe13e4f24c989ac25bbf1c2b5c7782bff91f2a3ff"
+      "sha256": "410089f5e9c91af11dded51421617a43b8356cc5f0f23fa8502b3537a63dbb20"
     },
     {
       "file": "scripts/site-extraction-observatory-check.js",
-      "sha256": "249405bffc60315c03538f2f5ccc9add2d1afc26a0a1c3f8e8ed39cfa8068045"
+      "sha256": "be04634eb7a3ed4bec749570561003617adc3c923b231dfe475974ff8a4c963e"
     },
     {
       "file": "scripts/source-review.js",
