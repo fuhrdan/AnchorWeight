@@ -81,11 +81,11 @@ if (ANCHORWEIGHT_VERSION === '3.1.0') {
   const ga=await runAiAgentGaCheck({root});
   for(const failure of ga.failures) failures.push(`AI Agent GA Readiness: ${failure}`);
 }
-if (['3.2.0-alpha.1','3.2.0-alpha.2'].includes(ANCHORWEIGHT_VERSION)) {
+if (['3.2.0-alpha.1','3.2.0-alpha.2','3.2.0-alpha.3'].includes(ANCHORWEIGHT_VERSION)) {
   const extraction=runSiteExtractionCheck({root});
   for(const failure of extraction.failures) failures.push(`Site Extraction Detection: ${failure}`);
 }
-if (ANCHORWEIGHT_VERSION === '3.2.0-alpha.2') {
+if (['3.2.0-alpha.2','3.2.0-alpha.3'].includes(ANCHORWEIGHT_VERSION)) {
   const observatoryCheck=runSiteExtractionObservatoryCheck({root});
   for(const failure of observatoryCheck.failures) failures.push(`Site Extraction Observatory: ${failure}`);
 }
@@ -142,22 +142,64 @@ if(lock.version!==ANCHORWEIGHT_VERSION || lock.packages?.['']?.version!==ANCHORW
 
 const VERIFY=process.argv.includes('--verify');
 if (process.argv.some(arg=>arg.startsWith('--') && arg!=='--verify')) failures.push('unsupported release-check argument');
-const files=[];
+
 const ignoredDirs=new Set(['.git','data','backups','reports','node_modules','tmp','coverage','.cache']);
 const ignoredFiles=new Set(['SOURCE-MANIFEST.json','SOURCE-REVIEW.txt','main']);
-function walk(dir){
-  for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
-    if (ignoredDirs.has(entry.name)||ignoredFiles.has(entry.name)||
-        (entry.name.startsWith('.env')&&entry.name!=='.env.example')||
-        /\.(?:log|bak|backup|zip|sqlite|sqlite-wal|sqlite-shm)$/.test(entry.name)) continue;
-    const fp=path.join(dir,entry.name);
-    if(entry.isSymbolicLink()) {failures.push(`symlink in release source: ${path.relative(root,fp)}`);continue;}
-    if(entry.isDirectory())walk(fp);
-    else if(entry.isFile())files.push(fp);
+
+function ignoredReleaseFile(rel) {
+  const normalized=rel.replaceAll('\\','/');
+  const parts=normalized.split('/');
+
+  if(parts.some(part=>ignoredDirs.has(part))) return true;
+
+  const name=parts.at(-1);
+  if(ignoredFiles.has(name)) return true;
+
+  if(name.startsWith('.env') && name!=='.env.example') return true;
+
+  if(/\.(?:log|bak|backup|zip|sqlite|sqlite-wal|sqlite-shm)$/.test(name))
+    return true;
+
+  return false;
+}
+
+let trackedFiles=[];
+try {
+  trackedFiles=execFileSync(
+    'git',
+    ['ls-files','-z'],
+    {cwd:root,encoding:'utf8'}
+  )
+    .split('\0')
+    .filter(Boolean)
+    .filter(rel=>!ignoredReleaseFile(rel));
+} catch {
+  failures.push('unable to enumerate Git-tracked release source');
+}
+
+const files=[];
+
+for(const rel of trackedFiles){
+  const fp=path.join(root,rel);
+
+  try {
+    const stat=fs.lstatSync(fp);
+
+    if(stat.isSymbolicLink()){
+      failures.push(`symlink in release source: ${rel}`);
+      continue;
+    }
+
+    if(stat.isFile()) files.push(fp);
+  } catch {
+    failures.push(`tracked release source unavailable: ${rel}`);
   }
 }
-walk(root);
-const manifest=files.sort().map(fp=>({file:path.relative(root,fp).replaceAll('\\','/'),sha256:crypto.createHash('sha256').update(fs.readFileSync(fp)).digest('hex')}));
+
+const manifest=files.sort().map(fp=>({
+  file:path.relative(root,fp).replaceAll('\\','/'),
+  sha256:crypto.createHash('sha256').update(fs.readFileSync(fp)).digest('hex')
+}));
 const expected={version:ANCHORWEIGHT_VERSION,files:manifest};
 const manifestFile=path.join(root,'SOURCE-MANIFEST.json');
 if (VERIFY) {

@@ -2,10 +2,6 @@
   "version": "3.2.0-alpha.3",
   "files": [
     {
-      "file": ".anchorweight-last-deploy-backup",
-      "sha256": "ed99842172381cc4ee1603a646954696850e0fdc16b850442d1144532cdbd2c0"
-    },
-    {
       "file": ".dockerignore",
       "sha256": "ea177630840e1dfb463c205097c45101f45827b472001e828ee66694ae63b33f"
     },
@@ -527,7 +523,7 @@
     },
     {
       "file": "scripts/release-check.js",
-      "sha256": "6c2ef4d61b495f05764c444cb19290f4ce217bd367629b3fb89308fda7db9aba"
+      "sha256": "be5a680fe0b865fca21305cdabf0741a4e8f02233a3b54dded350e729ad8d3a0"
     },
     {
       "file": "scripts/site-extraction-check.js",
