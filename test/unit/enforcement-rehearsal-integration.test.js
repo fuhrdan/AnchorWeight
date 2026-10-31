@@ -11,7 +11,7 @@ function responseCapture(){
   let body='';
   return {statusCode:0,headers:{},setHeader(k,v){this.headers[k]=v;},end(v=''){body+=v;},get body(){return body;}};
 }
-function admin(){return {authenticate:()=>true,role:()=>'admin',rateLimit:()=>({allowed:true,remaining:99,resetMs:0}),clientKey:()=> 'test-admin'};}
+function admin(){return {authenticate:()=>true,role:()=>'admin',capabilitiesForRole:()=>({canReadInvestigations:true,canWriteReviews:true,canChangeConfig:true,canEnforce:true,canIssueCsrf:true}),rateLimit:()=>({allowed:true,remaining:99,resetMs:0}),clientKey:()=> 'test-admin'};}
 function config(){return {
   secret:'rehearsal-integration-secret-32-characters',basePath:'/anchor',blackholeEnabled:true,blackholePath:'/anchor/blackhole',
   shadowMode:true,scoreEnforcementEnabled:false,quarantineScore:100,blockDepth:3,blockMinutes:60,repeatBlockMinutes:1440,

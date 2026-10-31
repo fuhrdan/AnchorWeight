@@ -34,6 +34,38 @@ export class AdminSecurity {
     return this.role(req, url, safeEqual) === 'admin';
   }
 
+  capabilitiesForRole(role) {
+    const none = {
+      canReadInvestigations:false,
+      canWriteReviews:false,
+      canChangeConfig:false,
+      canEnforce:false,
+      canIssueCsrf:false
+    };
+
+    if (role === 'admin') {
+      return {
+        canReadInvestigations:true,
+        canWriteReviews:true,
+        canChangeConfig:true,
+        canEnforce:true,
+        canIssueCsrf:true
+      };
+    }
+
+    if (role === 'reviewer') {
+      return {
+        canReadInvestigations:true,
+        canWriteReviews:false,
+        canChangeConfig:false,
+        canEnforce:false,
+        canIssueCsrf:false
+      };
+    }
+
+    return none;
+  }
+
   clientKey(req) {
     let raw=String(req.socket?.remoteAddress || 'unknown');
     if (this.config.trustProxy) {
