@@ -31,7 +31,7 @@ export function runSiteExtractionObservatoryCheck({root=ROOT}={})
   let checks=0;
   const check=(ok,msg)=>{checks++;if(!ok)failures.push(msg);};
 
-  check(['3.2.0-alpha.2','3.2.0-alpha.3'].includes(ANCHORWEIGHT_VERSION),'runtime version must be a supported Site Extraction Observatory v3.2 alpha');
+  check(['3.2.0-alpha.2','3.2.0-alpha.3','3.2.0-alpha.4'].includes(ANCHORWEIGHT_VERSION),'runtime version must be a supported Site Extraction Observatory v3.2 alpha');
   check(ANCHORWEIGHT_RELEASE_CHANNEL==='alpha','release channel must remain alpha');
 
   const out=buildSiteExtractionObservatory([
