@@ -287,7 +287,8 @@ export function createAnchorWeight(config, deps = {}) {
 
     if (url.pathname.startsWith(`${config.basePath}/api/`)) {
       if (!config.dashboardEnabled) return text(res, 404, 'Not found');
-      if (!admin.authenticate(req, url, safeEqual)) {
+      const authRole = admin.role(req, url, safeEqual);
+      if (!authRole) {
         const failedRate = admin.rateLimit(req, 'failed_auth');
         if (!failedRate.allowed) {
           res.setHeader('Retry-After', String(Math.max(1, Math.ceil(failedRate.resetMs / 1000))));
@@ -303,6 +304,27 @@ export function createAnchorWeight(config, deps = {}) {
         res.setHeader('Retry-After', String(Math.max(1, Math.ceil(rate.resetMs / 1000))));
         audit({ type:'admin_rate_limited', client: admin.clientKey(req), path:url.pathname });
         return json(res, 429, { error:'admin_rate_limited' });
+      }
+
+      // A reviewer can inspect authenticated telemetry, but can never mutate state
+      // or obtain an administrative CSRF session.
+      if (authRole === 'reviewer') {
+        res.setHeader('X-AnchorWeight-Role', 'reviewer');
+        if (!['GET', 'HEAD'].includes(method)) {
+          audit({ type:'reviewer_write_denied', client:admin.clientKey(req), path:url.pathname, method });
+          return json(res, 403, { error:'reviewer_read_only', role:'reviewer', readOnly:true });
+        }
+        if (url.pathname === `${config.basePath}/api/session`) {
+          return json(res, 200, {
+            version: ANCHORWEIGHT_VERSION,
+            role: 'reviewer',
+            readOnly: true,
+            csrfToken: null,
+            expiresInSeconds: 0
+          });
+        }
+      } else {
+        res.setHeader('X-AnchorWeight-Role', 'admin');
       }
 
       if (url.pathname === `${config.basePath}/api/policy/readiness` && method === 'GET') {

@@ -7,7 +7,7 @@
     },
     {
       "file": ".env.example",
-      "sha256": "e236b6f7702a4ea49270d9839133905e519e98a1b84a28d48f31bbbdd1d237d7"
+      "sha256": "9c10e9c5b6133879ab5d24645795f16afdb74396c62d0fd0cba847735297bf9d"
     },
     {
       "file": ".github/dependabot.yml",
@@ -367,7 +367,7 @@
     },
     {
       "file": "app.js",
-      "sha256": "33dc73d5324fc509f635837753849d17f80aa48113389eb3d3cca59a95b5853a"
+      "sha256": "b24cc9038c1083d2d081124526163b4698126e40d1ee0eade75cd93088708cb7"
     },
     {
       "file": "bin/alerts.js",
@@ -448,6 +448,10 @@
     {
       "file": "public/dashboard.html",
       "sha256": "f6dd5d7370535d9eee697896a0a374abd872ab6fc497439d2665a6e7846a2de8"
+    },
+    {
+      "file": "public/reviewer.html",
+      "sha256": "d001ebdb925d4f0555d7963c1e799a6f620a9f2e9195c6c44c8534bde9c5427f"
     },
     {
       "file": "public/setup.html",
@@ -551,7 +555,7 @@
     },
     {
       "file": "src/admin-security.js",
-      "sha256": "43404d80b443317a24719fe0b627d6592c823bcd352cf7de3d804b0fd443a1f2"
+      "sha256": "aec26be60900e5f9290f26e710364e5f84221c92799e8004fd8ff523f65f3602"
     },
     {
       "file": "src/agent-behavior.js",
@@ -619,7 +623,7 @@
     },
     {
       "file": "src/anchorweight.js",
-      "sha256": "354d04ed9e8793abed80f487d0c729a019e440d1d0af56829f0b17e56cdaaf68"
+      "sha256": "34ae6f693f2c6b638b1e8089210a6f3dc33c4f92d970f7410eaf70e9883a98da"
     },
     {
       "file": "src/app-auth.js",

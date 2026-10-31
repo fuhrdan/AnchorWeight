@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AnchorWeight Reviewer</title>
+<style>
+:root{color-scheme:dark;background:#0b1016;color:#e8eef5;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+body{margin:0;max-width:1400px;margin:auto;padding:24px}
+header{display:flex;justify-content:space-between;align-items:center;gap:20px;flex-wrap:wrap}
+.badge{border:1px solid #6e7b8a;border-radius:999px;padding:6px 10px;font-size:12px;letter-spacing:.1em}
+.card{background:#121a23;border:1px solid #263343;border-radius:12px;padding:16px;margin:14px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+input,button,select{background:#0d141c;color:#eef;border:1px solid #34465b;border-radius:8px;padding:10px}
+input{min-width:min(520px,80vw)}
+button{cursor:pointer} button:hover{background:#172230}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#091018;padding:12px;border-radius:8px;max-height:520px;overflow:auto}
+small,.muted{color:#9cadbf}
+.err{color:#ff9c9c}.ok{color:#a6e3a1}
+h1,h2{margin:.2em 0}.metric{font-size:24px;font-weight:700}.label{color:#9cadbf;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>AnchorWeight Reviewer</h1><div class="muted">Authenticated observability panel</div></div>
+  <div class="badge">REVIEW MODE · READ ONLY</div>
+</header>
+
+<div class="card">
+  <strong>Reviewer token</strong><br><br>
+  <input id="token" type="password" autocomplete="off" placeholder="Paste AW_REVIEWER_TOKEN">
+  <button id="connect">Connect</button>
+  <button id="forget">Forget token</button>
+  <div id="status" class="muted" style="margin-top:10px">Not connected.</div>
+  <small>The token is kept only in this browser tab's sessionStorage and is sent as an Authorization: Bearer header. It is never placed in the URL.</small>
+</div>
+
+<div class="card">
+  <h2>Snapshot</h2>
+  <div id="metrics" class="grid"></div>
+</div>
+
+<div class="card">
+  <h2>Recent events</h2>
+  <div>
+    <select id="limit"><option>25</option><option selected>50</option><option>100</option><option>200</option></select>
+    <button id="refresh">Refresh</button>
+  </div>
+  <pre id="events">Connect to load events.</pre>
+</div>
+
+<div class="card">
+  <h2>Full read-only stats</h2>
+  <pre id="stats">Connect to load statistics.</pre>
+</div>
+
+<script>
+const BASE='__AW_BASE_PATH__';
+const $=id=>document.getElementById(id);
+const token=$('token'), status=$('status'), stats=$('stats'), events=$('events'), metrics=$('metrics');
+token.value=sessionStorage.getItem('awReviewerToken')||'';
+
+function headers(){
+  const t=token.value.trim();
+  return t?{Authorization:`Bearer ${t}`}:{};
+}
+async function api(path){
+  const r=await fetch(`${BASE}${path}`,{headers:headers(),cache:'no-store'});
+  const text=await r.text();
+  let body; try{body=JSON.parse(text)}catch{body=text}
+  if(!r.ok) throw new Error(`HTTP ${r.status}: ${typeof body==='string'?body:JSON.stringify(body)}`);
+  return {body,role:r.headers.get('X-AnchorWeight-Role')||''};
+}
+function metric(label,value){
+  const d=document.createElement('div');d.className='card';
+  const v=document.createElement('div');v.className='metric';v.textContent=value??'—';
+  const l=document.createElement('div');l.className='label';l.textContent=label;
+  d.append(v,l);return d;
+}
+function renderMetrics(j){
+  metrics.replaceChildren();
+  const candidates=[
+    ['Mode',j.mode],['Tracked profiles',j.trackedProfiles],['Requests',j.totalRequests??j.requests],
+    ['Blocked',j.blockedRequests],['Would block',j.wouldBlock],
+    ['AI evaluations',j.aiAgentPolicyEvaluations],['AI verified',j.aiAgentVerified],
+    ['Site extraction candidates',j.siteExtractionObservatory?.likelyBulkScrape]
+  ];
+  for(const [k,v] of candidates) if(v!==undefined) metrics.append(metric(k,v));
+}
+async function load(){
+  const t=token.value.trim();
+  if(!t){status.textContent='Enter a reviewer token.';status.className='err';return}
+  sessionStorage.setItem('awReviewerToken',t);
+  status.textContent='Connecting…';status.className='muted';
+  try{
+    const s=await api('/api/stats');
+    if(s.role && s.role!=='reviewer') status.textContent=`Connected as ${s.role}. This page never performs administrative actions.`;
+    else status.textContent='Connected as reviewer · read-only.';
+    status.className='ok';
+    stats.textContent=JSON.stringify(s.body,null,2);
+    renderMetrics(s.body);
+    const n=$('limit').value;
+    const e=await api(`/api/events?limit=${encodeURIComponent(n)}`);
+    events.textContent=JSON.stringify(e.body,null,2);
+  }catch(e){
+    status.textContent=e.message;status.className='err';
+  }
+}
+$('connect').onclick=load;
+$('refresh').onclick=load;
+$('forget').onclick=()=>{sessionStorage.removeItem('awReviewerToken');token.value='';status.textContent='Token forgotten.';status.className='muted'};
+if(token.value) load();
+</script>
+</body>
+</html>
