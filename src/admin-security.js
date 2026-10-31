@@ -8,11 +8,30 @@ export class AdminSecurity {
     this.rate = new Map();
   }
 
-  authenticate(req, url, safeEqual) {
+  role(req, url, safeEqual) {
     const bearer = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '');
     const queryToken = this.config.allowQueryAdminToken ? (url.searchParams.get('token') || '') : '';
-    const token = bearer || queryToken;
-    return !!this.config.dashboardToken && !!token && safeEqual(token, this.config.dashboardToken);
+    const adminToken = bearer || queryToken;
+
+    if (this.config.dashboardToken && adminToken && safeEqual(adminToken, this.config.dashboardToken)) {
+      return 'admin';
+    }
+
+    // Reviewer credentials are Bearer-only by design. Never accept them in URLs.
+    const reviewerToken = String(process.env.AW_REVIEWER_TOKEN || '');
+    if (reviewerToken && bearer && safeEqual(bearer, reviewerToken)) {
+      return 'reviewer';
+    }
+
+    return null;
+  }
+
+  authenticate(req, url, safeEqual) {
+    return this.role(req, url, safeEqual) !== null;
+  }
+
+  isAdmin(req, url, safeEqual) {
+    return this.role(req, url, safeEqual) === 'admin';
   }
 
   clientKey(req) {

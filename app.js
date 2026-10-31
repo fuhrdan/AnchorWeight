@@ -140,6 +140,8 @@ const setup = setupFactory(config, { onActivate:settings => {
   };
 } });
 const aw = createAnchorWeight(config, { store, telemetry, setup, gateway, applicationAuth, health, resilience, observatory, alerts, identityMonitor:clientIdentity, routing:()=>routeStatus });
+const reviewer = fs.readFileSync(path.join(__dirname, 'public', 'reviewer.html'), 'utf8')
+  .replaceAll('__AW_BASE_PATH__', config.basePath);
 const dashboard = fs.readFileSync(path.join(__dirname, 'public', 'dashboard.html'), 'utf8')
   .replaceAll('__AW_BASE_PATH__', config.basePath)
   .replaceAll('__AW_VERSION__', ANCHORWEIGHT_VERSION);
@@ -212,6 +214,13 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, 'text/html; charset=utf-8', setupPage, {
         'Cache-Control':'no-store', 'X-Robots-Tag':'noindex, nofollow',
         'Content-Security-Policy':"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' wss:; frame-ancestors 'none'"
+      });
+    }
+    if (url.pathname === '/reviewer.html' && config.dashboardEnabled) {
+      return send(res, 200, 'text/html; charset=utf-8', reviewer, {
+        'Cache-Control':'no-store',
+        'X-Robots-Tag':'noindex, nofollow',
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'none'"
       });
     }
     if (url.pathname === '/dashboard.html' && config.dashboardEnabled) {

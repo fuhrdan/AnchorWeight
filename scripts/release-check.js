@@ -81,11 +81,11 @@ if (ANCHORWEIGHT_VERSION === '3.1.0') {
   const ga=await runAiAgentGaCheck({root});
   for(const failure of ga.failures) failures.push(`AI Agent GA Readiness: ${failure}`);
 }
-if (['3.2.0-alpha.1','3.2.0-alpha.2','3.2.0-alpha.3'].includes(ANCHORWEIGHT_VERSION)) {
+if (['3.2.0-alpha.1','3.2.0-alpha.2','3.2.0-alpha.3','3.2.0-alpha.4'].includes(ANCHORWEIGHT_VERSION)) {
   const extraction=runSiteExtractionCheck({root});
   for(const failure of extraction.failures) failures.push(`Site Extraction Detection: ${failure}`);
 }
-if (['3.2.0-alpha.2','3.2.0-alpha.3'].includes(ANCHORWEIGHT_VERSION)) {
+if (['3.2.0-alpha.2','3.2.0-alpha.3','3.2.0-alpha.4'].includes(ANCHORWEIGHT_VERSION)) {
   const observatoryCheck=runSiteExtractionObservatoryCheck({root});
   for(const failure of observatoryCheck.failures) failures.push(`Site Extraction Observatory: ${failure}`);
 }

@@ -37,7 +37,7 @@ test('runtime records verification-aware AI decision and exposes authenticated a
     async verify(){return {status:'unverified',verified:false,provider:'openai',family:'oai-searchbot',
       method:'published_cidr',scope:'family_network',reason:'published_range_mismatch',trustGranted:false};}
   };
-  const admin={authenticate:()=>true,rateLimit:()=>({allowed:true,remaining:99,resetMs:0}),clientKey:()=> 'test-admin'};
+  const admin={authenticate:()=>true,role:()=>'admin',rateLimit:()=>({allowed:true,remaining:99,resetMs:0}),clientKey:()=> 'test-admin'};
   const aw=createAnchorWeight(config(),{
     store:new MemoryStore(()=>1_000),log:()=>{},
     publisher:{publish(){},status(){return {enabled:false};}},
