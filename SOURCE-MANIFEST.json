@@ -943,7 +943,7 @@
     },
     {
       "file": "test/unit/ai-agent-observability-integration.test.js",
-      "sha256": "86368f85e95586a501b8697048d7ae2f8bc15b1b357c89fc607821649904b4ce"
+      "sha256": "74ef46e23a716d4b7b42c3c83074d593dc897825d9f4212c1a69a671ce61e30a"
     },
     {
       "file": "test/unit/ai-agent-policy-deployment-integration.test.js",
@@ -1071,7 +1071,7 @@
     },
     {
       "file": "test/unit/enforcement-rehearsal-integration.test.js",
-      "sha256": "78e314e3d1216791098ae63ddb0ddc67d61c5cd6a4b21b28ceaabc5eed221d00"
+      "sha256": "dcf0aa107c915b0216e1664dad40d4bbb5f524099df2aa754b8526a07fba8eb9"
     },
     {
       "file": "test/unit/enforcement-rehearsal.test.js",
